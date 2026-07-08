@@ -3,6 +3,7 @@ import { selectedAgent, useStore } from '../store'
 import { basename } from '../util'
 import { AgentIcon } from './AgentIcon'
 import { toggleOverlay } from '../actions'
+import logoWhite from '../assets/v-white.svg'
 import type { GitSummary } from '../../../shared/types'
 
 const TOOLBAR_HEIGHT = 38
@@ -102,7 +103,10 @@ export function TopBar(): React.JSX.Element {
             )}
           </>
         ) : (
-          <span className="text-sm font-medium text-zinc-500">vide</span>
+          <span className="flex items-center gap-2">
+            <img src={logoWhite} alt="vide" className="h-4 w-4 shrink-0" />
+            <span className="text-sm font-medium text-zinc-500">vide</span>
+          </span>
         )}
       </div>
 

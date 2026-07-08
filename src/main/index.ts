@@ -1,5 +1,6 @@
 import { BrowserWindow, Menu, app, dialog, shell } from 'electron'
 import { execFile } from 'child_process'
+import { existsSync } from 'fs'
 import { join } from 'path'
 import type { MenuItemConstructorOptions } from 'electron'
 import { getConfig } from './config'
@@ -83,6 +84,8 @@ async function createWindow(): Promise<void> {
 }
 
 app.whenReady().then(async () => {
+  const iconPath = join(app.getAppPath(), 'build/icon.png')
+  if (app.dock && existsSync(iconPath)) app.dock.setIcon(iconPath)
   Menu.setApplicationMenu(buildMenu())
   startTitlePoller()
   const saved = loadSession()
