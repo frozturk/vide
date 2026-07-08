@@ -25,6 +25,7 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
   const rootRef = useRef<HTMLDivElement>(null)
   const [result, setResult] = useState<DiffResult | null>(null)
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
+  const [showNums, setShowNums] = useState(false)
   const lastHash = useRef('')
 
   const refresh = useCallback(async (): Promise<void> => {
@@ -87,15 +88,18 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
           move(-1)
         } else if (e.key === 'r') {
           void refresh()
+        } else if (e.key === 'n') {
+          e.preventDefault()
+          setShowNums((v) => !v)
         }
       }}
-      className="fixed right-0 z-40 flex w-1/2 flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl outline-none"
+      className="fixed right-0 z-40 flex w-2/3 flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl outline-none"
       style={{ top: TOOLBAR_HEIGHT, bottom: 0 }}
     >
       <div className="flex items-center gap-2 border-b border-zinc-800 px-3 py-2 text-xs text-zinc-500">
         <span className="font-semibold text-zinc-300">uncommitted changes</span>
         {cwd && <span className="truncate">· {basename(cwd)}</span>}
-        <span className="ml-auto">j/k navigate · r refresh · esc close</span>
+        <span className="ml-auto">j/k navigate · n numbers · r refresh · esc close</span>
       </div>
       {result?.kind === 'no-repo' && (
         <div className="flex flex-1 items-center justify-center text-sm text-zinc-600">not a git repository</div>
@@ -133,7 +137,7 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
               <div className="px-2 py-1.5 text-xs text-zinc-600">+{result.truncated} more untracked</div>
             )}
           </div>
-          <div className="min-w-0 flex-1 overflow-auto">
+          <div className={`min-w-0 flex-1 overflow-auto ${showNums ? '' : 'hide-diff-nums'}`}>
             {selected &&
               (selected.hunks ? (
                 <DiffView

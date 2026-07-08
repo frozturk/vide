@@ -14,10 +14,11 @@ export function SpawnDialog(): React.JSX.Element | null {
 function SpawnDialogInner(): React.JSX.Element {
   const config = useStore((s) => s.config)
   const agents = useStore((s) => s.agents)
+  const recentDirs = useStore((s) => s.recentDirs)
   const current = useStore(selectedAgent)
   const kinds = config?.agentKinds ?? []
   const [kindId, setKindId] = useState(current?.kindId ?? kinds[0]?.id ?? '')
-  const [dir, setDir] = useState(current?.cwd ?? '')
+  const [dir, setDir] = useState(current?.cwd ?? recentDirs[0]?.path ?? '')
   const [worktreeName, setWorktreeName] = useState('')
   const [orphans, setOrphans] = useState<OrphanWorktree[]>([])
   const [busy, setBusy] = useState(false)

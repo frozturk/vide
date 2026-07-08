@@ -11,3 +11,21 @@ body,
   height: 100%;
   padding: 6px;
 }
+
+.hide-diff-nums .diff-line-old-num,
+.hide-diff-nums .diff-line-new-num,
+.hide-diff-nums .diff-line-num,
+.hide-diff-nums .diff-line-hunk-action {
+  min-width: 0 !important;
+  width: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  border: 0 !important;
+}
+
+.hide-diff-nums .diff-line-old-num > *,
+.hide-diff-nums .diff-line-new-num > *,
+.hide-diff-nums .diff-line-num > *,
+.hide-diff-nums .diff-line-hunk-action > * {
+  display: none !important;
+}
