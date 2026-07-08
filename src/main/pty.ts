@@ -69,6 +69,15 @@ export function setTarget(wc: WebContents): void {
   target = wc
 }
 
+function post(channel: string, payload: unknown): void {
+  if (!target || target.isDestroyed()) return
+  try {
+    target.send(channel, payload)
+  } catch {
+    return
+  }
+}
+
 function sanitize(s: string): string {
   return s.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 20) || 'session'
 }
@@ -141,12 +150,12 @@ async function attachInternal(agentId: string, name: string, env: Record<string,
   const entry: Entry = { p, agentId, sessionName: name, alive: true, exited: false }
   ptys.set(agentId, entry)
   p.onData((data) => {
-    if (target && !target.isDestroyed()) target.send('pty:data', { agentId, data })
+    post('pty:data', { agentId, data })
   })
   p.onExit(({ exitCode }) => {
     entry.exited = true
     if (shuttingDown) return
-    if (target && !target.isDestroyed()) target.send('pty:exit', { agentId, exitCode })
+    post('pty:exit', { agentId, exitCode })
   })
 }
 
@@ -257,6 +266,6 @@ async function pollTitles(): Promise<void> {
     const prev = lastTitles.get(agentId)
     if (prev === title) continue
     lastTitles.set(agentId, title)
-    if (target && !target.isDestroyed()) target.send('pty:title', { agentId, title })
+    post('pty:title', { agentId, title })
   }
 }
