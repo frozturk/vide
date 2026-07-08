@@ -31,6 +31,7 @@ const api: VideApi = {
   browserSetVisible: (visible, focusPage) => ipcRenderer.invoke('browser:setVisible', { visible, focusPage }),
   browserLoadUrl: (url) => ipcRenderer.invoke('browser:loadUrl', { url }),
   browserBack: () => ipcRenderer.invoke('browser:back'),
+  browserForward: () => ipcRenderer.invoke('browser:forward'),
   browserReload: () => ipcRenderer.invoke('browser:reload'),
   browserNewTab: () => ipcRenderer.invoke('browser:newTab'),
   browserCloseTab: (id) => ipcRenderer.invoke('browser:closeTab', { id }),

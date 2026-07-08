@@ -44,7 +44,8 @@ function sendState(): void {
         url: wc.getURL(),
         title: wc.getTitle(),
         loading: wc.isLoading(),
-        canGoBack: wc.navigationHistory.canGoBack()
+        canGoBack: wc.navigationHistory.canGoBack(),
+        canGoForward: wc.navigationHistory.canGoForward()
       }
     })
   })
@@ -157,6 +158,10 @@ export function browserLoadUrl(url: string): void {
 
 export function browserBack(): void {
   activeTab()?.view.webContents.navigationHistory.goBack()
+}
+
+export function browserForward(): void {
+  activeTab()?.view.webContents.navigationHistory.goForward()
 }
 
 export function browserReload(): void {

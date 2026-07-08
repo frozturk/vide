@@ -92,6 +92,13 @@ export function BrowserBar(): React.JSX.Element | null {
           ←
         </button>
         <button
+          onClick={() => void window.vide.browserForward()}
+          disabled={!active?.canGoForward}
+          className="rounded px-1.5 py-0.5 text-sm text-zinc-400 hover:bg-zinc-800 disabled:opacity-30"
+        >
+          →
+        </button>
+        <button
           onClick={() => void window.vide.browserReload()}
           className="rounded px-1.5 py-0.5 text-sm text-zinc-400 hover:bg-zinc-800"
         >

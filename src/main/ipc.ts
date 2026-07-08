@@ -18,6 +18,7 @@ import { attachPty, killPty, resizePty, sessionName, spawnPty, writePty } from '
 import {
   browserBack,
   browserCloseTab,
+  browserForward,
   browserLoadUrl,
   browserNewTab,
   browserOpenUrl,
@@ -152,6 +153,7 @@ export function wireIpc(win: BrowserWindow): void {
   )
   ipcMain.handle('browser:loadUrl', (_e, p: { url: string }) => browserLoadUrl(p.url))
   ipcMain.handle('browser:back', () => browserBack())
+  ipcMain.handle('browser:forward', () => browserForward())
   ipcMain.handle('browser:reload', () => browserReload())
   ipcMain.handle('browser:newTab', () => browserNewTab())
   ipcMain.handle('browser:closeTab', (_e, p: { id: number }) => browserCloseTab(p.id))

@@ -112,6 +112,7 @@ export interface BrowserTab {
   title: string
   loading: boolean
   canGoBack: boolean
+  canGoForward: boolean
 }
 
 export interface BrowserState {
@@ -141,6 +142,7 @@ export interface VideApi {
   browserSetVisible(visible: boolean, focusPage: boolean): Promise<void>
   browserLoadUrl(url: string): Promise<void>
   browserBack(): Promise<void>
+  browserForward(): Promise<void>
   browserReload(): Promise<void>
   browserNewTab(): Promise<void>
   browserCloseTab(id: number): Promise<void>

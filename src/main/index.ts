@@ -9,8 +9,6 @@ import { initBrowser } from './browser'
 import { liveCount, setTarget, detachAll, beginShutdown, startTitlePoller, reapOrphanSessions, sessionName } from './pty'
 import { loadSession } from './session'
 
-app.commandLine.appendSwitch('enable-features', 'OverscrollHistoryNavigation')
-
 function probePath(shellPath: string): Promise<void> {
   return new Promise((resolve) => {
     execFile(shellPath, ['-ilc', 'printf %s "$PATH"'], { timeout: 5000 }, (err, stdout) => {
