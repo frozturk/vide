@@ -25,7 +25,7 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
   const rootRef = useRef<HTMLDivElement>(null)
   const [result, setResult] = useState<DiffResult | null>(null)
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
-  const [showNums, setShowNums] = useState(false)
+  const [showNums, setShowNums] = useState(() => localStorage.getItem('diffShowNums') === '1')
   const lastHash = useRef('')
 
   const refresh = useCallback(async (): Promise<void> => {
@@ -90,7 +90,11 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
           void refresh()
         } else if (e.key === 'n') {
           e.preventDefault()
-          setShowNums((v) => !v)
+          setShowNums((v) => {
+            const next = !v
+            localStorage.setItem('diffShowNums', next ? '1' : '0')
+            return next
+          })
         }
       }}
       className="fixed right-0 z-40 flex w-2/3 flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl outline-none"
@@ -121,7 +125,7 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
                 <button
                   key={f.path}
                   onClick={() => setSelectedPath(f.path)}
-                  className={`flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs hover:bg-zinc-900 ${
+                  className={`flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none focus:outline-none hover:bg-zinc-900 ${
                     f.path === selectedPath ? 'bg-zinc-900' : ''
                   }`}
                   title={f.path}

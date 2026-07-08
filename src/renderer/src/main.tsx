@@ -56,6 +56,7 @@ async function bootstrap(): Promise<void> {
   createRoot(document.getElementById('root')!).render(<App />)
 
   const saved = await window.vide.sessionLoad()
+  const lastSelectedId = localStorage.getItem('lastSelectedId')
   useStore.setState({ suppressUnread: true })
   for (const s of saved) {
     if (!s.id) continue
@@ -65,7 +66,15 @@ async function bootstrap(): Promise<void> {
       console.error('agent restore failed', s, err)
     }
   }
+  if (lastSelectedId && useStore.getState().agents.some((a) => a.id === lastSelectedId)) {
+    actions.selectAgent(lastSelectedId, 'click')
+  }
   setTimeout(() => useStore.setState({ suppressUnread: false }), 3000)
+  useStore.subscribe((state, prev) => {
+    if (state.selectedId !== prev.selectedId && state.selectedId) {
+      localStorage.setItem('lastSelectedId', state.selectedId)
+    }
+  })
   useStore.subscribe((state, prev) => {
     if (state.agents === prev.agents && state.titles === prev.titles) return
     void window.vide.sessionSave(
