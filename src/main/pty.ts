@@ -8,12 +8,23 @@ import type { WebContents } from 'electron'
 
 const exec = promisify(execFile)
 
-const exec1 = (cmd: string, args: string[]): Promise<{ stdout: string; stderr: string; code: number | null; message: string }> =>
+const exec1 = (cmd: string, args: string[], env?: Record<string, string>): Promise<{ stdout: string; stderr: string; code: number | null; message: string }> =>
   new Promise((resolve) => {
-    execFile(cmd, args, { timeout: 5000 }, (err, stdout, stderr) => {
+    execFile(cmd, args, { timeout: 5000, env }, (err, stdout, stderr) => {
       resolve({ stdout: stdout ?? '', stderr: stderr ?? '', code: err ? (typeof err.code === 'number' ? err.code : -1) : 0, message: err ? err.message : '' })
     })
   })
+
+function buildEnv(): Record<string, string> {
+  const env = { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' } as Record<string, string>
+  delete env.ELECTRON_RUN_AS_NODE
+  const locale = env.LC_ALL || env.LC_CTYPE || env.LANG
+  if (!locale || !/utf-?8/i.test(locale)) {
+    env.LANG = 'en_US.UTF-8'
+    env.LC_CTYPE = 'en_US.UTF-8'
+  }
+  return env
+}
 
 function resolveTmux(): string {
   if (process.env.VIDE_TMUX) return process.env.VIDE_TMUX
@@ -94,8 +105,7 @@ export async function spawnPty(
 ): Promise<void> {
   const name = sessionName(agentId, kindId, cwd)
   await exec1(getTmux(), ['kill-session', '-t', name])
-  const env = { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' } as Record<string, string>
-  delete env.ELECTRON_RUN_AS_NODE
+  const env = buildEnv()
   const newArgs = [
     '-f', '/dev/null',
     'new-session', '-d', '-s', name, '-x', '80', '-y', '24',
@@ -108,7 +118,7 @@ export async function spawnPty(
     newArgs.push('-il')
   }
   console.log('[vide/spawnPty] tmux:', getTmux(), 'args:', newArgs.join(' '))
-  const result = await exec1(getTmux(), newArgs)
+  const result = await exec1(getTmux(), newArgs, env)
   console.log('[vide/spawnPty] tmux result code:', result.code, 'stderr:', JSON.stringify(result.stderr), 'stdout:', JSON.stringify(result.stdout), 'message:', result.message)
   if (result.code !== 0) {
     throw new Error(`tmux new-session failed (code ${result.code}): ${result.stderr || result.message}`)
@@ -145,8 +155,7 @@ export async function attachPty(agentId: string, kindId?: string, cwd?: string):
   if (!(await sessionExists(name))) return false
   const existing = ptys.get(agentId)
   if (existing && !existing.exited) return true
-  const env = { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' } as Record<string, string>
-  delete env.ELECTRON_RUN_AS_NODE
+  const env = buildEnv()
   await attachInternal(agentId, name, env)
   return true
 }
