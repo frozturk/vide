@@ -20,6 +20,7 @@ export interface Agent {
   worktreePath?: string
   worktreeBranch?: string
   baseSha?: string
+  createdAt: number
 }
 
 export interface SessionAgent {
@@ -30,6 +31,7 @@ export interface SessionAgent {
   worktreeBranch?: string
   baseSha?: string
   title?: string
+  createdAt?: number
 }
 
 export interface RecentDir {
@@ -58,6 +60,7 @@ export interface AttachRequest {
   worktreePath?: string
   worktreeBranch?: string
   baseSha?: string
+  createdAt: number
 }
 
 export interface WorktreeStatus {

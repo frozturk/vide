@@ -79,7 +79,8 @@ export function wireIpc(win: BrowserWindow): void {
       projectRoot,
       worktreePath,
       worktreeBranch,
-      baseSha
+      baseSha,
+      createdAt: Date.now()
     }
   })
 
@@ -102,7 +103,8 @@ export function wireIpc(win: BrowserWindow): void {
       projectRoot,
       worktreePath: req.worktreePath,
       worktreeBranch: req.worktreeBranch,
-      baseSha: req.baseSha
+      baseSha: req.baseSha,
+      createdAt: req.createdAt
     }
   })
 

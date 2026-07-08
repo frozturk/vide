@@ -85,7 +85,8 @@ async function bootstrap(): Promise<void> {
         worktreePath: a.worktreePath,
         worktreeBranch: a.worktreeBranch,
         baseSha: a.baseSha,
-        title: state.titles[a.id]
+        title: state.titles[a.id],
+        createdAt: a.createdAt
       }))
     )
   })

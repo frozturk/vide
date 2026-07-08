@@ -11,7 +11,7 @@ const defaults: Config = {
       command: 'claude {prompt}',
       color: '#d97757',
       busyRegex: 'esc to interrupt',
-      waitingRegex: 'Do you want|\\(y/n\\)'
+      waitingRegex: 'esc to cancel'
     },
     {
       id: 'codex',
@@ -23,7 +23,9 @@ const defaults: Config = {
       id: 'opencode',
       name: 'OpenCode',
       command: 'opencode {prompt}',
-      color: '#f97316'
+      color: '#f97316',
+      busyRegex: 'esc interrupt',
+      waitingRegex: 'esc dismiss'
     },
     {
       id: 'shell',

@@ -21,14 +21,11 @@ function tick(): void {
     const kind = kindOf(s, agent)
     const prev = statuses[agent.id] ?? 'idle'
     if (prev === 'exited') continue
-    const now = Date.now()
-    const recentOutput = now - entry.lastOutputAt < 1000
-    const postResize = now - entry.lastResizeAt < 1200
-    const next = recentOutput && !postResize ? 'busy' : scanBuffer(entry.term, kind)
+    const next = scanBuffer(entry.term, kind)
     if (next === prev) continue
     changed = true
     statuses[agent.id] = next
-    if (!s.suppressUnread && agent.id !== s.selectedId && prev === 'busy' && next !== 'busy') {
+    if (!s.suppressUnread && agent.id !== s.selectedId && prev === 'busy' && next === 'idle') {
       unread[agent.id] = true
     }
   }
@@ -37,11 +34,12 @@ function tick(): void {
 
 function scanBuffer(term: Terminal, kind: AgentKind | null): AgentStatus {
   const buf = term.buffer.active
-  const end = buf.baseY + buf.cursorY
+  const end = buf.length - 1
   let text = ''
-  for (let i = Math.max(0, end - 14); i <= end; i++) {
-    text += (buf.getLine(i)?.translateToString(true) ?? '') + '\n'
+  for (let i = end; i >= 0 && text.length < 200; i--) {
+    text = (buf.getLine(i)?.translateToString(true) ?? '') + '\n' + text
   }
+  text = text.slice(-200)
   if (safeTest(kind?.waitingRegex, text, FALLBACK_WAITING)) return 'waiting'
   if (safeTest(kind?.busyRegex, text, FALLBACK_BUSY)) return 'busy'
   return 'idle'

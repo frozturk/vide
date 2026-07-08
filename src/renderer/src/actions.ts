@@ -64,17 +64,25 @@ export function selectSibling(delta: 1 | -1): void {
   selectAgent(next.id, 'keyboard')
 }
 
+function sortAgents(agents: Agent[]): Agent[] {
+  const groupSeen = new Map<string, number>()
+  for (const a of agents) {
+    const cur = groupSeen.get(a.projectRoot)
+    if (cur === undefined || a.createdAt < cur) groupSeen.set(a.projectRoot, a.createdAt)
+  }
+  return [...agents].sort((x, y) => {
+    if (x.projectRoot !== y.projectRoot) {
+      const gx = groupSeen.get(x.projectRoot)!
+      const gy = groupSeen.get(y.projectRoot)!
+      return gx !== gy ? gx - gy : x.projectRoot < y.projectRoot ? -1 : 1
+    }
+    return y.createdAt - x.createdAt
+  })
+}
+
 function addAgent(agent: Agent): void {
   const s = useStore.getState()
-  let insertAfter = -1
-  for (let i = s.agents.length - 1; i >= 0; i--) {
-    if (s.agents[i].projectRoot === agent.projectRoot) {
-      insertAfter = i
-      break
-    }
-  }
-  const agents = [...s.agents]
-  agents.splice(insertAfter === -1 ? agents.length : insertAfter + 1, 0, agent)
+  const agents = sortAgents([...s.agents, agent])
   const unread = { ...s.unread }
   delete unread[agent.id]
   useStore.setState({
@@ -117,7 +125,8 @@ export async function restoreAgent(saved: SessionAgent): Promise<void> {
     cwd: saved.cwd,
     worktreePath: saved.worktreePath,
     worktreeBranch: saved.worktreeBranch,
-    baseSha: saved.baseSha
+    baseSha: saved.baseSha,
+    createdAt: saved.createdAt ?? Date.now()
   })
   if (!agent) return
   createTerminal(agent.id)
