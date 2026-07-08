@@ -15,6 +15,7 @@ export interface VideStore {
   statuses: Record<string, AgentStatus>
   unread: Record<string, boolean>
   titles: Record<string, string>
+  titleBusy: Record<string, boolean>
   panel: PanelState
   overlay: OverlayState
   dialog: DialogState | null
@@ -32,6 +33,7 @@ export const useStore = create<VideStore>(() => ({
   statuses: {},
   unread: {},
   titles: {},
+  titleBusy: {},
   panel: 'closed',
   overlay: 'none',
   dialog: null,

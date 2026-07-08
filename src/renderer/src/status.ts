@@ -5,6 +5,7 @@ import { terminals } from './terminals'
 
 const FALLBACK_WAITING = /\((y\/n|yes\/no)\)/i
 const FALLBACK_BUSY = /[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/
+export const SPINNER_GLYPHS = /[⠀-⣿◐◓◑◒◴◷◶◵]/
 
 export function startStatusTicker(): void {
   setInterval(tick, 500)
@@ -21,7 +22,7 @@ function tick(): void {
     const kind = kindOf(s, agent)
     const prev = statuses[agent.id] ?? 'idle'
     if (prev === 'exited') continue
-    const next = scanBuffer(entry.term, kind)
+    const next = scanBuffer(entry.term, kind, s.titleBusy[agent.id] ?? false)
     if (next === prev) continue
     changed = true
     statuses[agent.id] = next
@@ -32,7 +33,7 @@ function tick(): void {
   if (changed) useStore.setState({ statuses, unread })
 }
 
-function scanBuffer(term: Terminal, kind: AgentKind | null): AgentStatus {
+function scanBuffer(term: Terminal, kind: AgentKind | null, titleBusy: boolean): AgentStatus {
   const buf = term.buffer.active
   const end = buf.length - 1
   let text = ''
@@ -41,7 +42,7 @@ function scanBuffer(term: Terminal, kind: AgentKind | null): AgentStatus {
   }
   text = text.slice(-200)
   if (safeTest(kind?.waitingRegex, text, FALLBACK_WAITING)) return 'waiting'
-  if (safeTest(kind?.busyRegex, text, FALLBACK_BUSY)) return 'busy'
+  if (titleBusy || safeTest(kind?.busyRegex, text, FALLBACK_BUSY)) return 'busy'
   return 'idle'
 }
 

@@ -4,7 +4,7 @@ import App from './App'
 import { useStore } from './store'
 import { feedData, terminals, disposeTerminal, activateVisual } from './terminals'
 import { dispatch, installKeyboard } from './shortcuts'
-import { startStatusTicker } from './status'
+import { startStatusTicker, SPINNER_GLYPHS } from './status'
 import * as actions from './actions'
 import type { ChordId } from '../../shared/chords'
 
@@ -26,23 +26,31 @@ async function bootstrap(): Promise<void> {
     const statuses = { ...s.statuses }
     const unread = { ...s.unread }
     const titles = { ...s.titles }
+    const titleBusy = { ...s.titleBusy }
     delete statuses[agentId]
     delete unread[agentId]
     delete titles[agentId]
+    delete titleBusy[agentId]
     const nextSelected = s.selectedId === agentId ? (agents[idx] ?? agents[idx - 1] ?? null) : null
     useStore.setState({
       agents,
       statuses,
       unread,
       titles,
+      titleBusy,
       selectedId: s.selectedId === agentId ? (nextSelected?.id ?? null) : s.selectedId
     })
     if (nextSelected) activateVisual(nextSelected.id)
   })
 
   window.vide.onPtyTitle(({ agentId, title }) => {
+    const busy = SPINNER_GLYPHS.test(title)
     const cleaned = title.replace(/^[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\u{2190}-\u{21FF}\u{2190}-\u{21FF}\u{2300}-\u{23FF}\u{25A0}-\u{25FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\s]+/u, '').trim()
-    useStore.setState({ titles: { ...useStore.getState().titles, [agentId]: cleaned } })
+    const st = useStore.getState()
+    useStore.setState({
+      titles: { ...st.titles, [agentId]: cleaned },
+      titleBusy: { ...st.titleBusy, [agentId]: busy }
+    })
   })
 
   window.vide.onBrowserState((browser) => useStore.setState({ browser }))
