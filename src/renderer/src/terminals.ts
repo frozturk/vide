@@ -6,6 +6,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
 import { matchChord } from '../../shared/chords'
 import { useStore } from './store'
+import { openUrlInBrowser } from './actions'
 
 export interface TermEntry {
   term: Terminal
@@ -49,7 +50,7 @@ export function createTerminal(agentId: string): void {
   })
   term.loadAddon(new Unicode11Addon())
   term.unicode.activeVersion = '11'
-  term.loadAddon(new WebLinksAddon())
+  term.loadAddon(new WebLinksAddon((_e, uri) => openUrlInBrowser(uri)))
   const fit = new FitAddon()
   term.loadAddon(fit)
   term.attachCustomKeyEventHandler((e) => {

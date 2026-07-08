@@ -35,7 +35,7 @@ const defaults: Config = {
     }
   ],
   worktreeBase: join('.vide', 'worktrees'),
-  defaultBrowserUrl: 'http://localhost:3000'
+  defaultBrowserUrl: 'https://www.google.com'
 }
 
 let current: Config | null = null

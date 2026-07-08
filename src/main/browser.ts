@@ -1,10 +1,17 @@
 import { BrowserWindow, WebContentsView, session, shell } from 'electron'
 import { matchChord } from '../shared/chords'
+import { BROWSER_TOP } from '../shared/layout'
 
-const BAR_HEIGHT = 40
+interface Tab {
+  id: number
+  view: WebContentsView
+}
 
 let win: BrowserWindow | null = null
-let view: WebContentsView | null = null
+let tabs: Tab[] = []
+let activeId: number | null = null
+let visible = false
+let nextId = 1
 let getDefaultUrl: () => string = () => 'about:blank'
 
 export function initBrowser(w: BrowserWindow, defaultUrl: () => string): void {
@@ -13,27 +20,38 @@ export function initBrowser(w: BrowserWindow, defaultUrl: () => string): void {
   w.on('resize', layout)
 }
 
+function activeTab(): Tab | null {
+  return tabs.find((t) => t.id === activeId) ?? null
+}
+
 function layout(): void {
-  if (!win || !view) return
+  if (!win) return
+  const t = activeTab()
+  if (!t) return
   const [w, h] = win.getContentSize()
   const x = Math.ceil(w / 3)
-  view.setBounds({ x, y: BAR_HEIGHT, width: w - x, height: h - BAR_HEIGHT })
+  t.view.setBounds({ x, y: BROWSER_TOP, width: w - x, height: h - BROWSER_TOP })
 }
 
 function sendState(): void {
-  if (!win || !view) return
-  const wc = view.webContents
+  if (!win) return
   win.webContents.send('browser:state', {
-    url: wc.getURL(),
-    title: wc.getTitle(),
-    loading: wc.isLoading(),
-    canGoBack: wc.navigationHistory.canGoBack()
+    activeId,
+    tabs: tabs.map((t) => {
+      const wc = t.view.webContents
+      return {
+        id: t.id,
+        url: wc.getURL(),
+        title: wc.getTitle(),
+        loading: wc.isLoading(),
+        canGoBack: wc.navigationHistory.canGoBack()
+      }
+    })
   })
 }
 
-function ensureView(): WebContentsView {
-  if (view) return view
-  view = new WebContentsView({
+function createTab(url: string): Tab {
+  const view = new WebContentsView({
     webPreferences: {
       session: session.fromPartition('persist:vide-browser'),
       sandbox: true,
@@ -46,8 +64,8 @@ function ensureView(): WebContentsView {
     if (/^https?:/.test(url)) shell.openExternal(url)
     return { action: 'deny' }
   })
-  wc.on('will-navigate', (e, url) => {
-    if (!/^(https?|about|devtools):/.test(url)) e.preventDefault()
+  wc.on('will-navigate', (e, u) => {
+    if (!/^(https?|about|devtools):/.test(u)) e.preventDefault()
   })
   wc.session.setPermissionRequestHandler((_wc, _perm, cb) => cb(false))
   wc.on('before-input-event', (e, input) => {
@@ -63,33 +81,84 @@ function ensureView(): WebContentsView {
     wc.on(ev as 'did-navigate', sendState)
   }
   wc.on('page-title-updated', sendState)
+  const tab: Tab = { id: nextId++, view }
+  tabs.push(tab)
   win!.contentView.addChildView(view)
-  layout()
   view.setVisible(false)
-  wc.loadURL(getDefaultUrl()).catch(() => {})
-  return view
+  wc.loadURL(url).catch(() => {})
+  return tab
 }
 
-export function setBrowserVisible(visible: boolean, focusPage: boolean): void {
-  if (!visible && !view) return
-  const v = ensureView()
-  v.setVisible(visible)
-  if (visible) {
-    layout()
-    if (focusPage) v.webContents.focus()
-  } else {
+function showActive(focusPage: boolean): void {
+  for (const t of tabs) t.view.setVisible(visible && t.id === activeId)
+  if (!visible) {
     win?.webContents.focus()
+    return
   }
+  layout()
+  if (focusPage) activeTab()?.view.webContents.focus()
+}
+
+export function setBrowserVisible(vis: boolean, focusPage: boolean): void {
+  if (!vis && tabs.length === 0) return
+  visible = vis
+  if (vis && tabs.length === 0) {
+    const t = createTab(getDefaultUrl())
+    activeId = t.id
+    sendState()
+  }
+  showActive(focusPage)
+}
+
+export function browserNewTab(): void {
+  const t = createTab(getDefaultUrl())
+  activeId = t.id
+  showActive(false)
+  sendState()
+}
+
+export function browserOpenUrl(url: string): void {
+  visible = true
+  const t = createTab(url)
+  activeId = t.id
+  showActive(true)
+  sendState()
+}
+
+export function browserCloseTab(id: number): void {
+  const idx = tabs.findIndex((t) => t.id === id)
+  if (idx === -1) return
+  const [closed] = tabs.splice(idx, 1)
+  win?.contentView.removeChildView(closed.view)
+  closed.view.webContents.close()
+  if (activeId === id) activeId = (tabs[idx] ?? tabs[idx - 1] ?? null)?.id ?? null
+  showActive(false)
+  sendState()
+}
+
+export function browserSelectTab(id: number): void {
+  if (!tabs.some((t) => t.id === id)) return
+  activeId = id
+  showActive(true)
+  sendState()
 }
 
 export function browserLoadUrl(url: string): void {
-  ensureView().webContents.loadURL(url).catch(() => {})
+  const t = activeTab()
+  if (t) {
+    t.view.webContents.loadURL(url).catch(() => {})
+    return
+  }
+  const created = createTab(url)
+  activeId = created.id
+  showActive(false)
+  sendState()
 }
 
 export function browserBack(): void {
-  view?.webContents.navigationHistory.goBack()
+  activeTab()?.view.webContents.navigationHistory.goBack()
 }
 
 export function browserReload(): void {
-  view?.webContents.reload()
+  activeTab()?.view.webContents.reload()
 }

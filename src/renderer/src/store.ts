@@ -35,7 +35,7 @@ export const useStore = create<VideStore>(() => ({
   panel: 'closed',
   overlay: 'none',
   dialog: null,
-  browser: { url: '', title: '', loading: false, canGoBack: false },
+  browser: { tabs: [], activeId: null },
   urlFocusSeq: 0,
   recentDirs: [],
   settingsOpen: false,

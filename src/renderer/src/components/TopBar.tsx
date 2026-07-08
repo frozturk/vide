@@ -5,8 +5,7 @@ import { AgentIcon } from './AgentIcon'
 import { toggleOverlay } from '../actions'
 import logoWhite from '../assets/v-white.svg'
 import type { GitSummary } from '../../../shared/types'
-
-const TOOLBAR_HEIGHT = 38
+import { TOOLBAR_HEIGHT } from '../../../shared/layout'
 
 export function TopBar(): React.JSX.Element {
   const agent = useStore(selectedAgent)

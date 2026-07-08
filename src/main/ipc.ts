@@ -15,7 +15,16 @@ import {
   worktreeStatus
 } from './git'
 import { attachPty, killPty, resizePty, sessionName, spawnPty, writePty } from './pty'
-import { browserBack, browserLoadUrl, browserReload, setBrowserVisible } from './browser'
+import {
+  browserBack,
+  browserCloseTab,
+  browserLoadUrl,
+  browserNewTab,
+  browserOpenUrl,
+  browserReload,
+  browserSelectTab,
+  setBrowserVisible
+} from './browser'
 import { loadSession, saveSession, loadRecent, saveRecent } from './session'
 import type { RecentDir, SessionAgent } from '../shared/types'
 
@@ -144,6 +153,10 @@ export function wireIpc(win: BrowserWindow): void {
   ipcMain.handle('browser:loadUrl', (_e, p: { url: string }) => browserLoadUrl(p.url))
   ipcMain.handle('browser:back', () => browserBack())
   ipcMain.handle('browser:reload', () => browserReload())
+  ipcMain.handle('browser:newTab', () => browserNewTab())
+  ipcMain.handle('browser:closeTab', (_e, p: { id: number }) => browserCloseTab(p.id))
+  ipcMain.handle('browser:selectTab', (_e, p: { id: number }) => browserSelectTab(p.id))
+  ipcMain.handle('browser:openUrl', (_e, p: { url: string }) => browserOpenUrl(p.url))
 
   ipcMain.handle('dialog:pickDirectory', async () => {
     const r = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'] })

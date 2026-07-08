@@ -232,6 +232,21 @@ export function closeOverlay(): void {
   focusTerminal(useStore.getState().selectedId)
 }
 
+export function openUrlInBrowser(url: string): void {
+  useStore.setState({ overlay: 'browser' })
+  void window.vide.browserOpenUrl(url)
+}
+
+export function newBrowserTab(): void {
+  if (useStore.getState().overlay !== 'browser') useStore.setState({ overlay: 'browser' })
+  void window.vide.browserNewTab()
+}
+
+export function closeBrowserTab(id: number): void {
+  if (useStore.getState().browser.tabs.length <= 1) closeOverlay()
+  void window.vide.browserCloseTab(id)
+}
+
 export function focusUrlBar(): void {
   const s = useStore.getState()
   if (s.overlay !== 'browser') useStore.setState({ overlay: 'browser' })

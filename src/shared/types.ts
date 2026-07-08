@@ -106,11 +106,17 @@ export type DiffResult =
   | { kind: 'error'; message: string }
   | { kind: 'ok'; files: DiffFile[]; truncated: number }
 
-export interface BrowserState {
+export interface BrowserTab {
+  id: number
   url: string
   title: string
   loading: boolean
   canGoBack: boolean
+}
+
+export interface BrowserState {
+  tabs: BrowserTab[]
+  activeId: number | null
 }
 
 export interface VideApi {
@@ -136,6 +142,10 @@ export interface VideApi {
   browserLoadUrl(url: string): Promise<void>
   browserBack(): Promise<void>
   browserReload(): Promise<void>
+  browserNewTab(): Promise<void>
+  browserCloseTab(id: number): Promise<void>
+  browserSelectTab(id: number): Promise<void>
+  browserOpenUrl(url: string): Promise<void>
   pickDirectory(): Promise<string | null>
   ptyInput(agentId: string, data: string): void
   ptyResize(agentId: string, cols: number, rows: number): void
