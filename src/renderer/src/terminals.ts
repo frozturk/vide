@@ -8,6 +8,13 @@ import { matchChord } from '../../shared/chords'
 import { useStore } from './store'
 import { openUrlInBrowser } from './actions'
 
+const MAC_LINE_EDIT: Record<string, string> = {
+  Backspace: '\x15',
+  Delete: '\x0b',
+  ArrowLeft: '\x01',
+  ArrowRight: '\x05'
+}
+
 export interface TermEntry {
   term: Terminal
   fit: FitAddon
@@ -54,6 +61,14 @@ export function createTerminal(agentId: string): void {
   const fit = new FitAddon()
   term.loadAddon(fit)
   term.attachCustomKeyEventHandler((e) => {
+    if (e.type === 'keydown' && e.metaKey && !e.ctrlKey && !e.altKey) {
+      const seq = MAC_LINE_EDIT[e.key]
+      if (seq) {
+        e.preventDefault()
+        window.vide.ptyInput(agentId, seq)
+        return false
+      }
+    }
     if (e.type === 'keydown' && !e.ctrlKey && !e.altKey && matchChord(e.key, e.metaKey, e.shiftKey)) {
       return false
     }
