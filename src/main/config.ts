@@ -17,7 +17,9 @@ const defaults: Config = {
       id: 'codex',
       name: 'Codex CLI',
       command: 'codex {prompt}',
-      color: '#4a9eff'
+      color: '#4a9eff',
+      busyRegex: 'esc to interrupt',
+      waitingRegex: 'enter to submit'
     },
     {
       id: 'opencode',
