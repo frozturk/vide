@@ -7,6 +7,7 @@ import { basename, dirname } from '../util'
 import { DEFAULT_PANE_FRACTION } from '../../../shared/layout'
 import { Resizer, useHSplit } from './Resizer'
 import { TOOLBAR_HEIGHT } from './TopBar'
+import { FileIcon } from './FileIcon'
 
 const STATUS_LETTER: Record<DiffFile['status'], { letter: string; color: string }> = {
   modified: { letter: 'M', color: '#f59e0b' },
@@ -152,13 +153,17 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
                   }`}
                   title={f.path}
                 >
-                  <span className="w-3 shrink-0 font-mono font-bold" style={{ color: s.color }}>
-                    {s.letter}
-                  </span>
+                  <FileIcon path={f.path} />
                   <span className="shrink-0 text-zinc-300">{basename(f.path)}</span>
                   {dirname(f.path) && (
                     <span className="min-w-0 truncate text-zinc-600">{dirname(f.path)}</span>
                   )}
+                  <span
+                    className="ml-auto w-3 shrink-0 text-center font-mono font-bold"
+                    style={{ color: s.color }}
+                  >
+                    {s.letter}
+                  </span>
                 </button>
               )
             })}
