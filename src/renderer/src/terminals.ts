@@ -61,6 +61,11 @@ export function createTerminal(agentId: string): void {
   const fit = new FitAddon()
   term.loadAddon(fit)
   term.attachCustomKeyEventHandler((e) => {
+    if (e.type === 'keydown' && e.key === 'Enter' && e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault()
+      window.vide.ptyInput(agentId, '\x1b\r')
+      return false
+    }
     if (e.type === 'keydown' && e.metaKey && !e.ctrlKey && !e.altKey) {
       const seq = MAC_LINE_EDIT[e.key]
       if (seq) {
