@@ -58,7 +58,7 @@ export function reloadConfig(): Config {
 
 export function saveConfig(config: Config): void {
   try {
-    writeFileSync(configPath(), JSON.stringify(config, null, 2))
+    writeFileSync(configPath(), JSON.stringify(config, null, 2), 'utf8')
     current = config
   } catch (err) {
     console.error('config save failed', err)
@@ -79,7 +79,7 @@ function load(): Config {
   const file = configPath()
   if (!existsSync(file)) {
     mkdirSync(join(file, '..'), { recursive: true })
-    writeFileSync(file, JSON.stringify(defaults, null, 2))
+    writeFileSync(file, JSON.stringify(defaults, null, 2), 'utf8')
     return defaults
   }
   try {

@@ -24,7 +24,7 @@ export function loadSession(): SessionAgent[] {
 
 export function saveSession(agents: SessionAgent[]): void {
   try {
-    writeFileSync(sessionPath(), JSON.stringify(agents, null, 2))
+    writeFileSync(sessionPath(), JSON.stringify(agents, null, 2), 'utf8')
   } catch (err) {
     console.error('session save failed', err)
   }
@@ -43,7 +43,7 @@ export function loadRecent(): RecentDir[] {
 
 export function saveRecent(dirs: RecentDir[]): void {
   try {
-    writeFileSync(recentPath(), JSON.stringify(dirs, null, 2))
+    writeFileSync(recentPath(), JSON.stringify(dirs, null, 2), 'utf8')
   } catch (err) {
     console.error('recent save failed', err)
   }

@@ -359,5 +359,5 @@ async function ensureGitignore(root: string, entry: string): Promise<void> {
   }
   if (content.includes(entry)) return
   const prefix = content && !content.endsWith('\n') ? '\n' : ''
-  await appendFile(gitignore, `${prefix}${entry}\n`)
+  await appendFile(gitignore, `${prefix}${entry}\n`, 'utf8')
 }
