@@ -53,16 +53,16 @@ export function TopBar(): React.JSX.Element {
             <span style={{ color: kind.color }} className="shrink-0 flex items-center">
               <AgentIcon kindId={kind.id} size={15} />
             </span>
-            <span className="truncate text-sm font-medium text-zinc-300 leading-none">
+            <span className="truncate text-sm font-medium text-zinc-100 leading-none">
               {title ?? agent.sessionName}
             </span>
-            <span className="shrink-0 text-xs text-zinc-600 leading-none">·</span>
-            <span className="shrink-0 truncate text-xs text-zinc-500 leading-none" title={agent.cwd}>
+            <span className="shrink-0 text-xs text-zinc-500 leading-none">·</span>
+            <span className="shrink-0 truncate text-xs text-zinc-400 leading-none" title={agent.cwd}>
               {basename(agent.cwd)}
             </span>
 
             {summary?.branch && (
-              <span className="flex shrink-0 items-center gap-1 text-xs text-zinc-500 leading-none">
+              <span className="flex shrink-0 items-center gap-1 text-xs text-zinc-400 leading-none">
                 <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor">
                   <path d="M11.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5zm-2.25.75a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 9.5 3.25zM4.25 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5zM2 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 2 3.25z" />
                 </svg>
@@ -115,7 +115,7 @@ export function TopBar(): React.JSX.Element {
             <button
               onClick={() => toggleOverlay('diff')}
               className={`flex items-center justify-center rounded-md h-6 w-7 text-xs transition ${
-                overlay === 'diff' ? 'bg-zinc-700 text-zinc-200' : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
+                overlay === 'diff' ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
               }`}
               title="Diff (⌘D)"
             >
@@ -126,7 +126,7 @@ export function TopBar(): React.JSX.Element {
             </button>
             <button
               onClick={() => void window.vide.openInEditor(agent.cwd)}
-              className="flex items-center gap-1.5 rounded-md h-6 px-2 text-xs text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-300"
+              className="flex items-center gap-1.5 rounded-md h-6 px-2 text-xs text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
               title="Open in VS Code"
             >
               <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor">

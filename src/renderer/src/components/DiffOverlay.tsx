@@ -3,7 +3,7 @@ import { DiffModeEnum, DiffView } from '@git-diff-view/react'
 import '@git-diff-view/react/styles/diff-view.css'
 import type { DiffFile, DiffResult } from '../../../shared/types'
 import { selectedAgent, useStore } from '../store'
-import { basename } from '../util'
+import { basename, dirname } from '../util'
 import { TOOLBAR_HEIGHT } from './TopBar'
 
 const STATUS_LETTER: Record<DiffFile['status'], { letter: string; color: string }> = {
@@ -101,9 +101,13 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
       style={{ top: TOOLBAR_HEIGHT, bottom: 0 }}
     >
       <div className="flex items-center gap-2 border-b border-zinc-800 px-3 py-2 text-xs text-zinc-500">
-        <span className="font-semibold text-zinc-300">uncommitted changes</span>
-        {cwd && <span className="truncate">· {basename(cwd)}</span>}
-        <span className="ml-auto">j/k navigate · n numbers · r refresh · esc close</span>
+        {selected && (
+          <>
+            <span className="shrink-0 font-semibold text-zinc-300">{basename(selected.path)}</span>
+            <span className="min-w-0 truncate text-zinc-600">{selected.path}</span>
+          </>
+        )}
+        <span className="ml-auto shrink-0">j/k navigate · n numbers · r refresh · esc close</span>
       </div>
       {result?.kind === 'no-repo' && (
         <div className="flex flex-1 items-center justify-center text-sm text-zinc-600">not a git repository</div>
@@ -133,7 +137,10 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
                   <span className="w-3 shrink-0 font-mono font-bold" style={{ color: s.color }}>
                     {s.letter}
                   </span>
-                  <span className="truncate text-zinc-300">{f.path}</span>
+                  <span className="shrink-0 text-zinc-300">{basename(f.path)}</span>
+                  {dirname(f.path) && (
+                    <span className="min-w-0 truncate text-zinc-600">{dirname(f.path)}</span>
+                  )}
                 </button>
               )
             })}
