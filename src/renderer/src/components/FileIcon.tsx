@@ -1,17 +1,23 @@
-import { getIconForFilePath } from 'vscode-material-icons'
+import { themeIcons } from 'seti-icons'
 
-const modules = import.meta.glob(
-  '../../../../node_modules/vscode-material-icons/generated/icons/*.svg',
-  { eager: true, query: '?url', import: 'default' }
-)
+const getIcon = themeIcons({
+  blue: '#519aba',
+  grey: '#4d5a5e',
+  'grey-light': '#6d8086',
+  green: '#8dc149',
+  orange: '#e37933',
+  pink: '#f55385',
+  purple: '#a074c4',
+  red: '#cc3e44',
+  white: '#d4d7d6',
+  yellow: '#cbcb41',
+  ignore: '#41535b'
+})
 
-const ICON_URL: Record<string, string> = {}
-for (const [path, url] of Object.entries(modules)) {
-  ICON_URL[path.slice(path.lastIndexOf('/') + 1, -4)] = url as string
-}
-
-export function FileIcon({ path, size = 15 }: { path: string; size?: number }): React.JSX.Element {
-  const name = path.toLowerCase().endsWith('.json') ? 'json' : getIconForFilePath(path)
-  const url = ICON_URL[name] ?? ICON_URL.file
-  return <img src={url} width={size} height={size} alt="" className="shrink-0" />
+export function FileIcon({ path, size = 20 }: { path: string; size?: number }): React.JSX.Element {
+  const name = path.replace(/\/+$/, '').split('/').pop() ?? path
+  const { svg, color } = getIcon(name)
+  const fill = /\.(test|spec)\.tsx?$/i.test(name) ? '#e37933' : color
+  const html = svg.replace('<svg ', `<svg width="${size}" height="${size}" fill="${fill}" `)
+  return <span className="shrink-0" dangerouslySetInnerHTML={{ __html: html }} />
 }

@@ -35,7 +35,7 @@
   },
   "dependencies": {
     "node-pty": "^1.1.0",
-    "vscode-material-icons": "^0.1.1"
+    "seti-icons": "^0.0.4"
   },
   "devDependencies": {
     "@git-diff-view/react": "^0.1.6",

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { DiffModeEnum, DiffView } from '@git-diff-view/react'
 import '@git-diff-view/react/styles/diff-view.css'
 import type { DiffFile, DiffResult } from '../../../shared/types'
@@ -16,6 +16,40 @@ const STATUS_LETTER: Record<DiffFile['status'], { letter: string; color: string 
   renamed: { letter: 'R', color: '#60a5fa' },
   untracked: { letter: 'U', color: '#4ade80' }
 }
+
+const DiffBody = memo(function DiffBody({
+  path,
+  hunks,
+  showNums
+}: {
+  path: string
+  hunks: string
+  showNums: boolean
+}): React.JSX.Element {
+  return (
+    <div className={`min-w-0 flex-1 overflow-auto ${showNums ? '' : 'hide-diff-nums'}`}>
+      {hunks ? (
+        <DiffView
+          key={path}
+          data={{
+            oldFile: { fileName: path },
+            newFile: { fileName: path },
+            hunks: [hunks]
+          }}
+          diffViewMode={DiffModeEnum.Unified}
+          diffViewTheme="dark"
+          diffViewHighlight
+          diffViewFontSize={12}
+          diffViewWrap
+        />
+      ) : (
+        <div className="flex h-full items-center justify-center text-sm text-zinc-600">
+          binary, empty or too large
+        </div>
+      )}
+    </div>
+  )
+})
 
 export function DiffOverlay(): React.JSX.Element | null {
   const overlay = useStore((s) => s.overlay)
@@ -148,18 +182,20 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
                 <button
                   key={f.path}
                   onClick={() => setSelectedPath(f.path)}
-                  className={`flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none focus:outline-none hover:bg-zinc-900 ${
+                  className={`flex w-full items-center gap-1 px-1.5 py-1.5 text-left text-xs outline-none focus:outline-none hover:bg-zinc-900 ${
                     f.path === selectedPath ? 'bg-zinc-900' : ''
                   }`}
                   title={f.path}
                 >
                   <FileIcon path={f.path} />
-                  <span className="shrink-0 text-zinc-300">{basename(f.path)}</span>
-                  {dirname(f.path) && (
-                    <span className="min-w-0 truncate text-zinc-600">{dirname(f.path)}</span>
-                  )}
+                  <span className="min-w-0 flex-1 truncate">
+                    <span className="text-zinc-300">{basename(f.path)}</span>
+                    {dirname(f.path) && (
+                      <span className="ml-1.5 text-zinc-600">{dirname(f.path)}</span>
+                    )}
+                  </span>
                   <span
-                    className="ml-auto w-3 shrink-0 text-center font-mono font-bold"
+                    className="w-3 shrink-0 text-center font-mono font-bold"
                     style={{ color: s.color }}
                   >
                     {s.letter}
@@ -184,28 +220,7 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
               left: `calc(${sidebarFrac * 100}% - 3px)`
             }}
           />
-          <div className={`min-w-0 flex-1 overflow-auto ${showNums ? '' : 'hide-diff-nums'}`}>
-            {selected &&
-              (selected.hunks ? (
-                <DiffView
-                  key={selected.path}
-                  data={{
-                    oldFile: { fileName: selected.path },
-                    newFile: { fileName: selected.path },
-                    hunks: [selected.hunks]
-                  }}
-                  diffViewMode={DiffModeEnum.Unified}
-                  diffViewTheme="dark"
-                  diffViewHighlight
-                  diffViewFontSize={12}
-                  diffViewWrap
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-zinc-600">
-                  binary, empty or too large
-                </div>
-              ))}
-          </div>
+          {selected && <DiffBody path={selected.path} hunks={selected.hunks} showNums={showNums} />}
         </div>
       )}
     </div>
