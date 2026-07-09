@@ -1,6 +1,6 @@
 import { BrowserWindow, WebContentsView, session, shell } from 'electron'
 import { matchChord } from '../shared/chords'
-import { BROWSER_TOP } from '../shared/layout'
+import { BROWSER_TOP, DEFAULT_PANE_FRACTION } from '../shared/layout'
 
 interface Tab {
   id: number
@@ -11,6 +11,8 @@ let win: BrowserWindow | null = null
 let tabs: Tab[] = []
 let activeId: number | null = null
 let visible = false
+let dragging = false
+let widthFraction = DEFAULT_PANE_FRACTION
 let nextId = 1
 let getDefaultUrl: () => string = () => 'about:blank'
 
@@ -29,8 +31,23 @@ function layout(): void {
   const t = activeTab()
   if (!t) return
   const [w, h] = win.getContentSize()
-  const x = Math.ceil(w / 3)
+  const x = Math.round(w * (1 - widthFraction))
   t.view.setBounds({ x, y: BROWSER_TOP, width: w - x, height: h - BROWSER_TOP })
+}
+
+export function setBrowserSplit(fraction: number): void {
+  widthFraction = Math.min(0.85, Math.max(0.2, fraction))
+  if (visible && !dragging) layout()
+}
+
+export function setBrowserDragging(value: boolean): void {
+  dragging = value
+  applyVisibility()
+  if (!dragging) layout()
+}
+
+function applyVisibility(): void {
+  for (const t of tabs) t.view.setVisible(visible && !dragging && t.id === activeId)
 }
 
 function sendState(): void {
@@ -91,7 +108,7 @@ function createTab(url: string): Tab {
 }
 
 function showActive(focusPage: boolean): void {
-  for (const t of tabs) t.view.setVisible(visible && t.id === activeId)
+  applyVisibility()
   if (!visible) {
     win?.webContents.focus()
     return

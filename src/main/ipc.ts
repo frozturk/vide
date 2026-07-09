@@ -24,6 +24,8 @@ import {
   browserOpenUrl,
   browserReload,
   browserSelectTab,
+  setBrowserDragging,
+  setBrowserSplit,
   setBrowserVisible
 } from './browser'
 import { loadSession, saveSession, loadRecent, saveRecent } from './session'
@@ -159,6 +161,10 @@ export function wireIpc(win: BrowserWindow): void {
   ipcMain.handle('browser:closeTab', (_e, p: { id: number }) => browserCloseTab(p.id))
   ipcMain.handle('browser:selectTab', (_e, p: { id: number }) => browserSelectTab(p.id))
   ipcMain.handle('browser:openUrl', (_e, p: { url: string }) => browserOpenUrl(p.url))
+  ipcMain.handle('browser:setSplit', (_e, p: { fraction: number }) => setBrowserSplit(p.fraction))
+  ipcMain.handle('browser:setDragging', (_e, p: { dragging: boolean }) =>
+    setBrowserDragging(p.dragging)
+  )
 
   ipcMain.handle('dialog:pickDirectory', async () => {
     const r = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'] })

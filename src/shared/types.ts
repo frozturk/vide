@@ -148,6 +148,8 @@ export interface VideApi {
   browserCloseTab(id: number): Promise<void>
   browserSelectTab(id: number): Promise<void>
   browserOpenUrl(url: string): Promise<void>
+  browserSetSplit(fraction: number): Promise<void>
+  browserSetDragging(dragging: boolean): Promise<void>
   pickDirectory(): Promise<string | null>
   ptyInput(agentId: string, data: string): void
   ptyResize(agentId: string, cols: number, rows: number): void

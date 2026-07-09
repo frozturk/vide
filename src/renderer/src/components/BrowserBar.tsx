@@ -5,8 +5,10 @@ import {
   TOOLBAR_HEIGHT,
   TAB_STRIP_HEIGHT,
   NAV_BAR_HEIGHT,
-  BROWSER_CHROME_HEIGHT
+  BROWSER_CHROME_HEIGHT,
+  DEFAULT_PANE_FRACTION
 } from '../../../shared/layout'
+import { Resizer, useHSplit } from './Resizer'
 import type { BrowserTab } from '../../../shared/types'
 
 function normalizeUrl(input: string): string {
@@ -26,6 +28,7 @@ export function BrowserBar(): React.JSX.Element | null {
   const urlFocusSeq = useStore((s) => s.urlFocusSeq)
   const inputRef = useRef<HTMLInputElement>(null)
   const [editing, setEditing] = useState<string | null>(null)
+  const [frac, setFrac] = useHSplit('browserSplit', DEFAULT_PANE_FRACTION, 0.2, 0.85)
 
   const active = tabs.find((t) => t.id === activeId) ?? null
 
@@ -36,13 +39,30 @@ export function BrowserBar(): React.JSX.Element | null {
     }
   }, [urlFocusSeq, overlay])
 
+  useEffect(() => {
+    void window.vide.browserSetSplit(frac)
+  }, [frac])
+
   if (overlay !== 'browser') return null
 
   return (
-    <div
-      className="fixed right-0 z-40 flex flex-col border-b border-l border-zinc-800 bg-zinc-900/95 backdrop-blur"
-      style={{ width: '66.667%', height: BROWSER_CHROME_HEIGHT, top: TOOLBAR_HEIGHT }}
-    >
+    <>
+      <Resizer
+        onStart={() => void window.vide.browserSetDragging(true)}
+        onEnd={() => void window.vide.browserSetDragging(false)}
+        onDrag={(clientX) => setFrac((window.innerWidth - clientX) / window.innerWidth)}
+        style={{
+          position: 'fixed',
+          top: TOOLBAR_HEIGHT,
+          bottom: 0,
+          width: 7,
+          right: `calc(${frac * 100}% - 3px)`
+        }}
+      />
+      <div
+        className="fixed right-0 z-40 flex flex-col border-b border-l border-zinc-800 bg-zinc-900/95 backdrop-blur"
+        style={{ width: `${frac * 100}%`, height: BROWSER_CHROME_HEIGHT, top: TOOLBAR_HEIGHT }}
+      >
       <div
         className="flex items-center gap-1 overflow-x-auto px-1.5"
         style={{ height: TAB_STRIP_HEIGHT }}
@@ -125,6 +145,7 @@ export function BrowserBar(): React.JSX.Element | null {
         />
         {active?.loading && <span className="animate-pulse text-xs text-zinc-500">…</span>}
       </div>
-    </div>
+      </div>
+    </>
   )
 }

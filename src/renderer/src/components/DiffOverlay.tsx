@@ -4,6 +4,8 @@ import '@git-diff-view/react/styles/diff-view.css'
 import type { DiffFile, DiffResult } from '../../../shared/types'
 import { selectedAgent, useStore } from '../store'
 import { basename, dirname } from '../util'
+import { DEFAULT_PANE_FRACTION } from '../../../shared/layout'
+import { Resizer, useHSplit } from './Resizer'
 import { TOOLBAR_HEIGHT } from './TopBar'
 
 const STATUS_LETTER: Record<DiffFile['status'], { letter: string; color: string }> = {
@@ -23,9 +25,12 @@ export function DiffOverlay(): React.JSX.Element | null {
 
 function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
   const rootRef = useRef<HTMLDivElement>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
   const [result, setResult] = useState<DiffResult | null>(null)
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [showNums, setShowNums] = useState(() => localStorage.getItem('diffShowNums') === '1')
+  const [frac, setFrac] = useHSplit('diffSplit', DEFAULT_PANE_FRACTION, 0.2, 0.85)
+  const [sidebarFrac, setSidebarFrac] = useHSplit('diffSidebarSplit', 0.25, 0.12, 0.6)
   const lastHash = useRef('')
 
   const refresh = useCallback(async (): Promise<void> => {
@@ -97,9 +102,19 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
           })
         }
       }}
-      className="fixed right-0 z-40 flex w-2/3 flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl outline-none"
-      style={{ top: TOOLBAR_HEIGHT, bottom: 0 }}
+      className="fixed right-0 z-40 flex flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl outline-none"
+      style={{ top: TOOLBAR_HEIGHT, bottom: 0, width: `${frac * 100}%` }}
     >
+      <Resizer
+        onDrag={(clientX) => setFrac((window.innerWidth - clientX) / window.innerWidth)}
+        style={{
+          position: 'fixed',
+          top: TOOLBAR_HEIGHT,
+          bottom: 0,
+          width: 7,
+          right: `calc(${frac * 100}% - 3px)`
+        }}
+      />
       <div className="flex items-center gap-2 border-b border-zinc-800 px-3 py-2 text-xs text-zinc-500">
         {selected && (
           <>
@@ -121,8 +136,11 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
         <div className="flex flex-1 items-center justify-center text-sm text-zinc-600">no changes</div>
       )}
       {result?.kind === 'ok' && result.files.length > 0 && (
-        <div className="flex min-h-0 flex-1">
-          <div className="w-56 shrink-0 overflow-y-auto border-r border-zinc-800">
+        <div ref={bodyRef} className="relative flex min-h-0 flex-1">
+          <div
+            className="shrink-0 overflow-y-auto border-r border-zinc-800"
+            style={{ width: `${sidebarFrac * 100}%` }}
+          >
             {result.files.map((f) => {
               const s = STATUS_LETTER[f.status]
               return (
@@ -148,6 +166,19 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
               <div className="px-2 py-1.5 text-xs text-zinc-600">+{result.truncated} more untracked</div>
             )}
           </div>
+          <Resizer
+            onDrag={(clientX) => {
+              const rect = bodyRef.current?.getBoundingClientRect()
+              if (rect) setSidebarFrac((clientX - rect.left) / rect.width)
+            }}
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              width: 7,
+              left: `calc(${sidebarFrac * 100}% - 3px)`
+            }}
+          />
           <div className={`min-w-0 flex-1 overflow-auto ${showNums ? '' : 'hide-diff-nums'}`}>
             {selected &&
               (selected.hunks ? (
