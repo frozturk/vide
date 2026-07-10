@@ -25,8 +25,8 @@ function repoColor(root: string): { bg: string; bgActive: string; border: string
   const g = parseInt(base.slice(3, 5), 16)
   const b = parseInt(base.slice(5, 7), 16)
   const bg = `rgba(${r}, ${g}, ${b}, 0.10)`
-  const bgActive = `rgba(${r}, ${g}, ${b}, 0.22)`
-  const border = `rgba(${r}, ${g}, ${b}, 0.35)`
+  const bgActive = `rgba(${r}, ${g}, ${b}, 0.16)`
+  const border = `rgba(${r}, ${g}, ${b}, 0.9)`
   const result = { bg, bgActive, border }
   repoColorCache.set(root, result)
   return result
@@ -51,6 +51,9 @@ export function AgentStrip(): React.JSX.Element | null {
 
   if (agents.length === 0) return null
 
+  const repoCounts = new Map<string, number>()
+  for (const a of agents) repoCounts.set(a.projectRoot, (repoCounts.get(a.projectRoot) ?? 0) + 1)
+
   return (
     <>
       <div
@@ -67,13 +70,11 @@ export function AgentStrip(): React.JSX.Element | null {
           return (
             <div
               key={a.id}
-              className="relative flex items-center justify-center"
+              className="relative flex w-full items-center justify-center py-3"
               style={{
-                width: 14,
-                paddingTop: 12,
-                paddingBottom: 12,
-                marginTop: 0,
-                background: isSelected ? 'rgba(255,255,255,0.1)' : 'transparent'
+                marginTop: newGroup ? 10 : 0,
+                borderRadius: '0 6px 6px 0',
+                background: isSelected ? 'rgba(255,255,255,0.08)' : 'transparent'
               }}
               title={titles[a.id] ?? a.title}
             >
@@ -95,15 +96,20 @@ export function AgentStrip(): React.JSX.Element | null {
         })}
       </div>
       <div
-        className={`fixed left-0 z-40 flex w-60 flex-col border-r border-zinc-800 bg-zinc-950/95 backdrop-blur transition-transform duration-150 ease-out ${
+        className={`fixed left-0 z-40 flex w-64 flex-col border-r border-zinc-800 bg-zinc-950/95 backdrop-blur transition-transform duration-150 ease-out ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{ top: TOOLBAR_HEIGHT, bottom: 0 }}
         onMouseEnter={panelHoverEnter}
         onMouseLeave={panelHoverLeave}
       >
-        <div className="px-3 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">agents</div>
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-3">
+        <div className="flex items-center justify-between px-3 pb-2 pt-3">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            Agents
+          </span>
+          <span className="tabular-nums text-[11px] text-zinc-600">{agents.length}</span>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-3">
           {agents.map((a, i) => {
             const status = statuses[a.id] ?? 'idle'
             const kind = config?.agentKinds.find((k) => k.id === a.kindId) ?? null
@@ -113,59 +119,74 @@ export function AgentStrip(): React.JSX.Element | null {
             return (
               <div key={a.id}>
                 {newGroup && (
-                  <div
-                    className="mt-2 border-y"
-                    style={{ background: rc.bg, borderColor: rc.border }}
-                  >
-                    <div
-                      className="truncate px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-zinc-200"
+                  <div className="sticky top-0 z-10 -mx-2 mb-0.5 flex items-center gap-2 bg-zinc-950/95 px-3 pb-1 pt-3 backdrop-blur first:pt-1">
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ background: rc.border }}
+                    />
+                    <span
+                      className="min-w-0 flex-1 truncate text-[11px] font-medium tracking-wide text-zinc-400"
                       title={a.projectRoot}
                     >
                       {basename(a.projectRoot)}
-                    </div>
+                    </span>
+                    <span className="tabular-nums text-[10px] text-zinc-600">
+                      {repoCounts.get(a.projectRoot)}
+                    </span>
                   </div>
                 )}
                 <button
                   onClick={() => selectAgent(a.id, 'click')}
-                  className="flex w-full items-center gap-2 px-3 py-2 pl-5 text-left text-sm transition hover:brightness-125"
-                  style={{
-                    background: isSelected ? rc.bgActive : rc.bg + '00'
-                  }}
-                  onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = rc.bg }}
-                  onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent' }}
+                  className="group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors hover:bg-white/[0.04]"
+                  style={{ background: isSelected ? rc.bgActive : undefined }}
                 >
-                  <span
-                    className="shrink-0"
-                    style={{ color: kind?.color ?? '#666' }}
-                  >
+                  {isSelected && (
+                    <span
+                      className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full"
+                      style={{ background: rc.border }}
+                    />
+                  )}
+                  <span className="shrink-0" style={{ color: kind?.color ?? '#71717a' }}>
                     <AgentIcon kindId={a.kindId} size={16} />
                   </span>
                   <span className="min-w-0 flex-1">
-                  <span className="block truncate">
-                    {titles[a.id] ?? a.sessionName}
-                    {a.worktreePath && (
-                      <span className="text-zinc-500"> · {basename(a.worktreePath)}</span>
-                    )}
-                  </span>
-                    <span className="flex items-center gap-1.5 text-xs text-zinc-500">
-                      <span style={{ color: STATUS_COLOR[status] }}>{status}</span>
+                    <span className="block truncate text-zinc-200">
+                      {titles[a.id] ?? a.sessionName}
+                    </span>
+                    <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-zinc-500">
+                      <span
+                        className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                          status === 'busy' ? 'animate-pulse' : ''
+                        }`}
+                        style={{ background: STATUS_COLOR[status] }}
+                      />
+                      <span className="capitalize" style={{ color: STATUS_COLOR[status] }}>
+                        {status}
+                      </span>
                       {a.worktreePath && (
-                        <span className="rounded bg-zinc-800 px-1 text-[10px] text-zinc-400">wt</span>
+                        <span className="min-w-0 truncate rounded bg-zinc-800 px-1 text-[10px] text-zinc-400">
+                          {basename(a.worktreePath)}
+                        </span>
                       )}
-                      {unread[a.id] && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
                     </span>
                   </span>
-                  {i < 9 && <span className="text-xs text-zinc-600">⌘{i + 1}</span>}
+                  {unread[a.id] && (
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white" />
+                  )}
+                  {i < 9 && (
+                    <kbd className="shrink-0 rounded border border-zinc-700/60 bg-zinc-800/50 px-1 font-sans text-[10px] leading-tight text-zinc-500">
+                      ⌘{i + 1}
+                    </kbd>
+                  )}
                 </button>
               </div>
             )
           })}
-          {agents.length === 0 && <div className="px-3 py-2 text-sm text-zinc-600">none yet</div>}
         </div>
         <div className="border-t border-zinc-800 p-2">
           <button
             onClick={() => useStore.setState({ settingsOpen: true })}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
           >
             <svg className="h-4 w-4 shrink-0" viewBox="0 0 16 16" fill="currentColor">
               <path d="M8 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0 1.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z" />
