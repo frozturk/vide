@@ -106,6 +106,14 @@ export type DiffResult =
   | { kind: 'error'; message: string }
   | { kind: 'ok'; files: DiffFile[]; truncated: number }
 
+export interface GitCommit {
+  sha: string
+  short: string
+  author: string
+  date: string
+  subject: string
+}
+
 export interface BrowserTab {
   id: number
   url: string
@@ -135,8 +143,9 @@ export interface VideApi {
   agentKill(req: KillRequest): Promise<{ branchKept: boolean }>
   orphanWorktrees(cwd: string, livePaths: string[]): Promise<OrphanWorktree[]>
   deleteOrphanWorktree(path: string): Promise<void>
-  diffGet(cwd: string): Promise<DiffResult>
+  diffGet(cwd: string, ref?: string): Promise<DiffResult>
   diffStatusHash(cwd: string): Promise<string>
+  gitLog(cwd: string): Promise<GitCommit[]>
   gitSummary(cwd: string): Promise<GitSummary>
   openInEditor(path: string): Promise<void>
   browserSetVisible(visible: boolean, focusPage: boolean): Promise<void>

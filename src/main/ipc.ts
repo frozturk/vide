@@ -6,6 +6,7 @@ import {
   createWorktree,
   currentBranch,
   getDiff,
+  gitLog,
   gitSummary,
   orphanWorktrees,
   projectRootOf,
@@ -143,8 +144,9 @@ export function wireIpc(win: BrowserWindow): void {
     await removeWorktree({ path: p.path, force: true, deleteBranch: false })
   })
 
-  ipcMain.handle('diff:get', (_e, p: { cwd: string }) => getDiff(p.cwd))
+  ipcMain.handle('diff:get', (_e, p: { cwd: string; ref?: string }) => getDiff(p.cwd, p.ref))
   ipcMain.handle('diff:statusHash', (_e, p: { cwd: string }) => statusHash(p.cwd))
+  ipcMain.handle('git:log', (_e, p: { cwd: string }) => gitLog(p.cwd))
   ipcMain.handle('git:summary', (_e, p: { cwd: string }) => gitSummary(p.cwd))
   ipcMain.handle('open:editor', (_e, p: { path: string }) => {
     shell.openExternal(`vscode://file${p.path}`)

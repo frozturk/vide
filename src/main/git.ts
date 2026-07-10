@@ -3,12 +3,20 @@ import { execFile } from 'child_process'
 import { createHash } from 'crypto'
 import { basename, dirname, isAbsolute, join, resolve } from 'path'
 import { promisify } from 'util'
-import type { DiffFile, DiffResult, GitSummary, OrphanWorktree, WorktreeStatus } from '../shared/types'
+import type {
+  DiffFile,
+  DiffResult,
+  GitCommit,
+  GitSummary,
+  OrphanWorktree,
+  WorktreeStatus
+} from '../shared/types'
 
 const exec = promisify(execFile)
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 const MAX_UNTRACKED = 200
 const MAX_FILE_SIZE = 1024 * 1024
+const MAX_COMMITS = 10
 
 async function git(cwd: string, args: string[]): Promise<string> {
   const { stdout } = await exec('git', args, { cwd, maxBuffer: 64 * 1024 * 1024 })
@@ -170,12 +178,90 @@ export async function statusHash(cwd: string): Promise<string> {
 
 const inflight = new Map<string, Promise<DiffResult>>()
 
-export function getDiff(cwd: string): Promise<DiffResult> {
-  const existing = inflight.get(cwd)
+export function getDiff(cwd: string, ref?: string): Promise<DiffResult> {
+  const key = ref ? `${cwd}\0${ref}` : cwd
+  const existing = inflight.get(key)
   if (existing) return existing
-  const p = computeDiff(cwd).finally(() => inflight.delete(cwd))
-  inflight.set(cwd, p)
+  const p = (ref ? computeCommitDiff(cwd, ref) : computeDiff(cwd)).finally(() =>
+    inflight.delete(key)
+  )
+  inflight.set(key, p)
   return p
+}
+
+export async function gitLog(cwd: string): Promise<GitCommit[]> {
+  const root = await repoRoot(cwd)
+  if (!root) return []
+  try {
+    const out = await git(root, [
+      'log',
+      `--max-count=${MAX_COMMITS}`,
+      '--no-color',
+      '--format=%H%x00%h%x00%an%x00%ar%x00%s'
+    ])
+    const commits: GitCommit[] = []
+    for (const line of out.split('\n')) {
+      if (!line) continue
+      const [sha, short, author, date, subject] = line.split('\0')
+      commits.push({ sha, short, author, date, subject })
+    }
+    return commits
+  } catch {
+    return []
+  }
+}
+
+async function computeCommitDiff(cwd: string, sha: string): Promise<DiffResult> {
+  const root = await repoRoot(cwd)
+  if (!root) return { kind: 'no-repo' }
+  let base = EMPTY_TREE
+  try {
+    base = (await git(root, ['rev-parse', '--verify', `${sha}^`])).trim()
+  } catch {
+    base = EMPTY_TREE
+  }
+  const nameStatus = await git(root, [
+    '-c',
+    'core.quotePath=false',
+    'diff',
+    '--name-status',
+    '--find-renames',
+    base,
+    sha
+  ])
+  const statusByPath = parseNameStatus(nameStatus)
+  const diffOut = await git(root, [
+    '-c',
+    'core.quotePath=false',
+    'diff',
+    base,
+    sha,
+    '--unified=3',
+    '--no-color',
+    '--find-renames',
+    '--no-ext-diff'
+  ])
+  const files: DiffFile[] = splitDiff(diffOut).map((chunk) => ({
+    path: chunk.path,
+    status: statusByPath.get(chunk.path) ?? 'modified',
+    hunks: chunk.text
+  }))
+  return { kind: 'ok', files, truncated: 0 }
+}
+
+function parseNameStatus(out: string): Map<string, DiffFile['status']> {
+  const map = new Map<string, DiffFile['status']>()
+  for (const line of out.split('\n')) {
+    if (!line) continue
+    const parts = line.split('\t')
+    const code = parts[0][0]
+    const path = parts[parts.length - 1]
+    if (code === 'A') map.set(path, 'added')
+    else if (code === 'D') map.set(path, 'deleted')
+    else if (code === 'R') map.set(path, 'renamed')
+    else map.set(path, 'modified')
+  }
+  return map
 }
 
 async function computeDiff(cwd: string): Promise<DiffResult> {

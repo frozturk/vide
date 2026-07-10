@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { DiffModeEnum, DiffView } from '@git-diff-view/react'
 import '@git-diff-view/react/styles/diff-view.css'
-import type { DiffFile, DiffResult } from '../../../shared/types'
+import type { DiffFile, DiffResult, GitCommit } from '../../../shared/types'
 import { selectedAgent, useStore } from '../store'
 import { basename, dirname } from '../util'
 import { DEFAULT_PANE_FRACTION } from '../../../shared/layout'
@@ -51,6 +51,61 @@ const DiffBody = memo(function DiffBody({
   )
 })
 
+function GitTree({
+  commits,
+  selectedRef,
+  expanded,
+  onToggle,
+  onSelect
+}: {
+  commits: GitCommit[]
+  selectedRef: string | null
+  expanded: boolean
+  onToggle: () => void
+  onSelect: (ref: string | null) => void
+}): React.JSX.Element {
+  return (
+    <div className="shrink-0 border-t border-zinc-800">
+      <button
+        onClick={onToggle}
+        className="flex w-full items-center gap-1 px-1.5 py-1.5 text-left text-xs font-semibold text-zinc-400 outline-none focus:outline-none hover:bg-zinc-900"
+      >
+        <span className="inline-block w-3 shrink-0 text-center text-zinc-600">
+          {expanded ? '▾' : '▸'}
+        </span>
+        <span className="flex-1">Commits</span>
+      </button>
+      {expanded && (
+        <div className="max-h-64 overflow-y-auto border-t border-zinc-900">
+          <button
+            onClick={() => onSelect(null)}
+            className={`flex w-full items-center gap-1 px-1.5 py-1.5 text-left text-xs outline-none focus:outline-none hover:bg-zinc-900 ${
+              selectedRef === null ? 'bg-zinc-900' : ''
+            }`}
+          >
+            <span className="w-14 shrink-0 font-mono text-emerald-400">working</span>
+            <span className="min-w-0 flex-1 truncate text-zinc-300">Current work</span>
+          </button>
+          {commits.map((c) => (
+            <button
+              key={c.sha}
+              onClick={() => onSelect(c.sha)}
+              className={`flex w-full items-center gap-1 px-1.5 py-1.5 text-left text-xs outline-none focus:outline-none hover:bg-zinc-900 ${
+                selectedRef === c.sha ? 'bg-zinc-900' : ''
+              }`}
+              title={`${c.short} · ${c.author} · ${c.date}`}
+            >
+              <span className="w-14 shrink-0 font-mono text-amber-500">{c.short}</span>
+              <span className="min-w-0 flex-1 truncate text-zinc-300">{c.subject}</span>
+              <span className="shrink-0 text-zinc-600">{c.date}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function DiffOverlay(): React.JSX.Element | null {
   const overlay = useStore((s) => s.overlay)
   const agent = useStore(selectedAgent)
@@ -63,6 +118,11 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
   const bodyRef = useRef<HTMLDivElement>(null)
   const [result, setResult] = useState<DiffResult | null>(null)
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
+  const [commits, setCommits] = useState<GitCommit[]>([])
+  const [selectedRef, setSelectedRef] = useState<string | null>(null)
+  const [treeExpanded, setTreeExpanded] = useState(
+    () => localStorage.getItem('diffTreeExpanded') === '1'
+  )
   const [showNums, setShowNums] = useState(() => localStorage.getItem('diffShowNums') === '1')
   const [frac, setFrac] = useHSplit('diffSplit', DEFAULT_PANE_FRACTION, 0.2, 0.85)
   const [sidebarFrac, setSidebarFrac] = useHSplit('diffSidebarSplit', 0.25, 0.12, 0.6)
@@ -71,22 +131,27 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
   const refresh = useCallback(async (): Promise<void> => {
     if (!cwd) return
     try {
-      const res = await window.vide.diffGet(cwd)
+      const res = await window.vide.diffGet(cwd, selectedRef ?? undefined)
       setResult(res)
       if (res.kind === 'ok') {
         setSelectedPath((prev) =>
           prev && res.files.some((f) => f.path === prev) ? prev : (res.files[0]?.path ?? null)
         )
       }
-      lastHash.current = await window.vide.diffStatusHash(cwd)
+      if (!selectedRef) lastHash.current = await window.vide.diffStatusHash(cwd)
     } catch (err) {
       setResult({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
     }
-  }, [cwd])
+  }, [cwd, selectedRef])
 
   useEffect(() => {
     rootRef.current?.focus()
   }, [])
+
+  useEffect(() => {
+    if (!cwd) return
+    void window.vide.gitLog(cwd).then(setCommits)
+  }, [cwd])
 
   useEffect(() => {
     if (!cwd) {
@@ -95,6 +160,7 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
     }
     lastHash.current = ''
     void refresh()
+    if (selectedRef) return
     const timer = setInterval(async () => {
       try {
         const h = await window.vide.diffStatusHash(cwd)
@@ -104,7 +170,7 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
       }
     }, 2000)
     return () => clearInterval(timer)
-  }, [cwd, refresh])
+  }, [cwd, refresh, selectedRef])
 
   function move(delta: number): void {
     if (result?.kind !== 'ok' || result.files.length === 0) return
@@ -114,6 +180,7 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
   }
 
   const selected = result?.kind === 'ok' ? (result.files.find((f) => f.path === selectedPath) ?? null) : null
+  const selectedCommit = selectedRef ? commits.find((c) => c.sha === selectedRef) : null
 
   return (
     <div
@@ -151,6 +218,9 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
         }}
       />
       <div className="flex items-center gap-2 border-b border-zinc-800 px-3 py-2 text-xs text-zinc-500">
+        {selectedCommit && (
+          <span className="shrink-0 font-mono text-amber-500">{selectedCommit.short}</span>
+        )}
         {selected && (
           <>
             <span className="shrink-0 font-semibold text-zinc-300">{basename(selected.path)}</span>
@@ -167,45 +237,57 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
           {result.message}
         </div>
       )}
-      {result?.kind === 'ok' && result.files.length === 0 && (
-        <div className="flex flex-1 items-center justify-center text-sm text-zinc-600">no changes</div>
-      )}
-      {result?.kind === 'ok' && result.files.length > 0 && (
+      {result?.kind === 'ok' && (
         <div ref={bodyRef} className="relative flex min-h-0 flex-1">
           <div
-            className="shrink-0 overflow-y-auto border-r border-zinc-800"
+            className="flex shrink-0 flex-col border-r border-zinc-800"
             style={{ width: `${sidebarFrac * 100}%` }}
           >
-            {result.files.map((f) => {
-              const s = STATUS_LETTER[f.status]
-              return (
-                <button
-                  key={f.path}
-                  onClick={() => setSelectedPath(f.path)}
-                  className={`flex w-full items-center gap-1 px-1.5 py-1.5 text-left text-xs outline-none focus:outline-none hover:bg-zinc-900 ${
-                    f.path === selectedPath ? 'bg-zinc-900' : ''
-                  }`}
-                  title={f.path}
-                >
-                  <FileIcon path={f.path} />
-                  <span className="min-w-0 flex-1 truncate">
-                    <span className="text-zinc-300">{basename(f.path)}</span>
-                    {dirname(f.path) && (
-                      <span className="ml-1.5 text-zinc-600">{dirname(f.path)}</span>
-                    )}
-                  </span>
-                  <span
-                    className="w-3 shrink-0 text-center font-mono font-bold"
-                    style={{ color: s.color }}
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {result.files.map((f) => {
+                const s = STATUS_LETTER[f.status]
+                return (
+                  <button
+                    key={f.path}
+                    onClick={() => setSelectedPath(f.path)}
+                    className={`flex w-full items-center gap-1 px-1.5 py-1.5 text-left text-xs outline-none focus:outline-none hover:bg-zinc-900 ${
+                      f.path === selectedPath ? 'bg-zinc-900' : ''
+                    }`}
+                    title={f.path}
                   >
-                    {s.letter}
-                  </span>
-                </button>
-              )
-            })}
-            {result.truncated > 0 && (
-              <div className="px-2 py-1.5 text-xs text-zinc-600">+{result.truncated} more untracked</div>
-            )}
+                    <FileIcon path={f.path} />
+                    <span className="min-w-0 flex-1 truncate">
+                      <span className="text-zinc-300">{basename(f.path)}</span>
+                      {dirname(f.path) && (
+                        <span className="ml-1.5 text-zinc-600">{dirname(f.path)}</span>
+                      )}
+                    </span>
+                    <span
+                      className="w-3 shrink-0 text-center font-mono font-bold"
+                      style={{ color: s.color }}
+                    >
+                      {s.letter}
+                    </span>
+                  </button>
+                )
+              })}
+              {result.truncated > 0 && (
+                <div className="px-2 py-1.5 text-xs text-zinc-600">+{result.truncated} more untracked</div>
+              )}
+            </div>
+            <GitTree
+              commits={commits}
+              selectedRef={selectedRef}
+              expanded={treeExpanded}
+              onToggle={() =>
+                setTreeExpanded((v) => {
+                  const next = !v
+                  localStorage.setItem('diffTreeExpanded', next ? '1' : '0')
+                  return next
+                })
+              }
+              onSelect={setSelectedRef}
+            />
           </div>
           <Resizer
             onDrag={(clientX) => {
@@ -220,7 +302,13 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
               left: `calc(${sidebarFrac * 100}% - 3px)`
             }}
           />
-          {selected && <DiffBody path={selected.path} hunks={selected.hunks} showNums={showNums} />}
+          {selected ? (
+            <DiffBody path={selected.path} hunks={selected.hunks} showNums={showNums} />
+          ) : (
+            <div className="flex flex-1 items-center justify-center text-sm text-zinc-600">
+              {selectedRef ? 'empty commit' : 'no changes'}
+            </div>
+          )}
         </div>
       )}
     </div>
