@@ -60,6 +60,31 @@ export async function currentBranch(cwd: string): Promise<string | null> {
   }
 }
 
+export async function listBranches(cwd: string): Promise<string[]> {
+  try {
+    const out = await git(cwd, ['branch', '--format=%(refname:short)', '--sort=-committerdate'])
+    return out
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
+export async function checkoutBranch(
+  cwd: string,
+  branch: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await git(cwd, ['checkout', branch])
+    return { ok: true }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return { ok: false, error: msg.replace(/^Command failed: git \S+ /, '').trim() }
+  }
+}
+
 export async function createWorktree(
   agentCwd: string,
   kindId: string,

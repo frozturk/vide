@@ -147,6 +147,8 @@ export interface VideApi {
   diffStatusHash(cwd: string): Promise<string>
   gitLog(cwd: string): Promise<GitCommit[]>
   gitSummary(cwd: string): Promise<GitSummary>
+  gitBranches(cwd: string): Promise<string[]>
+  gitCheckout(cwd: string, branch: string): Promise<{ ok: boolean; error?: string }>
   openInEditor(path: string): Promise<void>
   browserSetVisible(visible: boolean, focusPage: boolean): Promise<void>
   browserLoadUrl(url: string): Promise<void>

@@ -13,10 +13,15 @@ export function TopBar(): React.JSX.Element {
   const title = useStore((s) => (agent ? s.titles[agent.id] ?? null : null))
   const overlay = useStore((s) => s.overlay)
   const [summary, setSummary] = useState<GitSummary | null>(null)
+  const [branchesOpen, setBranchesOpen] = useState(false)
+  const [branches, setBranches] = useState<string[]>([])
+  const [branchError, setBranchError] = useState<string | null>(null)
 
   const cwd = agent?.cwd ?? null
 
   useEffect(() => {
+    setBranchesOpen(false)
+    setBranchError(null)
     if (!cwd) {
       setSummary(null)
       return
@@ -37,6 +42,35 @@ export function TopBar(): React.JSX.Element {
       clearInterval(timer)
     }
   }, [cwd])
+
+  const openBranches = (): void => {
+    if (!cwd) return
+    if (branchesOpen) {
+      setBranchesOpen(false)
+      return
+    }
+    setBranchError(null)
+    window.vide
+      .gitBranches(cwd)
+      .then(setBranches)
+      .catch(() => setBranches([]))
+    setBranchesOpen(true)
+  }
+
+  const selectBranch = async (branch: string): Promise<void> => {
+    if (!cwd || branch === summary?.branch) {
+      setBranchesOpen(false)
+      return
+    }
+    const res = await window.vide.gitCheckout(cwd, branch)
+    if (res.ok) {
+      setBranchesOpen(false)
+      setBranchError(null)
+      window.vide.gitSummary(cwd).then(setSummary).catch(() => {})
+    } else {
+      setBranchError(res.error ?? 'checkout failed')
+    }
+  }
 
   const kind = agent ? config?.agentKinds.find((k) => k.id === agent.kindId) ?? null : null
 
@@ -62,12 +96,51 @@ export function TopBar(): React.JSX.Element {
             </span>
 
             {summary?.branch && (
-              <span className="flex shrink-0 items-center gap-1 text-xs text-zinc-400 leading-none">
-                <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="M11.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5zm-2.25.75a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 9.5 3.25zM4.25 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5zM2 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 2 3.25z" />
-                </svg>
-                {summary.branch}
-              </span>
+              <div
+                className="relative shrink-0"
+                style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+              >
+                <button
+                  onClick={openBranches}
+                  className="flex items-center gap-1 rounded px-1 py-0.5 text-xs text-zinc-400 leading-none transition hover:bg-zinc-800 hover:text-zinc-200"
+                  title="Switch branch"
+                >
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M11.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5zm-2.25.75a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 9.5 3.25zM4.25 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5zM2 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 2 3.25z" />
+                  </svg>
+                  {summary.branch}
+                  <span className="text-zinc-600">▾</span>
+                </button>
+                {branchesOpen && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setBranchesOpen(false)} />
+                    <div className="absolute left-0 top-full z-40 mt-1 max-h-72 min-w-44 overflow-y-auto rounded-md border border-zinc-700 bg-zinc-900 py-1 shadow-lg">
+                      {branches.length === 0 && (
+                        <div className="px-2 py-1 text-xs text-zinc-600">no branches</div>
+                      )}
+                      {branches.map((b) => (
+                        <button
+                          key={b}
+                          onClick={() => void selectBranch(b)}
+                          className={`flex w-full items-center gap-1.5 px-2 py-1 text-left text-xs transition hover:bg-zinc-800 ${
+                            b === summary.branch ? 'text-emerald-400' : 'text-zinc-300'
+                          }`}
+                        >
+                          <span className="w-3 shrink-0 text-center">
+                            {b === summary.branch ? '✓' : ''}
+                          </span>
+                          <span className="truncate">{b}</span>
+                        </button>
+                      ))}
+                      {branchError && (
+                        <div className="border-t border-zinc-800 px-2 py-1 text-[11px] text-red-400">
+                          {branchError}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
             )}
 
             {summary && (summary.ahead > 0) && (

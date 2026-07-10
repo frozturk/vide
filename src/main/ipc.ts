@@ -3,11 +3,13 @@ import { randomUUID } from 'crypto'
 import type { AttachRequest, Config, KillRequest, SpawnRequest } from '../shared/types'
 import { configPath, getConfig, reloadConfig, saveConfig } from './config'
 import {
+  checkoutBranch,
   createWorktree,
   currentBranch,
   getDiff,
   gitLog,
   gitSummary,
+  listBranches,
   orphanWorktrees,
   projectRootOf,
   removeWorktree,
@@ -148,6 +150,10 @@ export function wireIpc(win: BrowserWindow): void {
   ipcMain.handle('diff:statusHash', (_e, p: { cwd: string }) => statusHash(p.cwd))
   ipcMain.handle('git:log', (_e, p: { cwd: string }) => gitLog(p.cwd))
   ipcMain.handle('git:summary', (_e, p: { cwd: string }) => gitSummary(p.cwd))
+  ipcMain.handle('git:branches', (_e, p: { cwd: string }) => listBranches(p.cwd))
+  ipcMain.handle('git:checkout', (_e, p: { cwd: string; branch: string }) =>
+    checkoutBranch(p.cwd, p.branch)
+  )
   ipcMain.handle('open:editor', (_e, p: { path: string }) => {
     shell.openExternal(`vscode://file${p.path}`)
   })
