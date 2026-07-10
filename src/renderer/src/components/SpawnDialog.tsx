@@ -74,6 +74,13 @@ function SpawnDialogInner(): React.JSX.Element {
           if (e.key === 'Enter' && !e.shiftKey && !e.repeat) {
             e.preventDefault()
             void confirm()
+            return
+          }
+          if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && kinds.length > 1) {
+            e.preventDefault()
+            const idx = kinds.findIndex((k) => k.id === kindId)
+            const delta = e.key === 'ArrowRight' ? 1 : -1
+            setKindId(kinds[(idx + delta + kinds.length) % kinds.length].id)
           }
         }}
       >
@@ -172,8 +179,14 @@ function SpawnDialogInner(): React.JSX.Element {
         </div>
 
         <div className="flex items-center justify-between border-t border-zinc-800 px-6 py-4">
-          <span className="text-xs text-zinc-600">
-            <kbd className="rounded bg-zinc-800 px-1.5 py-0.5">⏎</kbd> to start
+          <span className="flex items-center gap-3 text-xs text-zinc-600">
+            <span>
+              <kbd className="rounded bg-zinc-800 px-1.5 py-0.5">⏎</kbd> to start
+            </span>
+            <span>
+              <kbd className="rounded bg-zinc-800 px-1.5 py-0.5">←</kbd>
+              <kbd className="ml-1 rounded bg-zinc-800 px-1.5 py-0.5">→</kbd> type
+            </span>
           </span>
           <div className="flex gap-2">
             <button
