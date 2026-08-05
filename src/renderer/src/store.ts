@@ -24,6 +24,9 @@ export interface VideStore {
   recentDirs: RecentDir[]
   settingsOpen: boolean
   suppressUnread: boolean
+  paletteOpen: boolean
+  searchOpen: boolean
+  searchSeq: number
 }
 
 export const useStore = create<VideStore>(() => ({
@@ -41,7 +44,10 @@ export const useStore = create<VideStore>(() => ({
   urlFocusSeq: 0,
   recentDirs: [],
   settingsOpen: false,
-  suppressUnread: false
+  suppressUnread: false,
+  paletteOpen: false,
+  searchOpen: false,
+  searchSeq: 0
 }))
 
 export function selectedAgent(s: VideStore): Agent | null {

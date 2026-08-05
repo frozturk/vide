@@ -3,6 +3,7 @@ import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebLinksAddon } from '@xterm/addon-web-links'
+import { SearchAddon } from '@xterm/addon-search'
 import '@xterm/xterm/css/xterm.css'
 import { matchChord } from '../../shared/chords'
 import { useStore } from './store'
@@ -18,6 +19,7 @@ const MAC_LINE_EDIT: Record<string, string> = {
 export interface TermEntry {
   term: Terminal
   fit: FitAddon
+  search: SearchAddon
   webgl: WebglAddon | null
   observer: ResizeObserver | null
   container: HTMLElement | null
@@ -60,6 +62,8 @@ export function createTerminal(agentId: string): void {
   term.loadAddon(new WebLinksAddon((_e, uri) => openUrlInBrowser(uri)))
   const fit = new FitAddon()
   term.loadAddon(fit)
+  const search = new SearchAddon()
+  term.loadAddon(search)
   term.attachCustomKeyEventHandler((e) => {
     if (e.type === 'keydown' && e.key === 'Enter' && e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault()
@@ -81,7 +85,7 @@ export function createTerminal(agentId: string): void {
   })
   term.onData((d) => window.vide.ptyInput(agentId, d))
   term.onResize(({ cols, rows }) => window.vide.ptyResize(agentId, cols, rows))
-  const entry: TermEntry = { term, fit, webgl: null, observer: null, container: null, lastOutputAt: Date.now(), lastResizeAt: 0 }
+  const entry: TermEntry = { term, fit, search, webgl: null, observer: null, container: null, lastOutputAt: Date.now(), lastResizeAt: 0 }
   terminals.set(agentId, entry)
   const q = pending.get(agentId)
   if (q) {
@@ -143,6 +147,39 @@ export function activateVisual(agentId: string): void {
     }
     e.term.focus()
   })
+}
+
+const SEARCH_DECORATIONS = {
+  matchBackground: '#3f3f46',
+  matchOverviewRuler: '#71717a',
+  activeMatchBackground: '#78350f',
+  activeMatchColorOverviewRuler: '#f59e0b'
+}
+
+export function findInTerminal(agentId: string, query: string, dir: 'next' | 'prev', incremental = false): void {
+  const e = terminals.get(agentId)
+  if (!e) return
+  if (!query) {
+    e.search.clearDecorations()
+    return
+  }
+  const opts = { decorations: SEARCH_DECORATIONS, incremental }
+  if (dir === 'next') e.search.findNext(query, opts)
+  else e.search.findPrevious(query, opts)
+}
+
+export function clearTerminalSearch(agentId: string): void {
+  terminals.get(agentId)?.search.clearDecorations()
+}
+
+export function onSearchResults(
+  agentId: string,
+  cb: (r: { resultIndex: number; resultCount: number }) => void
+): () => void {
+  const e = terminals.get(agentId)
+  if (!e) return () => {}
+  const d = e.search.onDidChangeResults(cb)
+  return () => d.dispose()
 }
 
 export function focusTerminal(agentId: string | null): void {

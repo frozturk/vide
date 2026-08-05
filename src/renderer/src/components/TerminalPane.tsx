@@ -4,15 +4,17 @@ import { attachTerminal } from '../terminals'
 import { spawnInDir } from '../actions'
 import { basename } from '../util'
 import { AgentIcon } from './AgentIcon'
+import { SearchBar } from './SearchBar'
 
 export function TerminalPane(): React.JSX.Element {
   const agents = useStore((s) => s.agents)
   const selectedId = useStore((s) => s.selectedId)
   return (
-    <div className="h-full w-full">
+    <div className="relative h-full w-full">
       {agents.map((a) => (
         <TerminalHost key={a.id} id={a.id} visible={a.id === selectedId} />
       ))}
+      <SearchBar />
       {agents.length === 0 && <EmptyState />}
     </div>
   )

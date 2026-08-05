@@ -198,14 +198,14 @@ export function TopBar(): React.JSX.Element {
               </svg>
             </button>
             <button
-              onClick={() => void window.vide.openInEditor(agent.cwd)}
+              onClick={() => void window.vide.openInIde(agent.cwd)}
               className="flex items-center gap-1.5 rounded-md h-6 px-2 text-xs text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
-              title="Open in VS Code"
+              title="Open in IDE"
             >
               <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M14.85 3.1 11.5 2.2 8.4 4.3 5.3 2.2 2 3.1v9.8l3.3.9 3.1-2.1 3.1 2.1 3.3-.9V3.1zM5.3 11.3l-2.3.6V4.1l2.3-.6v7.8zm.5-7.3 2.6 1.8v6.4L5.8 10.4V4zm4.4 6.4V5.8l2.6-1.8v6.4l-2.6 1.8zm3.1-6.7-2.3.6v7.8l2.3-.6V3.7z" />
               </svg>
-              VS Code
+              IDE
             </button>
           </>
         )}

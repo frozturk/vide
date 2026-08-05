@@ -3,15 +3,19 @@ import {
   closeBrowserTab,
   closeDialog,
   closeOverlay,
+  closePalette,
+  closeSearch,
   focusUrlBar,
   newBrowserTab,
+  openSearch,
   openSpawnDialog,
   panelKeyboardRelease,
   reloadConfig,
   requestClose,
   selectAgent,
   selectSibling,
-  toggleOverlay
+  toggleOverlay,
+  togglePalette
 } from './actions'
 import { useStore } from './store'
 
@@ -46,6 +50,12 @@ export function dispatch(chord: ChordId): void {
     case 'browser':
       toggleOverlay('browser')
       break
+    case 'palette':
+      togglePalette()
+      break
+    case 'find':
+      openSearch()
+      break
     case 'focus-url':
       focusUrlBar()
       break
@@ -68,6 +78,14 @@ export function installKeyboard(): void {
           e.preventDefault()
           e.stopPropagation()
           closeDialog()
+        } else if (s.paletteOpen) {
+          e.preventDefault()
+          e.stopPropagation()
+          closePalette()
+        } else if (s.searchOpen) {
+          e.preventDefault()
+          e.stopPropagation()
+          closeSearch()
         } else if (s.overlay !== 'none') {
           e.preventDefault()
           e.stopPropagation()

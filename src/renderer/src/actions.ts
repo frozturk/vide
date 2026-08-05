@@ -1,6 +1,6 @@
 import type { Agent, SessionAgent, SpawnRequest } from '../../shared/types'
 import { useStore } from './store'
-import { activateVisual, createTerminal, disposeTerminal, focusTerminal } from './terminals'
+import { activateVisual, clearTerminalSearch, createTerminal, disposeTerminal, focusTerminal } from './terminals'
 
 let hoverOpenTimer: ReturnType<typeof setTimeout> | null = null
 let hoverCloseTimer: ReturnType<typeof setTimeout> | null = null
@@ -256,4 +256,28 @@ export function focusUrlBar(): void {
 export async function reloadConfig(): Promise<void> {
   const config = await window.vide.configReload()
   useStore.setState({ config })
+}
+
+export function togglePalette(): void {
+  const s = useStore.getState()
+  if (s.paletteOpen) closePalette()
+  else useStore.setState({ paletteOpen: true })
+}
+
+export function closePalette(): void {
+  useStore.setState({ paletteOpen: false })
+  focusTerminal(useStore.getState().selectedId)
+}
+
+export function openSearch(): void {
+  const s = useStore.getState()
+  if (!s.selectedId) return
+  useStore.setState({ searchOpen: true, searchSeq: s.searchSeq + 1 })
+}
+
+export function closeSearch(): void {
+  const s = useStore.getState()
+  if (s.selectedId) clearTerminalSearch(s.selectedId)
+  useStore.setState({ searchOpen: false })
+  focusTerminal(s.selectedId)
 }

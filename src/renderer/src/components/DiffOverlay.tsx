@@ -55,14 +55,18 @@ function GitTree({
   commits,
   selectedRef,
   expanded,
+  hasMore,
   onToggle,
-  onSelect
+  onSelect,
+  onLoadMore
 }: {
   commits: GitCommit[]
   selectedRef: string | null
   expanded: boolean
+  hasMore: boolean
   onToggle: () => void
   onSelect: (ref: string | null) => void
+  onLoadMore: () => void
 }): React.JSX.Element {
   return (
     <div className="shrink-0 border-t border-zinc-800">
@@ -100,20 +104,37 @@ function GitTree({
               <span className="shrink-0 text-zinc-600">{c.date}</span>
             </button>
           ))}
+          {hasMore && (
+            <button
+              onClick={onLoadMore}
+              className="w-full px-1.5 py-1.5 text-left text-xs text-zinc-500 outline-none focus:outline-none hover:bg-zinc-900 hover:text-zinc-300"
+            >
+              <span className="inline-block w-14" />
+              load more…
+            </button>
+          )}
         </div>
       )}
     </div>
   )
 }
 
+const COMMIT_PAGE = 10
+
 export function DiffOverlay(): React.JSX.Element | null {
   const overlay = useStore((s) => s.overlay)
   const agent = useStore(selectedAgent)
   if (overlay !== 'diff') return null
-  return <DiffOverlayInner key={agent?.cwd ?? 'none'} cwd={agent?.cwd ?? null} />
+  return (
+    <DiffOverlayInner
+      key={agent?.cwd ?? 'none'}
+      cwd={agent?.cwd ?? null}
+      root={agent?.repoRoot ?? null}
+    />
+  )
 }
 
-function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
+function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | null }): React.JSX.Element {
   const rootRef = useRef<HTMLDivElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
   const [result, setResult] = useState<DiffResult | null>(null)
@@ -124,6 +145,7 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
     () => localStorage.getItem('diffTreeExpanded') === '1'
   )
   const [showNums, setShowNums] = useState(() => localStorage.getItem('diffShowNums') === '1')
+  const [hasMore, setHasMore] = useState(false)
   const [frac, setFrac] = useHSplit('diffSplit', DEFAULT_PANE_FRACTION, 0.2, 0.85)
   const [sidebarFrac, setSidebarFrac] = useHSplit('diffSidebarSplit', 0.25, 0.12, 0.6)
   const lastHash = useRef('')
@@ -150,8 +172,25 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
 
   useEffect(() => {
     if (!cwd) return
-    void window.vide.gitLog(cwd).then(setCommits)
+    void window.vide.gitLog(cwd).then((cs) => {
+      setCommits(cs)
+      setHasMore(cs.length === COMMIT_PAGE)
+    })
   }, [cwd])
+
+  const loadMore = useCallback(async (): Promise<void> => {
+    if (!cwd) return
+    const cs = await window.vide.gitLog(cwd, commits.length)
+    setCommits((prev) => [...prev, ...cs])
+    setHasMore(cs.length === COMMIT_PAGE)
+  }, [cwd, commits.length])
+
+  const openFile = useCallback(
+    (path: string | null): void => {
+      if (root && path) void window.vide.openInIde(`${root}/${path}`)
+    },
+    [root]
+  )
 
   useEffect(() => {
     if (!cwd) {
@@ -202,6 +241,9 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
             localStorage.setItem('diffShowNums', next ? '1' : '0')
             return next
           })
+        } else if (e.key === 'o') {
+          e.preventDefault()
+          openFile(selectedPath)
         }
       }}
       className="fixed right-0 z-40 flex flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl outline-none"
@@ -227,7 +269,7 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
             <span className="min-w-0 truncate text-zinc-600">{selected.path}</span>
           </>
         )}
-        <span className="ml-auto shrink-0">j/k navigate · n numbers · r refresh · esc close</span>
+        <span className="ml-auto shrink-0">j/k navigate · o open · n numbers · r refresh · esc close</span>
       </div>
       {result?.kind === 'no-repo' && (
         <div className="flex flex-1 items-center justify-center text-sm text-zinc-600">not a git repository</div>
@@ -247,10 +289,10 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
               {result.files.map((f) => {
                 const s = STATUS_LETTER[f.status]
                 return (
-                  <button
+                  <div
                     key={f.path}
                     onClick={() => setSelectedPath(f.path)}
-                    className={`flex w-full items-center gap-1 px-1.5 py-1.5 text-left text-xs outline-none focus:outline-none hover:bg-zinc-900 ${
+                    className={`group flex w-full cursor-pointer items-center gap-1 px-1.5 py-1.5 text-left text-xs hover:bg-zinc-900 ${
                       f.path === selectedPath ? 'bg-zinc-900' : ''
                     }`}
                     title={f.path}
@@ -262,13 +304,28 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
                         <span className="ml-1.5 text-zinc-600">{dirname(f.path)}</span>
                       )}
                     </span>
+                    {f.status !== 'deleted' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openFile(f.path)
+                        }}
+                        className="hidden shrink-0 rounded px-0.5 text-zinc-500 hover:text-zinc-200 group-hover:block"
+                        title="Open in IDE (o)"
+                      >
+                        <svg className="h-3 w-3" viewBox="0 0 16 16" fill="currentColor">
+                          <path d="M3.75 2A1.75 1.75 0 0 0 2 3.75v8.5C2 13.216 2.784 14 3.75 14h8.5A1.75 1.75 0 0 0 14 12.25v-3.5a.75.75 0 0 0-1.5 0v3.5a.25.25 0 0 1-.25.25h-8.5a.25.25 0 0 1-.25-.25v-8.5a.25.25 0 0 1 .25-.25h3.5a.75.75 0 0 0 0-1.5h-3.5z" />
+                          <path d="M9.5 2a.75.75 0 0 0 0 1.5h1.94L7.22 7.72a.75.75 0 1 0 1.06 1.06l4.22-4.22v1.94a.75.75 0 0 0 1.5 0V2.75A.75.75 0 0 0 13.25 2H9.5z" />
+                        </svg>
+                      </button>
+                    )}
                     <span
                       className="w-3 shrink-0 text-center font-mono font-bold"
                       style={{ color: s.color }}
                     >
                       {s.letter}
                     </span>
-                  </button>
+                  </div>
                 )
               })}
               {result.truncated > 0 && (
@@ -279,6 +336,7 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
               commits={commits}
               selectedRef={selectedRef}
               expanded={treeExpanded}
+              hasMore={hasMore}
               onToggle={() =>
                 setTreeExpanded((v) => {
                   const next = !v
@@ -287,6 +345,7 @@ function DiffOverlayInner({ cwd }: { cwd: string | null }): React.JSX.Element {
                 })
               }
               onSelect={setSelectedRef}
+              onLoadMore={() => void loadMore()}
             />
           </div>
           <Resizer

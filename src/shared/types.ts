@@ -145,11 +145,11 @@ export interface VideApi {
   deleteOrphanWorktree(path: string): Promise<void>
   diffGet(cwd: string, ref?: string): Promise<DiffResult>
   diffStatusHash(cwd: string): Promise<string>
-  gitLog(cwd: string): Promise<GitCommit[]>
+  gitLog(cwd: string, skip?: number): Promise<GitCommit[]>
   gitSummary(cwd: string): Promise<GitSummary>
   gitBranches(cwd: string): Promise<string[]>
   gitCheckout(cwd: string, branch: string): Promise<{ ok: boolean; error?: string }>
-  openInEditor(path: string): Promise<void>
+  openInIde(path: string): Promise<void>
   browserSetVisible(visible: boolean, focusPage: boolean): Promise<void>
   browserLoadUrl(url: string): Promise<void>
   browserBack(): Promise<void>

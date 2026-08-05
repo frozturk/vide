@@ -148,13 +148,13 @@ export function wireIpc(win: BrowserWindow): void {
 
   ipcMain.handle('diff:get', (_e, p: { cwd: string; ref?: string }) => getDiff(p.cwd, p.ref))
   ipcMain.handle('diff:statusHash', (_e, p: { cwd: string }) => statusHash(p.cwd))
-  ipcMain.handle('git:log', (_e, p: { cwd: string }) => gitLog(p.cwd))
+  ipcMain.handle('git:log', (_e, p: { cwd: string; skip?: number }) => gitLog(p.cwd, p.skip))
   ipcMain.handle('git:summary', (_e, p: { cwd: string }) => gitSummary(p.cwd))
   ipcMain.handle('git:branches', (_e, p: { cwd: string }) => listBranches(p.cwd))
   ipcMain.handle('git:checkout', (_e, p: { cwd: string; branch: string }) =>
     checkoutBranch(p.cwd, p.branch)
   )
-  ipcMain.handle('open:editor', (_e, p: { path: string }) => {
+  ipcMain.handle('open:ide', (_e, p: { path: string }) => {
     shell.openExternal(`vscode://file${p.path}`)
   })
 

@@ -214,13 +214,14 @@ export function getDiff(cwd: string, ref?: string): Promise<DiffResult> {
   return p
 }
 
-export async function gitLog(cwd: string): Promise<GitCommit[]> {
+export async function gitLog(cwd: string, skip = 0): Promise<GitCommit[]> {
   const root = await repoRoot(cwd)
   if (!root) return []
   try {
     const out = await git(root, [
       'log',
       `--max-count=${MAX_COMMITS}`,
+      `--skip=${skip}`,
       '--no-color',
       '--format=%H%x00%h%x00%an%x00%ar%x00%s'
     ])

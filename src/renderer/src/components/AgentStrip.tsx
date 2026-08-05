@@ -32,7 +32,7 @@ function repoColor(root: string): { bg: string; bgActive: string; border: string
   return result
 }
 
-const STATUS_COLOR: Record<AgentStatus, string> = {
+export const STATUS_COLOR: Record<AgentStatus, string> = {
   busy: '#4ade80',
   waiting: '#f59e0b',
   idle: '#52525b',

@@ -41,7 +41,8 @@ async function createWindow(): Promise<void> {
     trafficLightPosition: { x: 12, y: 12 },
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: true
+      sandbox: true,
+      backgroundThrottling: false
     }
   })
   setTarget(win.webContents)
