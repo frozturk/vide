@@ -50,6 +50,8 @@ export function createTerminal(agentId: string): void {
     fontSize: 13,
     fontFamily: 'SF Mono, Menlo, monospace',
     scrollback: 10000,
+    // Keep trackpad scrolling at xterm's baseline speed.
+    scrollSensitivity: 1,
     theme: {
       background: '#09090b',
       foreground: '#d4d4d8',
