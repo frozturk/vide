@@ -105,6 +105,12 @@ async function sessionExists(name: string): Promise<boolean> {
   }
 }
 
+async function configureSession(name: string): Promise<void> {
+  await exec1(getTmux(), ['set-option', '-t', name, 'status', 'off'])
+  await exec1(getTmux(), ['set-option', '-t', name, 'focus-events', 'on'])
+  await exec1(getTmux(), ['set-option', '-t', name, 'mouse', 'on'])
+}
+
 export async function spawnPty(
   agentId: string,
   shell: string,
@@ -132,8 +138,7 @@ export async function spawnPty(
   if (result.code !== 0) {
     throw new Error(`tmux new-session failed (code ${result.code}): ${result.stderr || result.message}`)
   }
-  await exec1(getTmux(), ['set-option', '-t', name, 'status', 'off'])
-  await exec1(getTmux(), ['set-option', '-t', name, 'focus-events', 'on'])
+  await configureSession(name)
   const exists = await sessionExists(name)
   console.log('[vide/spawnPty] session created:', name, 'exists:', exists)
   await attachInternal(agentId, name, env)
@@ -162,6 +167,7 @@ async function attachInternal(agentId: string, name: string, env: Record<string,
 export async function attachPty(agentId: string, kindId?: string, cwd?: string): Promise<boolean> {
   const name = sessionName(agentId, kindId, cwd)
   if (!(await sessionExists(name))) return false
+  await configureSession(name)
   const existing = ptys.get(agentId)
   if (existing && !existing.exited) return true
   const env = buildEnv()
