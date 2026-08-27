@@ -1,4 +1,4 @@
-import { appendFile, mkdir, readFile, rm, stat } from 'fs/promises'
+import { appendFile, copyFile, mkdir, readFile, rm, stat } from 'fs/promises'
 import { execFile } from 'child_process'
 import { createHash } from 'crypto'
 import { basename, dirname, isAbsolute, join, resolve } from 'path'
@@ -17,6 +17,10 @@ const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 const MAX_UNTRACKED = 200
 const MAX_FILE_SIZE = 1024 * 1024
 const MAX_COMMITS = 10
+const CONTEXT = 3
+const ENV_PATHSPECS = ['.env*', '*/.env*']
+const MAX_ENV_FILES = 50
+const FULL_CONTEXT = 100000
 
 async function git(cwd: string, args: string[]): Promise<string> {
   const { stdout } = await exec('git', args, { cwd, maxBuffer: 64 * 1024 * 1024 })
@@ -85,6 +89,40 @@ export async function checkoutBranch(
   }
 }
 
+async function copyEnvFiles(from: string, to: string): Promise<void> {
+  const seen = new Set<string>()
+  for (const ignored of [[], ['--ignored']]) {
+    let out: string
+    try {
+      out = await git(from, [
+        'ls-files',
+        '-z',
+        '--others',
+        '--exclude-standard',
+        ...ignored,
+        '--',
+        ...ENV_PATHSPECS
+      ])
+    } catch {
+      continue
+    }
+    for (const rel of out.split('\0')) {
+      if (!rel || seen.has(rel)) continue
+      const parts = rel.split('/')
+      if (parts[0] === '.vide' || parts.includes('node_modules')) continue
+      if (!basename(rel).startsWith('.env')) continue
+      seen.add(rel)
+      if (seen.size > MAX_ENV_FILES) return
+      try {
+        await mkdir(dirname(join(to, rel)), { recursive: true })
+        await copyFile(join(from, rel), join(to, rel))
+      } catch {
+        /* best effort */
+      }
+    }
+  }
+}
+
 export async function createWorktree(
   agentCwd: string,
   kindId: string,
@@ -112,6 +150,7 @@ export async function createWorktree(
     await git(root, ['worktree', 'prune'])
     await git(root, ['worktree', 'add', '-b', branch, path, sha])
   }
+  await copyEnvFiles(root, path)
   return { path, branch, baseSha: sha }
 }
 
@@ -203,11 +242,12 @@ export async function statusHash(cwd: string): Promise<string> {
 
 const inflight = new Map<string, Promise<DiffResult>>()
 
-export function getDiff(cwd: string, ref?: string): Promise<DiffResult> {
-  const key = ref ? `${cwd}\0${ref}` : cwd
+export function getDiff(cwd: string, ref?: string, full = false): Promise<DiffResult> {
+  const key = `${cwd}\0${ref ?? ''}\0${full ? 'full' : ''}`
   const existing = inflight.get(key)
   if (existing) return existing
-  const p = (ref ? computeCommitDiff(cwd, ref) : computeDiff(cwd)).finally(() =>
+  const context = full ? FULL_CONTEXT : CONTEXT
+  const p = (ref ? computeCommitDiff(cwd, ref, context) : computeDiff(cwd, context)).finally(() =>
     inflight.delete(key)
   )
   inflight.set(key, p)
@@ -237,7 +277,7 @@ export async function gitLog(cwd: string, skip = 0): Promise<GitCommit[]> {
   }
 }
 
-async function computeCommitDiff(cwd: string, sha: string): Promise<DiffResult> {
+async function computeCommitDiff(cwd: string, sha: string, context: number): Promise<DiffResult> {
   const root = await repoRoot(cwd)
   if (!root) return { kind: 'no-repo' }
   let base = EMPTY_TREE
@@ -262,7 +302,7 @@ async function computeCommitDiff(cwd: string, sha: string): Promise<DiffResult> 
     'diff',
     base,
     sha,
-    '--unified=3',
+    `--unified=${context}`,
     '--no-color',
     '--find-renames',
     '--no-ext-diff'
@@ -290,7 +330,7 @@ function parseNameStatus(out: string): Map<string, DiffFile['status']> {
   return map
 }
 
-async function computeDiff(cwd: string): Promise<DiffResult> {
+async function computeDiff(cwd: string, context: number): Promise<DiffResult> {
   const root = await repoRoot(cwd)
   if (!root) return { kind: 'no-repo' }
   const base = (await headSha(root)) ? 'HEAD' : EMPTY_TREE
@@ -308,7 +348,7 @@ async function computeDiff(cwd: string): Promise<DiffResult> {
     'core.quotePath=false',
     'diff',
     base,
-    '--unified=3',
+    `--unified=${context}`,
     '--no-color',
     '--find-renames',
     '--no-ext-diff'

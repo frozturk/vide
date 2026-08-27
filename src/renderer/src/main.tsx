@@ -19,6 +19,13 @@ async function bootstrap(): Promise<void> {
     const s = useStore.getState()
     const agent = s.agents.find((a) => a.id === agentId)
     if (!agent) return
+    if (agent.worktreePath) {
+      useStore.setState({
+        statuses: { ...s.statuses, [agentId]: 'exited' },
+        titleBusy: { ...s.titleBusy, [agentId]: false }
+      })
+      return
+    }
     void window.vide.agentKill({ agentId })
     disposeTerminal(agentId)
     const idx = s.agents.findIndex((a) => a.id === agentId)

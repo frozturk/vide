@@ -143,7 +143,7 @@ export interface VideApi {
   agentKill(req: KillRequest): Promise<{ branchKept: boolean }>
   orphanWorktrees(cwd: string, livePaths: string[]): Promise<OrphanWorktree[]>
   deleteOrphanWorktree(path: string): Promise<void>
-  diffGet(cwd: string, ref?: string): Promise<DiffResult>
+  diffGet(cwd: string, ref?: string, full?: boolean): Promise<DiffResult>
   diffStatusHash(cwd: string): Promise<string>
   gitLog(cwd: string, skip?: number): Promise<GitCommit[]>
   gitSummary(cwd: string): Promise<GitSummary>
@@ -162,6 +162,7 @@ export interface VideApi {
   browserSetSplit(fraction: number): Promise<void>
   browserSetDragging(dragging: boolean): Promise<void>
   pickDirectory(): Promise<string | null>
+  clipboardReadText(): Promise<string>
   ptyInput(agentId: string, data: string): void
   ptyResize(agentId: string, cols: number, rows: number): void
   onPtyData(cb: (p: { agentId: string; data: string }) => void): () => void

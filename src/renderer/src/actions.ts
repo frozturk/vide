@@ -197,15 +197,18 @@ async function finalizeKill(agent: Agent, worktree: Parameters<typeof window.vid
   const statuses = { ...s.statuses }
   const unread = { ...s.unread }
   const titles = { ...s.titles }
+  const titleBusy = { ...s.titleBusy }
   delete statuses[agent.id]
   delete unread[agent.id]
   delete titles[agent.id]
+  delete titleBusy[agent.id]
   const nextSelected = s.selectedId === agent.id ? (agents[idx] ?? agents[idx - 1] ?? null) : null
   useStore.setState({
     agents,
     statuses,
     unread,
     titles,
+    titleBusy,
     dialog: null,
     selectedId: s.selectedId === agent.id ? (nextSelected?.id ?? null) : s.selectedId
   })

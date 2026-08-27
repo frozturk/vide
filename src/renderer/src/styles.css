@@ -12,6 +12,10 @@ body,
   padding: 6px;
 }
 
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 .hide-diff-nums .diff-line-old-num,
 .hide-diff-nums .diff-line-new-num,
 .hide-diff-nums .diff-line-num,

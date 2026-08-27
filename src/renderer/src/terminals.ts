@@ -23,6 +23,7 @@ export interface TermEntry {
   webgl: WebglAddon | null
   observer: ResizeObserver | null
   container: HTMLElement | null
+  nativeSelectionHandler: ((event: MouseEvent) => void) | null
   lastOutputAt: number
   lastResizeAt: number
 }
@@ -52,6 +53,7 @@ export function createTerminal(agentId: string): void {
     scrollback: 10000,
     // Keep trackpad scrolling at xterm's baseline speed.
     scrollSensitivity: 1,
+    macOptionClickForcesSelection: true,
     theme: {
       background: '#09090b',
       foreground: '#d4d4d8',
@@ -72,6 +74,13 @@ export function createTerminal(agentId: string): void {
       window.vide.ptyInput(agentId, '\x1b\r')
       return false
     }
+    if (e.type === 'keydown' && e.key.toLowerCase() === 'v' && e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault()
+      void window.vide.clipboardReadText().then((text) => {
+        if (text && terminals.get(agentId)?.term === term) term.paste(text)
+      })
+      return false
+    }
     if (e.type === 'keydown' && e.metaKey && !e.ctrlKey && !e.altKey) {
       const seq = MAC_LINE_EDIT[e.key]
       if (seq) {
@@ -87,7 +96,17 @@ export function createTerminal(agentId: string): void {
   })
   term.onData((d) => window.vide.ptyInput(agentId, d))
   term.onResize(({ cols, rows }) => window.vide.ptyResize(agentId, cols, rows))
-  const entry: TermEntry = { term, fit, search, webgl: null, observer: null, container: null, lastOutputAt: Date.now(), lastResizeAt: 0 }
+  const entry: TermEntry = {
+    term,
+    fit,
+    search,
+    webgl: null,
+    observer: null,
+    container: null,
+    nativeSelectionHandler: null,
+    lastOutputAt: Date.now(),
+    lastResizeAt: 0
+  }
   terminals.set(agentId, entry)
   const q = pending.get(agentId)
   if (q) {
@@ -100,6 +119,36 @@ export function attachTerminal(agentId: string, container: HTMLElement): void {
   const e = terminals.get(agentId)
   if (!e || e.container) return
   e.container = container
+  // tmux mouse mode is enabled for wheel scrolling, but its default drag action
+  // enters copy mode (yellow selection and a position counter). Force ordinary
+  // left drags through xterm's native selection path instead.
+  const isMac = navigator.platform.toLowerCase().includes('mac')
+  const nativeSelectionHandler = (event: MouseEvent): void => {
+    if (event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    event.target?.dispatchEvent(
+      new MouseEvent('mousedown', {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        view: event.view,
+        detail: event.detail,
+        screenX: event.screenX,
+        screenY: event.screenY,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        button: event.button,
+        buttons: event.buttons,
+        ctrlKey: event.ctrlKey,
+        altKey: isMac,
+        shiftKey: !isMac,
+        metaKey: event.metaKey
+      })
+    )
+  }
+  container.addEventListener('mousedown', nativeSelectionHandler, true)
+  e.nativeSelectionHandler = nativeSelectionHandler
   e.term.open(container)
   const ro = new ResizeObserver(() => {
     requestAnimationFrame(() => fitIfVisible(agentId))
@@ -195,6 +244,9 @@ export function disposeTerminal(agentId: string): void {
   pending.delete(agentId)
   if (!e) return
   e.observer?.disconnect()
+  if (e.container && e.nativeSelectionHandler) {
+    e.container.removeEventListener('mousedown', e.nativeSelectionHandler, true)
+  }
   e.webgl?.dispose()
   e.term.dispose()
 }

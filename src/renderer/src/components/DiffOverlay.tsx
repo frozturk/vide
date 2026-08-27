@@ -17,6 +17,118 @@ const STATUS_LETTER: Record<DiffFile['status'], { letter: string; color: string 
   untracked: { letter: 'U', color: '#4ade80' }
 }
 
+type Marker = { top: number; height: number; add: boolean }
+
+function measureMarkers(el: HTMLElement): Marker[] {
+  const total = el.scrollHeight
+  if (!total) return []
+  const origin = el.getBoundingClientRect().top - el.scrollTop
+  const px: { top: number; bottom: number; add: boolean }[] = []
+  for (const row of el.querySelectorAll<HTMLElement>('tr.diff-line')) {
+    const oldNum = row.querySelector('[data-line-old-num]')
+    const newNum = row.querySelector('[data-line-new-num]')
+    if (!oldNum === !newNum) continue
+    const rect = row.getBoundingClientRect()
+    const top = rect.top - origin
+    const add = !!newNum
+    const last = px[px.length - 1]
+    if (last && last.add === add && top - last.bottom < 1) last.bottom = top + rect.height
+    else px.push({ top, bottom: top + rect.height, add })
+  }
+  return px.map((m) => ({ top: m.top / total, height: (m.bottom - m.top) / total, add: m.add }))
+}
+
+function PreviewBar({
+  scrollRef,
+  watch
+}: {
+  scrollRef: React.RefObject<HTMLDivElement | null>
+  watch: string
+}): React.JSX.Element | null {
+  const barRef = useRef<HTMLDivElement>(null)
+  const [markers, setMarkers] = useState<Marker[]>([])
+  const [view, setView] = useState({ top: 0, height: 1 })
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    let measureFrame = 0
+    let viewFrame = 0
+    const syncView = (): void =>
+      setView({
+        top: el.scrollTop / el.scrollHeight,
+        height: Math.min(1, el.clientHeight / el.scrollHeight)
+      })
+    const remeasure = (): void => {
+      cancelAnimationFrame(measureFrame)
+      measureFrame = requestAnimationFrame(() => {
+        setMarkers(measureMarkers(el))
+        syncView()
+      })
+    }
+    const onScroll = (): void => {
+      cancelAnimationFrame(viewFrame)
+      viewFrame = requestAnimationFrame(syncView)
+    }
+    remeasure()
+    const mutations = new MutationObserver(remeasure)
+    mutations.observe(el, { childList: true, subtree: true })
+    const resize = new ResizeObserver(remeasure)
+    resize.observe(el)
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      cancelAnimationFrame(measureFrame)
+      cancelAnimationFrame(viewFrame)
+      mutations.disconnect()
+      resize.disconnect()
+      el.removeEventListener('scroll', onScroll)
+    }
+  }, [scrollRef, watch])
+
+  const scrollToPointer = useCallback(
+    (clientY: number): void => {
+      const el = scrollRef.current
+      const rect = barRef.current?.getBoundingClientRect()
+      if (!el || !rect) return
+      const frac = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height))
+      el.scrollTop = frac * el.scrollHeight - el.clientHeight / 2
+    },
+    [scrollRef]
+  )
+
+  if (markers.length === 0 && view.height >= 1) return null
+
+  return (
+    <div
+      ref={barRef}
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture(e.pointerId)
+        scrollToPointer(e.clientY)
+      }}
+      onPointerMove={(e) => {
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) scrollToPointer(e.clientY)
+      }}
+      className="relative w-3 shrink-0 cursor-pointer border-l border-zinc-800 bg-zinc-950"
+    >
+      {markers.map((m, i) => (
+        <div
+          key={i}
+          className="absolute inset-x-[2px] rounded-[1px]"
+          style={{
+            top: `${m.top * 100}%`,
+            height: `max(2px, ${m.height * 100}%)`,
+            background: m.add ? STATUS_LETTER.added.color : STATUS_LETTER.deleted.color
+          }}
+        />
+      ))}
+      <div
+        className="pointer-events-none absolute inset-x-0 bg-zinc-400/15"
+        style={{ top: `${view.top * 100}%`, height: `${view.height * 100}%` }}
+      />
+    </div>
+  )
+}
+
 const DiffBody = memo(function DiffBody({
   path,
   hunks,
@@ -26,27 +138,34 @@ const DiffBody = memo(function DiffBody({
   hunks: string
   showNums: boolean
 }): React.JSX.Element {
+  const scrollRef = useRef<HTMLDivElement>(null)
   return (
-    <div className={`min-w-0 flex-1 overflow-auto ${showNums ? '' : 'hide-diff-nums'}`}>
-      {hunks ? (
-        <DiffView
-          key={path}
-          data={{
-            oldFile: { fileName: path },
-            newFile: { fileName: path },
-            hunks: [hunks]
-          }}
-          diffViewMode={DiffModeEnum.Unified}
-          diffViewTheme="dark"
-          diffViewHighlight
-          diffViewFontSize={12}
-          diffViewWrap
-        />
-      ) : (
-        <div className="flex h-full items-center justify-center text-sm text-zinc-600">
-          binary, empty or too large
-        </div>
-      )}
+    <div className="flex min-w-0 flex-1">
+      <div
+        ref={scrollRef}
+        className={`hide-scrollbar min-w-0 flex-1 overflow-auto ${showNums ? '' : 'hide-diff-nums'}`}
+      >
+        {hunks ? (
+          <DiffView
+            key={path}
+            data={{
+              oldFile: { fileName: path },
+              newFile: { fileName: path },
+              hunks: [hunks]
+            }}
+            diffViewMode={DiffModeEnum.Unified}
+            diffViewTheme="dark"
+            diffViewHighlight
+            diffViewFontSize={12}
+            diffViewWrap
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-sm text-zinc-600">
+            binary, empty or too large
+          </div>
+        )}
+      </div>
+      <PreviewBar scrollRef={scrollRef} watch={`${path}\0${showNums}\0${hunks.length}`} />
     </div>
   )
 })
@@ -145,6 +264,7 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
     () => localStorage.getItem('diffTreeExpanded') === '1'
   )
   const [showNums, setShowNums] = useState(() => localStorage.getItem('diffShowNums') === '1')
+  const [fullFile, setFullFile] = useState(() => localStorage.getItem('diffFullFile') !== '0')
   const [hasMore, setHasMore] = useState(false)
   const [frac, setFrac] = useHSplit('diffSplit', DEFAULT_PANE_FRACTION, 0.2, 0.85)
   const [sidebarFrac, setSidebarFrac] = useHSplit('diffSidebarSplit', 0.25, 0.12, 0.6)
@@ -153,7 +273,7 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
   const refresh = useCallback(async (): Promise<void> => {
     if (!cwd) return
     try {
-      const res = await window.vide.diffGet(cwd, selectedRef ?? undefined)
+      const res = await window.vide.diffGet(cwd, selectedRef ?? undefined, fullFile)
       setResult(res)
       if (res.kind === 'ok') {
         setSelectedPath((prev) =>
@@ -164,7 +284,7 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
     } catch (err) {
       setResult({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
     }
-  }, [cwd, selectedRef])
+  }, [cwd, selectedRef, fullFile])
 
   useEffect(() => {
     rootRef.current?.focus()
@@ -241,6 +361,13 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
             localStorage.setItem('diffShowNums', next ? '1' : '0')
             return next
           })
+        } else if (e.key === 'f') {
+          e.preventDefault()
+          setFullFile((v) => {
+            const next = !v
+            localStorage.setItem('diffFullFile', next ? '1' : '0')
+            return next
+          })
         } else if (e.key === 'o') {
           e.preventDefault()
           openFile(selectedPath)
@@ -269,7 +396,10 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
             <span className="min-w-0 truncate text-zinc-600">{selected.path}</span>
           </>
         )}
-        <span className="ml-auto shrink-0">j/k navigate · o open · n numbers · r refresh · esc close</span>
+        <span className="ml-auto shrink-0">
+          j/k navigate · o open · f {fullFile ? 'hunks' : 'full file'} · n numbers · r refresh · esc
+          close
+        </span>
       </div>
       {result?.kind === 'no-repo' && (
         <div className="flex flex-1 items-center justify-center text-sm text-zinc-600">not a git repository</div>

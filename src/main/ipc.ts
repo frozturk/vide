@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron'
 import { randomUUID } from 'crypto'
 import type { AttachRequest, Config, KillRequest, SpawnRequest } from '../shared/types'
 import { configPath, getConfig, reloadConfig, saveConfig } from './config'
@@ -146,7 +146,9 @@ export function wireIpc(win: BrowserWindow): void {
     await removeWorktree({ path: p.path, force: true, deleteBranch: false })
   })
 
-  ipcMain.handle('diff:get', (_e, p: { cwd: string; ref?: string }) => getDiff(p.cwd, p.ref))
+  ipcMain.handle('diff:get', (_e, p: { cwd: string; ref?: string; full?: boolean }) =>
+    getDiff(p.cwd, p.ref, p.full)
+  )
   ipcMain.handle('diff:statusHash', (_e, p: { cwd: string }) => statusHash(p.cwd))
   ipcMain.handle('git:log', (_e, p: { cwd: string; skip?: number }) => gitLog(p.cwd, p.skip))
   ipcMain.handle('git:summary', (_e, p: { cwd: string }) => gitSummary(p.cwd))
@@ -178,6 +180,8 @@ export function wireIpc(win: BrowserWindow): void {
     const r = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'] })
     return r.canceled ? null : (r.filePaths[0] ?? null)
   })
+
+  ipcMain.handle('clipboard:readText', () => clipboard.readText())
 
   ipcMain.on('pty:input', (_e, p: { agentId: string; data: string }) => writePty(p.agentId, p.data))
   ipcMain.on('pty:resize', (_e, p: { agentId: string; cols: number; rows: number }) =>

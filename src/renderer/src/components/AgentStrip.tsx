@@ -32,6 +32,8 @@ function repoColor(root: string): { bg: string; bgActive: string; border: string
   return result
 }
 
+const RAIL_WIDTH = 14
+
 export const STATUS_COLOR: Record<AgentStatus, string> = {
   busy: '#4ade80',
   waiting: '#f59e0b',
@@ -57,8 +59,8 @@ export function AgentStrip(): React.JSX.Element | null {
   return (
     <>
       <div
-        className="fixed left-0 z-30 flex flex-col items-center bg-zinc-900 pt-3"
-        style={{ width: 14, top: TOOLBAR_HEIGHT, bottom: 0 }}
+        className="fixed left-0 z-50 flex flex-col items-center bg-zinc-900 pt-3"
+        style={{ width: RAIL_WIDTH, top: TOOLBAR_HEIGHT, bottom: 0 }}
         onMouseEnter={panelHoverEnter}
         onMouseLeave={panelHoverLeave}
       >
@@ -96,10 +98,10 @@ export function AgentStrip(): React.JSX.Element | null {
         })}
       </div>
       <div
-        className={`fixed left-0 z-40 flex w-64 flex-col border-r border-zinc-800 bg-zinc-950/95 backdrop-blur transition-transform duration-150 ease-out ${
+        className={`fixed z-40 flex w-64 flex-col border-r border-zinc-800 bg-zinc-950/95 backdrop-blur transition-transform duration-150 ease-out ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
-        style={{ top: TOOLBAR_HEIGHT, bottom: 0 }}
+        style={{ top: TOOLBAR_HEIGHT, bottom: 0, left: RAIL_WIDTH }}
         onMouseEnter={panelHoverEnter}
         onMouseLeave={panelHoverLeave}
       >
