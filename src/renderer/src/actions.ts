@@ -95,13 +95,13 @@ export function selectTerminalSibling(delta: 1 | -1): void {
   selectAgent(agents[(idx + delta + agents.length) % agents.length].id, 'click')
 }
 
-export function selectNextNonIdleTerminal(): void {
+export function selectNextAttentionTerminal(): void {
   const s = useStore.getState()
-  if (s.agents.length === 0) return
+  if (s.agents.length < 2) return
   const current = s.agents.findIndex((agent) => agent.id === s.selectedId)
-  for (let offset = 1; offset <= s.agents.length; offset += 1) {
+  for (let offset = 1; offset < s.agents.length; offset += 1) {
     const candidate = s.agents[(current + offset + s.agents.length) % s.agents.length]
-    if ((s.statuses[candidate.id] ?? 'idle') !== 'idle') {
+    if ((s.statuses[candidate.id] ?? 'idle') !== 'idle' || s.unread[candidate.id]) {
       selectAgent(candidate.id, 'keyboard')
       return
     }

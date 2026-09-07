@@ -10,7 +10,7 @@ import {
   removeCurrentProject,
   reloadConfig,
   selectAgent,
-  selectNextNonIdleTerminal,
+  selectNextAttentionTerminal,
   selectWorkspace,
   spawnInDir,
   toggleOverlay
@@ -92,7 +92,7 @@ function CommandPaletteInner(): React.JSX.Element {
       { id: 'cmd:remove-project', label: 'Remove Current Project', hint: 'files stay on disk', action: () => void removeCurrentProject() },
       { id: 'cmd:diff', label: 'Toggle Diff', hint: 'command', kbd: '⌘D', action: () => toggleOverlay('diff') },
       { id: 'cmd:find', label: 'Find in Terminal', hint: 'command', kbd: '⌘F', action: openSearch },
-      { id: 'cmd:next-non-idle', label: 'Next Non-idle Terminal', hint: 'across all workspaces', kbd: '⌘E', action: selectNextNonIdleTerminal },
+      { id: 'cmd:next-attention', label: 'Next Attention Terminal', hint: 'non-idle or unread across all workspaces', kbd: '⌘E', action: selectNextAttentionTerminal },
       { id: 'cmd:settings', label: 'Settings', hint: 'command', action: () => useStore.setState({ settingsOpen: true }) },
       { id: 'cmd:reload', label: 'Reload Config', hint: 'command', kbd: '⌘⇧R', action: () => void reloadConfig() }
     )

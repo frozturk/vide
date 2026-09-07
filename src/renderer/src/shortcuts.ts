@@ -12,7 +12,7 @@ import {
   reloadConfig,
   requestClose,
   selectSibling,
-  selectNextNonIdleTerminal,
+  selectNextAttentionTerminal,
   selectTerminalSibling,
   selectWorkspace,
   toggleOverlay,
@@ -54,8 +54,8 @@ export function dispatch(chord: ChordId): void {
     case 'find':
       openSearch()
       break
-    case 'next-non-idle':
-      selectNextNonIdleTerminal()
+    case 'next-attention':
+      selectNextAttentionTerminal()
       break
     case 'reload-config':
       void reloadConfig()
