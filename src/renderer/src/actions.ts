@@ -76,9 +76,15 @@ export function selectWorkspace(id: string, via: 'keyboard' | 'click'): void {
 export function selectSibling(delta: 1 | -1): void {
   const s = useStore.getState()
   if (s.workspaces.length === 0) return
-  const idx = s.workspaces.findIndex((w) => w.id === s.selectedWorkspaceId)
-  const next = s.workspaces[(idx + delta + s.workspaces.length) % s.workspaces.length]
-  selectWorkspace(next.id, 'keyboard')
+  const current = s.workspaces.findIndex((w) => w.id === s.selectedWorkspaceId)
+  for (let offset = 1; offset <= s.workspaces.length; offset += 1) {
+    const index = (current + delta * offset + s.workspaces.length) % s.workspaces.length
+    const candidate = s.workspaces[index]
+    if (s.agents.some((agent) => agent.workspaceId === candidate.id)) {
+      selectWorkspace(candidate.id, 'keyboard')
+      return
+    }
+  }
 }
 
 export function selectTerminalSibling(delta: 1 | -1): void {

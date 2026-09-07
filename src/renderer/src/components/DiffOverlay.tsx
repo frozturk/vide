@@ -529,7 +529,8 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
               }
               onSelect={(ref) => {
                 setSelectedRef(ref)
-                if (ref) setAllChanges(false)
+                setAllChanges(false)
+                localStorage.setItem('diffAllChanges', '0')
               }}
               onSelectAll={() => {
                 if (!allChanges || selectedRef) toggleAllChanges()

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { Agent, AgentStatus, Config, Project, RecentDir, Workspace } from '../../shared/types'
+import { PANEL_MAX_WIDTH, PANEL_MIN_WIDTH, PANEL_WIDTH } from '../../shared/layout'
 
 export type PanelState = 'closed' | 'hover' | 'keyboard'
 export type OverlayState = 'none' | 'diff'
@@ -24,6 +25,7 @@ export interface VideStore {
   titleBusy: Record<string, boolean>
   panel: PanelState
   panelPinned: boolean
+  panelWidth: number
   overlay: OverlayState
   dialog: DialogState | null
   recentDirs: RecentDir[]
@@ -48,6 +50,7 @@ export const useStore = create<VideStore>(() => ({
   titleBusy: {},
   panel: 'closed',
   panelPinned: localStorage.getItem('panelPinned') === '1',
+  panelWidth: Math.min(PANEL_MAX_WIDTH, Math.max(PANEL_MIN_WIDTH, Number(localStorage.getItem('panelWidth')) || PANEL_WIDTH)),
   overlay: 'none',
   dialog: null,
   recentDirs: [],

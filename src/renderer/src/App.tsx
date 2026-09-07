@@ -1,6 +1,6 @@
 import { useStore } from './store'
 import { TopBar } from './components/TopBar'
-import { PANEL_WIDTH, RAIL_WIDTH, TOOLBAR_HEIGHT } from '../../shared/layout'
+import { RAIL_WIDTH, TOOLBAR_HEIGHT } from '../../shared/layout'
 import { TerminalPane } from './components/TerminalPane'
 import { AgentStrip } from './components/AgentStrip'
 import { DiffOverlay } from './components/DiffOverlay'
@@ -13,11 +13,12 @@ import { Spinner } from './components/Spinner'
 export default function App(): React.JSX.Element {
   const booting = useStore((s) => s.booting)
   const pinned = useStore((s) => s.panelPinned)
+  const panelWidth = useStore((s) => s.panelWidth)
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-zinc-950 text-zinc-200">
       <TopBar />
-      <div style={{ position: 'absolute', inset: `${TOOLBAR_HEIGHT}px 0 0 ${pinned ? RAIL_WIDTH + PANEL_WIDTH : RAIL_WIDTH}px`, transition: 'left 150ms' }}>
+      <div style={{ position: 'absolute', inset: `${TOOLBAR_HEIGHT}px 0 0 ${pinned ? RAIL_WIDTH + panelWidth : RAIL_WIDTH}px`, transition: 'left 150ms' }}>
         <TerminalPane />
       </div>
       <AgentStrip />
