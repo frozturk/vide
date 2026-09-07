@@ -95,6 +95,19 @@ export function selectTerminalSibling(delta: 1 | -1): void {
   selectAgent(agents[(idx + delta + agents.length) % agents.length].id, 'click')
 }
 
+export function selectNextNonIdleTerminal(): void {
+  const s = useStore.getState()
+  if (s.agents.length === 0) return
+  const current = s.agents.findIndex((agent) => agent.id === s.selectedId)
+  for (let offset = 1; offset <= s.agents.length; offset += 1) {
+    const candidate = s.agents[(current + offset + s.agents.length) % s.agents.length]
+    if ((s.statuses[candidate.id] ?? 'idle') !== 'idle') {
+      selectAgent(candidate.id, 'keyboard')
+      return
+    }
+  }
+}
+
 function sortAgents(agents: Agent[]): Agent[] {
   const groupSeen = new Map<string, number>()
   for (const a of agents) {

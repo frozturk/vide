@@ -7,6 +7,7 @@ export type ChordId =
   | 'diff'
   | 'palette'
   | 'find'
+  | 'next-non-idle'
   | 'reload-config'
   | 'open-config'
   | 'jump-1'
@@ -36,6 +37,7 @@ export const CHORDS: ChordDef[] = [
   { id: 'diff', key: 'd' },
   { id: 'palette', key: 'k' },
   { id: 'find', key: 'f' },
+  { id: 'next-non-idle', key: 'e' },
   { id: 'reload-config', key: 'r', shift: true },
   { id: 'open-config', key: ',' },
   ...jumps
