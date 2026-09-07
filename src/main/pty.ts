@@ -5,6 +5,7 @@ import { basename } from 'path'
 import { existsSync } from 'fs'
 import { homedir } from 'os'
 import type { WebContents } from 'electron'
+import { ownsTmuxSession, tmuxSessionPrefix } from './runtime'
 
 const exec = promisify(execFile)
 
@@ -83,12 +84,13 @@ function sanitize(s: string): string {
 }
 
 export function sessionName(agentId: string, kindId?: string, cwd?: string): string {
-  if (!agentId) return 'vide-session'
+  const prefix = tmuxSessionPrefix()
+  if (!agentId) return `${prefix}session`
   const short = agentId.slice(0, 6)
   if (kindId && cwd) {
-    return `vide-${sanitize(kindId)}-${sanitize(basename(cwd))}-${short}`
+    return `${prefix}${sanitize(kindId)}-${sanitize(basename(cwd))}-${short}`
   }
-  return `vide-${short}`
+  return `${prefix}${short}`
 }
 
 async function tmux(args: string[]): Promise<string> {
@@ -243,7 +245,7 @@ export async function reapOrphanSessions(keepNames: Set<string>): Promise<void> 
   }
   for (const line of list.split('\n')) {
     const name = line.trim()
-    if (!name.startsWith('vide-')) continue
+    if (!ownsTmuxSession(name)) continue
     if (keepNames.has(name)) continue
     await exec1(getTmux(), ['kill-session', '-t', name])
     console.log('[vide/reap] killed orphan tmux session:', name)

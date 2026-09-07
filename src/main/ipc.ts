@@ -1,7 +1,7 @@
 import { BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron'
 import { execFile } from 'child_process'
 import { randomUUID } from 'crypto'
-import type { AttachRequest, Config, KillRequest, SpawnRequest } from '../shared/types'
+import type { Agent, AttachRequest, Config, KillRequest, ProjectAddRequest, SpawnRequest, WorkspaceAdoptRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest } from '../shared/types'
 import { configPath, getConfig, reloadConfig, saveConfig } from './config'
 import {
   checkoutBranch,
@@ -19,8 +19,9 @@ import {
   worktreeStatus
 } from './git'
 import { attachPty, killPty, resizePty, sessionName, spawnPty, writePty } from './pty'
-import { loadSession, saveSession, loadRecent, saveRecent } from './session'
+import { loadSession, loadRecent, saveRecent } from './session'
 import type { RecentDir, SessionAgent } from '../shared/types'
+import { loadState, saveState, updateAgents } from './state'
 
 function shellQuote(s: string): string {
   return `'${s.replace(/'/g, `'\\''`)}'`
@@ -36,6 +37,47 @@ export function buildCommand(template: string, prompt?: string): string {
   return p ? `${t} ${shellQuote(p)}` : t
 }
 
+async function spawnAgent(req: SpawnRequest): Promise<Agent> {
+  const cfg = getConfig()
+  const kind = cfg.agentKinds.find((k) => k.id === req.kindId)
+  if (!kind) throw new Error(`unknown agent kind: ${req.kindId}`)
+  let cwd = req.cwd
+  let worktreePath: string | undefined
+  let worktreeBranch: string | undefined
+  let baseSha: string | undefined
+  if (req.adoptWorktreePath) {
+    cwd = req.adoptWorktreePath
+    worktreePath = cwd
+    worktreeBranch = (await currentBranch(cwd)) ?? undefined
+  } else if (req.worktreeName?.trim()) {
+    const wt = await createWorktree(req.cwd, kind.id, req.worktreeName.trim())
+    cwd = wt.path
+    worktreePath = wt.path
+    worktreeBranch = wt.branch
+    baseSha = wt.baseSha
+  }
+  const root = await repoRoot(cwd)
+  const projectRoot = await projectRootOf(cwd)
+  const id = randomUUID()
+  const sh = cfg.shell ?? process.env.SHELL ?? '/bin/zsh'
+  const sName = sessionName(id, kind.id, cwd)
+  await spawnPty(id, sh, buildCommand(kind.command), cwd, kind.id)
+  return {
+    id,
+    workspaceId: req.workspaceId ?? '',
+    kindId: kind.id,
+    title: sName,
+    sessionName: sName,
+    cwd,
+    repoRoot: root,
+    projectRoot,
+    worktreePath,
+    worktreeBranch,
+    baseSha,
+    createdAt: Date.now()
+  }
+}
+
 export function wireIpc(win: BrowserWindow): void {
   ipcMain.handle('config:get', () => getConfig())
   ipcMain.handle('config:reload', () => reloadConfig())
@@ -48,43 +90,10 @@ export function wireIpc(win: BrowserWindow): void {
   })
 
   ipcMain.handle('agent:spawn', async (_e, req: SpawnRequest) => {
-    const cfg = getConfig()
-    const kind = cfg.agentKinds.find((k) => k.id === req.kindId)
-    if (!kind) throw new Error(`unknown agent kind: ${req.kindId}`)
-    let cwd = req.cwd
-    let worktreePath: string | undefined
-    let worktreeBranch: string | undefined
-    let baseSha: string | undefined
-    if (req.adoptWorktreePath) {
-      cwd = req.adoptWorktreePath
-      worktreePath = cwd
-      worktreeBranch = (await currentBranch(cwd)) ?? undefined
-    } else if (req.worktreeName?.trim()) {
-      const wt = await createWorktree(req.cwd, kind.id, req.worktreeName.trim())
-      cwd = wt.path
-      worktreePath = wt.path
-      worktreeBranch = wt.branch
-      baseSha = wt.baseSha
-    }
-    const root = await repoRoot(cwd)
-    const projectRoot = await projectRootOf(cwd)
-    const id = randomUUID()
-    const sh = cfg.shell ?? process.env.SHELL ?? '/bin/zsh'
-    const sName = sessionName(id, kind.id, cwd)
-    await spawnPty(id, sh, buildCommand(kind.command), cwd, kind.id)
-    return {
-      id,
-      kindId: kind.id,
-      title: sName,
-      sessionName: sName,
-      cwd,
-      repoRoot: root,
-      projectRoot,
-      worktreePath,
-      worktreeBranch,
-      baseSha,
-      createdAt: Date.now()
-    }
+    const agent = await spawnAgent(req)
+    const state = await loadState()
+    saveState({ ...state, agents: [...state.agents, { id: agent.id, workspaceId: agent.workspaceId, kindId: agent.kindId, cwd: agent.cwd, worktreePath: agent.worktreePath, worktreeBranch: agent.worktreeBranch, baseSha: agent.baseSha, createdAt: agent.createdAt }] })
+    return agent
   })
 
   ipcMain.handle('agent:attach', async (_e, req: AttachRequest) => {
@@ -98,6 +107,7 @@ export function wireIpc(win: BrowserWindow): void {
     const projectRoot = await projectRootOf(req.cwd).catch(() => req.cwd)
     return {
       id: req.id,
+      workspaceId: req.workspaceId ?? '',
       kindId: kind.id,
       title: sName,
       sessionName: sName,
@@ -112,7 +122,78 @@ export function wireIpc(win: BrowserWindow): void {
   })
 
   ipcMain.handle('session:load', () => loadSession())
-  ipcMain.handle('session:save', (_e, agents: SessionAgent[]) => saveSession(agents))
+  ipcMain.handle('session:save', (_e, agents: SessionAgent[]) => updateAgents(agents))
+  ipcMain.handle('state:load', () => loadState())
+  ipcMain.handle('project:add', async (_e, req: ProjectAddRequest) => {
+    if (!(await repoRoot(req.path))) throw new Error('Projects must be Git repositories')
+    const rootPath = await projectRootOf(req.path)
+    const state = await loadState()
+    const existing = state.projects.find((p) => p.rootPath === rootPath)
+    if (existing) {
+      const workspace = state.workspaces.find((w) => w.projectId === existing.id && w.kind === 'main')
+      if (!workspace) throw new Error('Project is missing its Main workspace')
+      return { project: existing, workspace }
+    }
+    const now = Date.now()
+    const project = { id: randomUUID(), name: rootPath.split('/').pop() || rootPath, rootPath, createdAt: now, lastOpenedAt: now }
+    const workspace = { id: randomUUID(), projectId: project.id, name: 'Main', kind: 'main' as const, path: rootPath, createdAt: now }
+    saveState({ ...state, projects: [...state.projects, project], workspaces: [...state.workspaces, workspace] })
+    return { project, workspace }
+  })
+  ipcMain.handle('project:remove', async (_e, p: { projectId: string }) => {
+    const state = await loadState()
+    const workspaceIds = new Set(state.workspaces.filter((w) => w.projectId === p.projectId).map((w) => w.id))
+    if (state.workspaces.some((w) => w.projectId === p.projectId && w.kind === 'worktree')) throw new Error('Delete isolated workspaces first')
+    if (state.agents.some((a) => a.workspaceId && workspaceIds.has(a.workspaceId))) throw new Error('Close project terminals first')
+    saveState({ ...state, projects: state.projects.filter((x) => x.id !== p.projectId), workspaces: state.workspaces.filter((w) => w.projectId !== p.projectId) })
+  })
+  ipcMain.handle('workspace:create', async (_e, req: WorkspaceCreateRequest) => {
+    const state = await loadState()
+    const project = state.projects.find((p) => p.id === req.projectId)
+    if (!project) throw new Error('Project not found')
+    const wt = await createWorktree(project.rootPath, 'workspace', req.name)
+    const workspace = { id: randomUUID(), projectId: project.id, name: wt.name, kind: 'worktree' as const, path: wt.path, branch: wt.branch, baseSha: wt.baseSha, createdAt: Date.now() }
+    saveState({ ...state, workspaces: [...state.workspaces, workspace] })
+    try {
+      const agent = await spawnAgent({ kindId: req.kindId, cwd: workspace.path, workspaceId: workspace.id })
+      const next = await loadState()
+      saveState({ ...next, agents: [...next.agents, { id: agent.id, workspaceId: workspace.id, kindId: agent.kindId, cwd: agent.cwd, worktreePath: workspace.path, worktreeBranch: workspace.branch, baseSha: workspace.baseSha, createdAt: agent.createdAt }] })
+      return { workspace, agent }
+    } catch (err) {
+      return { workspace, launchError: err instanceof Error ? err.message : String(err) }
+    }
+  })
+  ipcMain.handle('workspace:adopt', async (_e, req: WorkspaceAdoptRequest) => {
+    const state = await loadState()
+    const project = state.projects.find((p) => p.id === req.projectId)
+    if (!project) throw new Error('Project not found')
+    const livePaths = state.workspaces.filter((w) => w.kind === 'worktree').map((w) => w.path)
+    const orphan = (await orphanWorktrees(project.rootPath, livePaths)).find((w) => w.path === req.path)
+    if (!orphan) throw new Error('Worktree is already managed or is not a Vide worktree')
+    const workspace = { id: randomUUID(), projectId: project.id, name: orphan.path.split('/').pop() || orphan.branch, kind: 'worktree' as const, path: orphan.path, branch: orphan.branch, createdAt: Date.now() }
+    saveState({ ...state, workspaces: [...state.workspaces, workspace] })
+    try {
+      const agent = await spawnAgent({ kindId: req.kindId, cwd: workspace.path, workspaceId: workspace.id })
+      const next = await loadState()
+      saveState({ ...next, agents: [...next.agents, { id: agent.id, workspaceId: workspace.id, kindId: agent.kindId, cwd: agent.cwd, worktreePath: workspace.path, worktreeBranch: workspace.branch, createdAt: agent.createdAt }] })
+      return { workspace, agent }
+    } catch (err) {
+      return { workspace, launchError: err instanceof Error ? err.message : String(err) }
+    }
+  })
+  ipcMain.handle('workspace:delete', async (_e, req: WorkspaceDeleteRequest) => {
+    const state = await loadState()
+    const workspace = state.workspaces.find((w) => w.id === req.workspaceId)
+    if (!workspace) throw new Error('Workspace not found')
+    if (workspace.kind === 'main') throw new Error('The Main workspace cannot be deleted')
+    const info = await worktreeStatus(workspace.path, workspace.baseSha)
+    if ((info.dirty || info.hasOwnCommits) && !req.force) throw new Error('Workspace has changes or commits; force confirmation required')
+    const owned = state.agents.filter((a) => a.workspaceId === workspace.id)
+    for (const agent of owned) await killPty(agent.id)
+    const result = await removeWorktree({ path: workspace.path, branch: workspace.branch, force: info.dirty, deleteBranch: req.deleteBranch })
+    saveState({ ...state, workspaces: state.workspaces.filter((w) => w.id !== workspace.id), agents: state.agents.filter((a) => a.workspaceId !== workspace.id) })
+    return result
+  })
   ipcMain.handle('recent:load', () => loadRecent())
   ipcMain.handle('recent:save', (_e, dirs: RecentDir[]) => saveRecent(dirs))
 
@@ -122,6 +203,8 @@ export function wireIpc(win: BrowserWindow): void {
 
   ipcMain.handle('agent:kill', async (_e, req: KillRequest) => {
     await killPty(req.agentId)
+    const state = await loadState()
+    saveState({ ...state, agents: state.agents.filter((a) => a.id !== req.agentId) })
     if (req.worktree) return removeWorktree(req.worktree)
     return { branchKept: false }
   })

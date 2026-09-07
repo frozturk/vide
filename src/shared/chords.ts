@@ -2,6 +2,7 @@ export type ChordId =
   | 'prev'
   | 'next'
   | 'spawn'
+  | 'new-workspace'
   | 'close'
   | 'diff'
   | 'palette'
@@ -30,6 +31,7 @@ export const CHORDS: ChordDef[] = [
   { id: 'prev', key: 'arrowup' },
   { id: 'next', key: 'arrowdown' },
   { id: 'spawn', key: 't' },
+  { id: 'new-workspace', key: 'n' },
   { id: 'close', key: 'w' },
   { id: 'diff', key: 'd' },
   { id: 'palette', key: 'k' },

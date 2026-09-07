@@ -2,9 +2,10 @@ import { app } from 'electron'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import type { RecentDir, SessionAgent } from '../shared/types'
+import { runtimeStateFile } from './runtime'
 
 function sessionPath(): string {
-  return join(app.getPath('userData'), 'session.json')
+  return join(app.getPath('userData'), runtimeStateFile('session'))
 }
 
 function recentPath(): string {

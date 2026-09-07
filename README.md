@@ -3,10 +3,9 @@
 A keyboard-driven desktop shell for running multiple AI coding agents in
 parallel.
 
-Vide spawns each agent in its own tmux-backed terminal inside a single window,
-so you can keep a fleet of Claude Code, Codex, and OpenCode sessions running
-side by side — each isolated in its own git worktree — and never lose them when
-the app closes.
+Vide organizes repositories into projects, gives each project a permanent Main
+workspace plus isolated git-worktree workspaces, and runs one or more
+tmux-backed agent terminals in each workspace.
 
 ## Features
 
@@ -14,9 +13,13 @@ the app closes.
 PTY backed by a tmux session, so it survives app restarts. Reopen vide and
 your agents are right where you left them.
 
-**Git worktree isolation** — Optionally spawn an agent in a fresh worktree on a
-new `vide/<slug>` branch off HEAD. Orphaned worktrees are detected and can be
-adopted or deleted from the spawn dialog.
+**Projects and workspaces** — Register a Git repository once, work directly in
+its permanent Main workspace, or create isolated workspaces for parallel work.
+Each workspace can contain multiple agent and shell terminals.
+
+**Git worktree isolation** — New workspaces get a unique `vide/<slug>` branch
+off Main's current HEAD. Orphaned Vide worktrees can be adopted. Closing a
+terminal never removes its workspace.
 
 **Live status detection** — Per-agent regexes parse terminal output to show
 `busy`, `waiting`, `idle`, or `exited` at a glance, with pulsing dots and
@@ -26,8 +29,8 @@ unread indicators in the agent strip.
 file status letters, and untracked-file support. Built on
 `@git-diff-view/react`.
 
-**Keyboard-first** — `⌘T` spawn, `⌘W` close, `⌘↑/↓` switch agents, `⌘1`–`⌘9`
-jump, `⌘D` diff, `⌘,` open config, `⌘⇧R` reload config.
+**Keyboard-first** — `⌘N` workspace, `⌘T` new agent with optional worktree, `⌘W` close terminal,
+`⌘↑/↓` switch workspaces, `Ctrl+Tab` switch terminals, and `⌘D` diff.
 
 **macOS-native chrome** — Hidden inset title bar, traffic lights, dark zinc
 palette.
@@ -124,29 +127,35 @@ default for ad hoc terminals.
 
 ## How sessions work
 
-Each spawned agent creates a detached tmux session named
-`vide-<kind>-<dir>-<shortid>`. vide attaches a node-pty to it and streams
+Each terminal creates a detached tmux session named
+`vide-<kind>-<dir>-<shortid>` (`vide-dev-*` during `npm run dev`). Development
+also uses `state.dev.json`, so it cannot attach to or overwrite production
+terminal metadata. vide attaches a node-pty to the session and streams
 output to the renderer. When you quit vide with agents still running, the tmux
 sessions are left alive in the background; on next launch, vide reattaches
-automatically. Orphaned `vide-*` sessions from crashed runs are reaped on
-startup.
+automatically. Orphaned sessions are reaped only within the current runtime's
+production or development namespace.
 
-## How worktrees work
+## How projects and workspaces work
 
-When you give an agent a worktree name (optional), vide runs
-`git worktree add -b vide/<slug> <path> HEAD` inside the chosen repo, creating
-`.vide/worktrees/<slug>` (gitignored automatically) and a branch
-`vide/<slug>`. The agent's terminal starts in that worktree. On close, vide
-offers to remove the worktree and delete the branch.
+Adding a project creates a permanent Main workspace for the repository root.
+Creating an isolated workspace runs `git worktree add -b vide/<slug> <path>
+HEAD`, then launches the selected agent there. Additional terminals share the
+same workspace. Deleting a dirty workspace requires typed confirmation;
+branches containing commits are preserved unless explicitly selected for
+deletion.
 
 ## Shortcuts
 
 | chord   | action                         |
 | ------- | ----------------------------- |
-| `⌘T`    | Spawn new agent               |
-| `⌘W`    | Close current agent           |
-| `⌘↑/↓`  | Previous / next agent         |
-| `⌘1`–`9` | Jump to agent N               |
+| `⌘N`    | Create workspace and launch agent |
+| `⌘T`    | New agent (optional worktree) |
+| `⌘W`    | Close current terminal        |
+| `⌘↑/↓`  | Previous / next workspace     |
+| `⌘1`–`9` | Jump to workspace N          |
+| `Ctrl+Tab` | Next terminal in workspace  |
+| `Ctrl+Shift+Tab` | Previous terminal       |
 | `⌘D`    | Toggle diff overlay           |
 | `⌘,`    | Open config file              |
 | `⌘⇧R`   | Reload config                 |

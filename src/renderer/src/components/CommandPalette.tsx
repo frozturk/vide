@@ -3,9 +3,14 @@ import { useStore } from '../store'
 import {
   closePalette,
   openSearch,
+  openAddTerminalDialog,
+  openNewWorkspaceDialog,
   openSpawnDialog,
+  requestDeleteWorkspace,
+  removeCurrentProject,
   reloadConfig,
   selectAgent,
+  selectWorkspace,
   spawnInDir,
   toggleOverlay
 } from '../actions'
@@ -54,25 +59,36 @@ function CommandPaletteInner(): React.JSX.Element {
   const config = useStore((s) => s.config)
   const recentDirs = useStore((s) => s.recentDirs)
   const selectedId = useStore((s) => s.selectedId)
+  const selectedWorkspaceId = useStore((s) => s.selectedWorkspaceId)
+  const workspaces = useStore((s) => s.workspaces)
+  const projects = useStore((s) => s.projects)
   const [query, setQuery] = useState('')
   const [index, setIndex] = useState(0)
   const listRef = useRef<HTMLDivElement>(null)
 
   const items = useMemo<PaletteItem[]>(() => {
-    const all: PaletteItem[] = agents.map((a) => {
+    const all: PaletteItem[] = workspaces.map((w) => {
+      const project = projects.find((p) => p.id === w.projectId)
+      return { id: `workspace:${w.id}`, label: `${project?.name ?? 'Project'} / ${w.kind === 'main' ? 'Main' : w.name}`, hint: w.branch ?? w.path, action: () => selectWorkspace(w.id, 'click') }
+    })
+    all.push(...agents.map((a) => {
       const kind = config?.agentKinds.find((k) => k.id === a.kindId)
       return {
         id: `agent:${a.id}`,
         label: titles[a.id] ?? a.sessionName,
-        hint: `${basename(a.projectRoot)} · ${statuses[a.id] ?? 'idle'}`,
+        hint: `${workspaces.find((w) => w.id === a.workspaceId)?.name ?? basename(a.projectRoot)} · ${statuses[a.id] ?? 'idle'}`,
         kindId: a.kindId,
         kindColor: kind?.color,
         status: statuses[a.id] ?? 'idle',
         action: () => selectAgent(a.id, 'click')
       }
-    })
+    }))
     all.push(
-      { id: 'cmd:spawn', label: 'New Agent', hint: 'command', kbd: '⌘T', action: openSpawnDialog },
+      { id: 'cmd:workspace', label: 'New Workspace', hint: 'command', kbd: '⌘N', action: openNewWorkspaceDialog },
+      { id: 'cmd:spawn', label: 'New Agent', hint: 'choose directory or worktree', kbd: '⌘T', action: openSpawnDialog },
+      { id: 'cmd:add-terminal', label: 'Add Terminal to Current Workspace', hint: 'command', action: openAddTerminalDialog },
+      { id: 'cmd:delete-workspace', label: 'Delete Current Workspace', hint: 'command', action: () => void requestDeleteWorkspace() },
+      { id: 'cmd:remove-project', label: 'Remove Current Project', hint: 'files stay on disk', action: () => void removeCurrentProject() },
       { id: 'cmd:diff', label: 'Toggle Diff', hint: 'command', kbd: '⌘D', action: () => toggleOverlay('diff') },
       { id: 'cmd:find', label: 'Find in Terminal', hint: 'command', kbd: '⌘F', action: openSearch },
       { id: 'cmd:settings', label: 'Settings', hint: 'command', action: () => useStore.setState({ settingsOpen: true }) },
@@ -87,7 +103,7 @@ function CommandPaletteInner(): React.JSX.Element {
       })
     }
     return all
-  }, [agents, statuses, titles, config, recentDirs])
+  }, [agents, statuses, titles, config, recentDirs, workspaces, projects])
 
   const filtered = useMemo(() => {
     if (!query.trim()) return items
@@ -162,6 +178,7 @@ function CommandPaletteInner(): React.JSX.Element {
               <span className="min-w-0 flex-1 truncate">
                 {item.label}
                 {item.id === `agent:${selectedId}` && <span className="ml-1.5 text-zinc-600">current</span>}
+                {item.id === `workspace:${selectedWorkspaceId}` && <span className="ml-1.5 text-zinc-600">current</span>}
               </span>
               {item.status && (
                 <span

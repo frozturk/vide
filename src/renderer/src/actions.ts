@@ -39,6 +39,12 @@ function panelKeyboardShow(): void {
   useStore.setState({ panel: 'keyboard' })
 }
 
+export function togglePanelPinned(): void {
+  const pinned = !useStore.getState().panelPinned
+  localStorage.setItem('panelPinned', pinned ? '1' : '0')
+  useStore.setState({ panelPinned: pinned })
+}
+
 export function panelKeyboardRelease(): void {
   if (kbTimer) clearTimeout(kbTimer)
   kbTimer = setTimeout(() => {
@@ -48,20 +54,39 @@ export function panelKeyboardRelease(): void {
 
 export function selectAgent(id: string, via: 'keyboard' | 'click'): void {
   const s = useStore.getState()
-  if (!s.agents.some((a) => a.id === id)) return
+  const agent = s.agents.find((a) => a.id === id)
+  if (!agent) return
   const unread = { ...s.unread }
   delete unread[id]
-  useStore.setState({ selectedId: id, unread })
+  useStore.setState({ selectedId: id, selectedWorkspaceId: agent.workspaceId, unread })
   if (via === 'keyboard') panelKeyboardShow()
   activateVisual(id)
 }
 
+export function selectWorkspace(id: string, via: 'keyboard' | 'click'): void {
+  const s = useStore.getState()
+  if (!s.workspaces.some((w) => w.id === id)) return
+  const agents = s.agents.filter((a) => a.workspaceId === id)
+  const selected = agents.find((a) => a.id === s.selectedId) ?? agents[0] ?? null
+  useStore.setState({ selectedWorkspaceId: id, selectedId: selected?.id ?? null })
+  if (via === 'keyboard') panelKeyboardShow()
+  if (selected) activateVisual(selected.id)
+}
+
 export function selectSibling(delta: 1 | -1): void {
   const s = useStore.getState()
-  if (s.agents.length === 0) return
-  const idx = s.agents.findIndex((a) => a.id === s.selectedId)
-  const next = s.agents[(idx + delta + s.agents.length) % s.agents.length]
-  selectAgent(next.id, 'keyboard')
+  if (s.workspaces.length === 0) return
+  const idx = s.workspaces.findIndex((w) => w.id === s.selectedWorkspaceId)
+  const next = s.workspaces[(idx + delta + s.workspaces.length) % s.workspaces.length]
+  selectWorkspace(next.id, 'keyboard')
+}
+
+export function selectTerminalSibling(delta: 1 | -1): void {
+  const s = useStore.getState()
+  const agents = s.agents.filter((a) => a.workspaceId === s.selectedWorkspaceId)
+  if (agents.length < 2) return
+  const idx = agents.findIndex((a) => a.id === s.selectedId)
+  selectAgent(agents[(idx + delta + agents.length) % agents.length].id, 'click')
 }
 
 function sortAgents(agents: Agent[]): Agent[] {
@@ -88,6 +113,7 @@ function addAgent(agent: Agent): void {
   useStore.setState({
     agents,
     selectedId: agent.id,
+    selectedWorkspaceId: agent.workspaceId,
     statuses: { ...s.statuses, [agent.id]: 'busy' },
     unread,
     dialog: null
@@ -96,7 +122,7 @@ function addAgent(agent: Agent): void {
 }
 
 export async function spawnAgent(req: SpawnRequest): Promise<void> {
-  const agent = await window.vide.agentSpawn(req)
+  const agent = await window.vide.terminalSpawn(req)
   createTerminal(agent.id)
   addAgent(agent)
   recordRecentDir(req.cwd)
@@ -115,12 +141,18 @@ export async function spawnInDir(cwd: string, kindId?: string): Promise<void> {
   const s = useStore.getState()
   const id = kindId ?? s.config?.agentKinds[0]?.id
   if (!id) return
-  await spawnAgent({ kindId: id, cwd })
+  const added = await window.vide.projectAdd({ path: cwd })
+  const state = useStore.getState()
+  if (!state.projects.some((p) => p.id === added.project.id)) {
+    useStore.setState({ projects: [...state.projects, added.project], workspaces: [...state.workspaces, added.workspace] })
+  }
+  await spawnAgent({ kindId: id, cwd: added.workspace.path, workspaceId: added.workspace.id })
 }
 
 export async function restoreAgent(saved: SessionAgent): Promise<void> {
-  const agent = await window.vide.agentAttach({
+  const agent = await window.vide.terminalAttach({
     id: saved.id,
+    workspaceId: saved.workspaceId,
     kindId: saved.kindId,
     cwd: saved.cwd,
     worktreePath: saved.worktreePath,
@@ -136,8 +168,84 @@ export async function restoreAgent(saved: SessionAgent): Promise<void> {
   }
 }
 
+export function openNewWorkspaceDialog(): void {
+  useStore.setState({ dialog: { kind: 'new-workspace' } })
+}
+
 export function openSpawnDialog(): void {
   useStore.setState({ dialog: { kind: 'spawn' } })
+}
+
+export function openAddTerminalDialog(): void {
+  const s = useStore.getState()
+  if (s.selectedWorkspaceId) useStore.setState({ dialog: { kind: 'add-terminal' } })
+  else useStore.setState({ dialog: { kind: 'new-workspace' } })
+}
+
+export async function createWorkspace(projectId: string, name: string, kindId: string): Promise<string | null> {
+  const result = await window.vide.workspaceCreate({ projectId, name, kindId })
+  const s = useStore.getState()
+  useStore.setState({ workspaces: [...s.workspaces, result.workspace], selectedWorkspaceId: result.workspace.id, dialog: null })
+  if (result.agent) {
+    createTerminal(result.agent.id)
+    addAgent(result.agent)
+  }
+  return result.launchError ?? null
+}
+
+export async function adoptWorkspace(projectId: string, path: string, kindId: string): Promise<string | null> {
+  const result = await window.vide.workspaceAdopt({ projectId, path, kindId })
+  const s = useStore.getState()
+  useStore.setState({ workspaces: [...s.workspaces, result.workspace], selectedWorkspaceId: result.workspace.id, dialog: null })
+  if (result.agent) {
+    createTerminal(result.agent.id)
+    addAgent(result.agent)
+  }
+  return result.launchError ?? null
+}
+
+export async function removeCurrentProject(): Promise<void> {
+  const s = useStore.getState()
+  const workspace = s.workspaces.find((w) => w.id === s.selectedWorkspaceId)
+  const project = workspace ? s.projects.find((p) => p.id === workspace.projectId) : null
+  if (!project || !confirm(`Remove ${project.name} from Vide? Files on disk will not be changed.`)) return
+  try {
+    await window.vide.projectRemove(project.id)
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+    return
+  }
+  const projects = s.projects.filter((p) => p.id !== project.id)
+  const workspaces = s.workspaces.filter((w) => w.projectId !== project.id)
+  const next = workspaces[0] ?? null
+  useStore.setState({ projects, workspaces, selectedWorkspaceId: next?.id ?? null, selectedId: s.agents.find((a) => a.workspaceId === next?.id)?.id ?? null })
+}
+
+export async function addTerminal(kindId: string): Promise<void> {
+  const s = useStore.getState()
+  const workspace = s.workspaces.find((w) => w.id === s.selectedWorkspaceId)
+  if (!workspace) return
+  await spawnAgent({ kindId, cwd: workspace.path, workspaceId: workspace.id })
+}
+
+export async function spawnFromDialog(kindId: string, cwd: string, worktreeName?: string, adoptPath?: string): Promise<void> {
+  const added = await window.vide.projectAdd({ path: cwd })
+  let s = useStore.getState()
+  if (!s.projects.some((p) => p.id === added.project.id)) {
+    useStore.setState({ projects: [...s.projects, added.project], workspaces: [...s.workspaces, added.workspace] })
+    s = useStore.getState()
+  }
+  if (adoptPath) {
+    const error = await adoptWorkspace(added.project.id, adoptPath, kindId)
+    if (error) alert(`Workspace adopted, but the agent failed to launch: ${error}`)
+  } else if (worktreeName?.trim()) {
+    const error = await createWorkspace(added.project.id, worktreeName.trim(), kindId)
+    if (error) alert(`Workspace created, but the agent failed to launch: ${error}`)
+  } else {
+    const workspace = s.workspaces.find((w) => w.path === cwd) ?? added.workspace
+    await spawnAgent({ kindId, cwd: workspace.path, workspaceId: workspace.id })
+  }
+  recordRecentDir(added.project.rootPath)
 }
 
 function selectedOf(agents: Agent[], id: string | null): Agent | null {
@@ -148,51 +256,44 @@ export async function requestClose(): Promise<void> {
   const s = useStore.getState()
   const agent = selectedOf(s.agents, s.selectedId)
   if (!agent) return
-  if (!agent.worktreePath) {
-    await finalizeKill(agent, undefined)
-    return
-  }
+  await finalizeKill(agent, undefined)
+}
+
+export async function requestDeleteWorkspace(workspaceId?: string): Promise<void> {
+  const s = useStore.getState()
+  const workspace = s.workspaces.find((w) => w.id === (workspaceId ?? s.selectedWorkspaceId))
+  if (!workspace || workspace.kind === 'main') return
   try {
-    const info = await window.vide.worktreeStatus(agent.worktreePath, agent.baseSha)
-    useStore.setState({
-      dialog: { kind: 'close', agentId: agent.id, dirty: info.dirty, hasOwnCommits: info.hasOwnCommits }
-    })
+    const info = await window.vide.worktreeStatus(workspace.path, workspace.baseSha)
+    useStore.setState({ dialog: { kind: 'delete-workspace', workspaceId: workspace.id, ...info } })
   } catch {
-    useStore.setState({ dialog: { kind: 'close', agentId: agent.id, dirty: true, hasOwnCommits: true } })
+    useStore.setState({ dialog: { kind: 'delete-workspace', workspaceId: workspace.id, dirty: true, hasOwnCommits: true } })
   }
 }
 
-export async function confirmClose(deleteWorktree: boolean): Promise<void> {
+export async function confirmDeleteWorkspace(force: boolean, deleteBranch: boolean): Promise<void> {
   const s = useStore.getState()
   const d = s.dialog
-  if (d?.kind !== 'close') return
-  const agent = s.agents.find((a) => a.id === d.agentId)
-  if (!agent) {
-    useStore.setState({ dialog: null })
-    return
-  }
-  const worktree =
-    deleteWorktree && agent.worktreePath
-      ? {
-          path: agent.worktreePath,
-          branch: agent.worktreeBranch ?? '',
-          force: d.dirty,
-          deleteBranch: !d.hasOwnCommits
-        }
-      : undefined
-  await finalizeKill(agent, worktree)
+  if (d?.kind !== 'delete-workspace') return
+  await window.vide.workspaceDelete({ workspaceId: d.workspaceId, force, deleteBranch })
+  const removedAgents = s.agents.filter((a) => a.workspaceId === d.workspaceId)
+  for (const agent of removedAgents) disposeTerminal(agent.id)
+  const workspaces = s.workspaces.filter((w) => w.id !== d.workspaceId)
+  const agents = s.agents.filter((a) => a.workspaceId !== d.workspaceId)
+  const next = workspaces.find((w) => w.projectId === s.workspaces.find((x) => x.id === d.workspaceId)?.projectId) ?? workspaces[0] ?? null
+  useStore.setState({ workspaces, agents, selectedWorkspaceId: next?.id ?? null, selectedId: agents.find((a) => a.workspaceId === next?.id)?.id ?? null, dialog: null })
 }
 
 async function finalizeKill(agent: Agent, worktree: Parameters<typeof window.vide.agentKill>[0]['worktree']): Promise<void> {
   try {
-    await window.vide.agentKill({ agentId: agent.id, worktree })
+    if (worktree) await window.vide.agentKill({ agentId: agent.id, worktree })
+    else await window.vide.terminalKill(agent.id)
   } catch (err) {
     alert(`close failed: ${err instanceof Error ? err.message : String(err)}`)
     return
   }
   disposeTerminal(agent.id)
   const s = useStore.getState()
-  const idx = s.agents.findIndex((a) => a.id === agent.id)
   const agents = s.agents.filter((a) => a.id !== agent.id)
   const statuses = { ...s.statuses }
   const unread = { ...s.unread }
@@ -202,7 +303,8 @@ async function finalizeKill(agent: Agent, worktree: Parameters<typeof window.vid
   delete unread[agent.id]
   delete titles[agent.id]
   delete titleBusy[agent.id]
-  const nextSelected = s.selectedId === agent.id ? (agents[idx] ?? agents[idx - 1] ?? null) : null
+  const sameWorkspace = agents.filter((a) => a.workspaceId === agent.workspaceId)
+  const nextSelected = s.selectedId === agent.id ? (sameWorkspace[0] ?? null) : null
   useStore.setState({
     agents,
     statuses,

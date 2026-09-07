@@ -5,12 +5,15 @@ import {
   closePalette,
   closeSearch,
   openSearch,
+  openAddTerminalDialog,
+  openNewWorkspaceDialog,
   openSpawnDialog,
   panelKeyboardRelease,
   reloadConfig,
   requestClose,
-  selectAgent,
   selectSibling,
+  selectTerminalSibling,
+  selectWorkspace,
   toggleOverlay,
   togglePalette
 } from './actions'
@@ -21,8 +24,8 @@ export function dispatch(chord: ChordId): void {
   if (s.dialog) return
   if (chord.startsWith('jump-')) {
     const idx = Number(chord.slice(5)) - 1
-    const agent = s.agents[idx]
-    if (agent) selectAgent(agent.id, 'click')
+    const workspace = s.workspaces[idx]
+    if (workspace) selectWorkspace(workspace.id, 'click')
     return
   }
   switch (chord) {
@@ -34,6 +37,9 @@ export function dispatch(chord: ChordId): void {
       break
     case 'spawn':
       openSpawnDialog()
+      break
+    case 'new-workspace':
+      openNewWorkspaceDialog()
       break
     case 'close':
       void requestClose()
@@ -79,6 +85,12 @@ export function installKeyboard(): void {
           e.stopPropagation()
           closeOverlay()
         }
+        return
+      }
+      if (e.ctrlKey && e.key === 'Tab') {
+        e.preventDefault()
+        e.stopPropagation()
+        selectTerminalSibling(e.shiftKey ? -1 : 1)
         return
       }
       if (!e.metaKey || e.altKey || e.ctrlKey) return

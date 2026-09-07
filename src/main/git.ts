@@ -127,7 +127,7 @@ export async function createWorktree(
   agentCwd: string,
   kindId: string,
   customName?: string
-): Promise<{ path: string; branch: string; baseSha: string }> {
+): Promise<{ path: string; branch: string; baseSha: string; name: string }> {
   const root = await mainRepoRoot(agentCwd)
   const sha = await headSha(agentCwd)
   if (!sha) throw new Error('repository has no commits')
@@ -139,19 +139,31 @@ export async function createWorktree(
   ].join('')
   const time = [now.getHours(), now.getMinutes(), now.getSeconds()].map((n) => String(n).padStart(2, '0')).join('')
   const suffix = `${kindId}-${stamp}-${time}`
-  const slug = customName ? customName.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 40) : suffix
-  const branch = `vide/${slug}`
-  const path = join(root, '.vide', 'worktrees', slug)
-  await mkdir(dirname(path), { recursive: true })
+  const requested = customName ? customName.replace(/[^a-zA-Z0-9_-]/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) : suffix
+  if (!requested) throw new Error('Workspace name must contain a letter or number')
   await ensureGitignore(root, '.vide/worktrees/')
-  try {
-    await git(root, ['worktree', 'add', '-b', branch, path, sha])
-  } catch {
-    await git(root, ['worktree', 'prune'])
-    await git(root, ['worktree', 'add', '-b', branch, path, sha])
+  await git(root, ['worktree', 'prune']).catch(() => '')
+  let slug = requested
+  let branch = ''
+  let path = ''
+  let created = false
+  for (let n = 1; n <= 100; n++) {
+    slug = n === 1 ? requested : `${requested}-${n}`
+    branch = `vide/${slug}`
+    path = join(root, '.vide', 'worktrees', slug)
+    await mkdir(dirname(path), { recursive: true })
+    try {
+      await git(root, ['worktree', 'add', '-b', branch, path, sha])
+      created = true
+      break
+    } catch (err) {
+      const exists = await git(root, ['show-ref', '--verify', '--quiet', `refs/heads/${branch}`]).then(() => true).catch(() => false)
+      if (!exists) throw err
+    }
   }
+  if (!created) throw new Error(`Could not find an available workspace name for ${requested}`)
   await copyEnvFiles(root, path)
-  return { path, branch, baseSha: sha }
+  return { path, branch, baseSha: sha, name: slug }
 }
 
 export async function worktreeStatus(path: string, baseSha?: string): Promise<WorktreeStatus> {

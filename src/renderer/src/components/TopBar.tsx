@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { selectedAgent, useStore } from '../store'
+import { selectedAgent, selectedProject, selectedWorkspace, useStore } from '../store'
 import { basename } from '../util'
 import { AgentIcon } from './AgentIcon'
 import { toggleOverlay } from '../actions'
@@ -9,6 +9,8 @@ import { TOOLBAR_HEIGHT } from '../../../shared/layout'
 
 export function TopBar(): React.JSX.Element {
   const agent = useStore(selectedAgent)
+  const workspace = useStore(selectedWorkspace)
+  const project = useStore(selectedProject)
   const config = useStore((s) => s.config)
   const title = useStore((s) => (agent ? s.titles[agent.id] ?? null : null))
   const overlay = useStore((s) => s.overlay)
@@ -17,7 +19,7 @@ export function TopBar(): React.JSX.Element {
   const [branches, setBranches] = useState<string[]>([])
   const [branchError, setBranchError] = useState<string | null>(null)
 
-  const cwd = agent?.cwd ?? null
+  const cwd = workspace?.path ?? null
 
   useEffect(() => {
     setBranchesOpen(false)
@@ -44,7 +46,7 @@ export function TopBar(): React.JSX.Element {
   }, [cwd])
 
   const openBranches = (): void => {
-    if (!cwd) return
+    if (!cwd || workspace?.kind !== 'main') return
     if (branchesOpen) {
       setBranchesOpen(false)
       return
@@ -58,7 +60,7 @@ export function TopBar(): React.JSX.Element {
   }
 
   const selectBranch = async (branch: string): Promise<void> => {
-    if (!cwd || branch === summary?.branch) {
+    if (!cwd || workspace?.kind !== 'main' || branch === summary?.branch) {
       setBranchesOpen(false)
       return
     }
@@ -82,18 +84,13 @@ export function TopBar(): React.JSX.Element {
       <div style={{ width: 88, flexShrink: 0 }} />
 
       <div className="flex min-w-0 flex-1 items-center gap-3 h-full">
-        {agent && kind ? (
+        {workspace ? (
           <>
-            <span style={{ color: kind.color }} className="shrink-0 flex items-center">
-              <AgentIcon kindId={kind.id} size={15} />
-            </span>
+            {agent && kind && <span style={{ color: kind.color }} className="shrink-0 flex items-center"><AgentIcon kindId={kind.id} size={15} /></span>}
             <span className="truncate text-sm font-medium text-zinc-100 leading-none">
-              {title ?? agent.sessionName}
+              {project?.name} / {workspace.kind === 'main' ? 'Main' : workspace.name}
             </span>
-            <span className="shrink-0 text-xs text-zinc-500 leading-none">·</span>
-            <span className="shrink-0 truncate text-xs text-zinc-400 leading-none" title={agent.cwd}>
-              {basename(agent.cwd)}
-            </span>
+            {agent && <><span className="shrink-0 text-xs text-zinc-500 leading-none">·</span><span className="shrink-0 truncate text-xs text-zinc-400 leading-none">{title ?? agent.sessionName}</span></>}
 
             {summary?.branch && (
               <div
@@ -102,14 +99,14 @@ export function TopBar(): React.JSX.Element {
               >
                 <button
                   onClick={openBranches}
-                  className="flex items-center gap-1 rounded px-1 py-0.5 text-xs text-zinc-400 leading-none transition hover:bg-zinc-800 hover:text-zinc-200"
-                  title="Switch branch"
+                  className={`flex items-center gap-1 rounded px-1 py-0.5 text-xs text-zinc-400 leading-none transition ${workspace.kind === 'main' ? 'hover:bg-zinc-800 hover:text-zinc-200' : ''}`}
+                  title={workspace.kind === 'main' ? 'Switch branch' : 'Workspace branch'}
                 >
                   <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M11.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5zm-2.25.75a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 9.5 3.25zM4.25 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5zM2 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 2 3.25z" />
                   </svg>
                   {summary.branch}
-                  <span className="text-zinc-600">▾</span>
+                  {workspace.kind === 'main' && <span className="text-zinc-600">▾</span>}
                 </button>
                 {branchesOpen && (
                   <>
@@ -168,9 +165,9 @@ export function TopBar(): React.JSX.Element {
               </span>
             )}
 
-            {agent.worktreePath && (
+            {workspace.kind === 'worktree' && (
               <span className="shrink-0 rounded bg-zinc-800 px-1.5 py-0.5 text-[11px] leading-none text-zinc-400">
-                {basename(agent.worktreePath)}
+                {basename(workspace.path)}
               </span>
             )}
           </>
@@ -183,7 +180,7 @@ export function TopBar(): React.JSX.Element {
       </div>
 
       <div className="flex shrink-0 items-center gap-1 pr-3 h-full" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        {agent && (
+        {workspace && (
           <>
             <button
               onClick={() => toggleOverlay('diff')}
@@ -198,7 +195,7 @@ export function TopBar(): React.JSX.Element {
               </svg>
             </button>
             <button
-              onClick={() => void window.vide.openInIde(agent.cwd)}
+              onClick={() => void window.vide.openInIde(workspace.path)}
               className="flex items-center gap-1.5 rounded-md h-6 px-2 text-xs text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
               title="Open in IDE"
             >

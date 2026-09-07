@@ -6,7 +6,7 @@ import type { MenuItemConstructorOptions } from 'electron'
 import { getConfig } from './config'
 import { wireIpc } from './ipc'
 import { liveCount, setTarget, detachAll, beginShutdown, startTitlePoller, reapOrphanSessions, sessionName } from './pty'
-import { loadSession } from './session'
+import { loadState } from './state'
 
 function probePath(shellPath: string): Promise<void> {
   return new Promise((resolve) => {
@@ -87,7 +87,7 @@ app.whenReady().then(async () => {
   if (app.dock && existsSync(iconPath)) app.dock.setIcon(iconPath)
   Menu.setApplicationMenu(buildMenu())
   startTitlePoller()
-  const saved = loadSession()
+  const saved = (await loadState()).agents
   const keep = new Set(saved.filter((s) => s.id).map((s) => sessionName(s.id, s.kindId, s.cwd)))
   await reapOrphanSessions(keep)
   await createWindow()

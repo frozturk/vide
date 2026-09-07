@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { DiffModeEnum, DiffView } from '@git-diff-view/react'
 import '@git-diff-view/react/styles/diff-view.css'
 import type { DiffFile, DiffResult, GitCommit } from '../../../shared/types'
-import { selectedAgent, useStore } from '../store'
+import { selectedProject, selectedWorkspace, useStore } from '../store'
 import { basename, dirname } from '../util'
 import { DEFAULT_PANE_FRACTION } from '../../../shared/layout'
 import { Resizer, useHSplit } from './Resizer'
@@ -256,13 +256,14 @@ const COMMIT_PAGE = 10
 
 export function DiffOverlay(): React.JSX.Element | null {
   const overlay = useStore((s) => s.overlay)
-  const agent = useStore(selectedAgent)
+  const workspace = useStore(selectedWorkspace)
+  const project = useStore(selectedProject)
   if (overlay !== 'diff') return null
   return (
     <DiffOverlayInner
-      key={agent?.cwd ?? 'none'}
-      cwd={agent?.cwd ?? null}
-      root={agent?.repoRoot ?? null}
+      key={workspace?.path ?? 'none'}
+      cwd={workspace?.path ?? null}
+      root={project?.rootPath ?? null}
     />
   )
 }

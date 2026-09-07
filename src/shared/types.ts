@@ -11,6 +11,7 @@ export interface AgentKind {
 
 export interface Agent {
   id: string
+  workspaceId: string
   kindId: string
   title: string
   sessionName: string
@@ -25,6 +26,7 @@ export interface Agent {
 
 export interface SessionAgent {
   id: string
+  workspaceId?: string
   kindId: string
   cwd: string
   worktreePath?: string
@@ -32,6 +34,32 @@ export interface SessionAgent {
   baseSha?: string
   title?: string
   createdAt?: number
+}
+
+export interface Project {
+  id: string
+  name: string
+  rootPath: string
+  createdAt: number
+  lastOpenedAt: number
+}
+
+export interface Workspace {
+  id: string
+  projectId: string
+  name: string
+  kind: 'main' | 'worktree'
+  path: string
+  branch?: string
+  baseSha?: string
+  createdAt: number
+}
+
+export interface PersistedState {
+  version: 2
+  projects: Project[]
+  workspaces: Workspace[]
+  agents: SessionAgent[]
 }
 
 export interface RecentDir {
@@ -48,18 +76,42 @@ export interface Config {
 export interface SpawnRequest {
   kindId: string
   cwd: string
+  workspaceId?: string
   worktreeName?: string
   adoptWorktreePath?: string
 }
 
 export interface AttachRequest {
   id: string
+  workspaceId?: string
   kindId: string
   cwd: string
   worktreePath?: string
   worktreeBranch?: string
   baseSha?: string
   createdAt: number
+}
+
+export interface ProjectAddRequest {
+  path: string
+}
+
+export interface WorkspaceCreateRequest {
+  projectId: string
+  name: string
+  kindId: string
+}
+
+export interface WorkspaceAdoptRequest {
+  projectId: string
+  path: string
+  kindId: string
+}
+
+export interface WorkspaceDeleteRequest {
+  workspaceId: string
+  force: boolean
+  deleteBranch: boolean
 }
 
 export interface WorktreeStatus {
@@ -120,12 +172,21 @@ export interface VideApi {
   configOpen(): Promise<void>
   sessionLoad(): Promise<SessionAgent[]>
   sessionSave(agents: SessionAgent[]): Promise<void>
+  stateLoad(): Promise<PersistedState>
+  projectAdd(req: ProjectAddRequest): Promise<{ project: Project; workspace: Workspace }>
+  projectRemove(projectId: string): Promise<void>
+  workspaceCreate(req: WorkspaceCreateRequest): Promise<{ workspace: Workspace; agent?: Agent; launchError?: string }>
+  workspaceAdopt(req: WorkspaceAdoptRequest): Promise<{ workspace: Workspace; agent?: Agent; launchError?: string }>
+  workspaceDelete(req: WorkspaceDeleteRequest): Promise<{ branchKept: boolean }>
   recentDirsLoad(): Promise<RecentDir[]>
   recentDirsSave(dirs: RecentDir[]): Promise<void>
   agentSpawn(req: SpawnRequest): Promise<Agent>
   agentAttach(req: AttachRequest): Promise<Agent | null>
+  terminalSpawn(req: SpawnRequest): Promise<Agent>
+  terminalAttach(req: AttachRequest): Promise<Agent | null>
   worktreeStatus(path: string, baseSha?: string): Promise<WorktreeStatus>
   agentKill(req: KillRequest): Promise<{ branchKept: boolean }>
+  terminalKill(agentId: string): Promise<void>
   orphanWorktrees(cwd: string, livePaths: string[]): Promise<OrphanWorktree[]>
   deleteOrphanWorktree(path: string): Promise<void>
   diffGet(cwd: string, ref?: string, full?: boolean, allChanges?: boolean): Promise<DiffResult>

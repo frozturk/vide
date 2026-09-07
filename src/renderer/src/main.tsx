@@ -10,7 +10,8 @@ import * as actions from './actions'
 async function bootstrap(): Promise<void> {
   const config = await window.vide.configGet()
   const recentDirs = await window.vide.recentDirsLoad()
-  useStore.setState({ config, recentDirs })
+  const persisted = await window.vide.stateLoad()
+  useStore.setState({ config, recentDirs, projects: persisted.projects, workspaces: persisted.workspaces })
 
   window.vide.onPtyData(({ agentId, data }) => feedData(agentId, data))
 
@@ -18,16 +19,15 @@ async function bootstrap(): Promise<void> {
     const s = useStore.getState()
     const agent = s.agents.find((a) => a.id === agentId)
     if (!agent) return
-    if (agent.worktreePath) {
+    if (s.workspaces.find((w) => w.id === agent.workspaceId)?.kind === 'worktree') {
       useStore.setState({
         statuses: { ...s.statuses, [agentId]: 'exited' },
         titleBusy: { ...s.titleBusy, [agentId]: false }
       })
       return
     }
-    void window.vide.agentKill({ agentId })
+    void window.vide.terminalKill(agentId)
     disposeTerminal(agentId)
-    const idx = s.agents.findIndex((a) => a.id === agentId)
     const agents = s.agents.filter((a) => a.id !== agentId)
     const statuses = { ...s.statuses }
     const unread = { ...s.unread }
@@ -37,7 +37,7 @@ async function bootstrap(): Promise<void> {
     delete unread[agentId]
     delete titles[agentId]
     delete titleBusy[agentId]
-    const nextSelected = s.selectedId === agentId ? (agents[idx] ?? agents[idx - 1] ?? null) : null
+    const nextSelected = s.selectedId === agentId ? (agents.find((a) => a.workspaceId === agent.workspaceId) ?? null) : null
     useStore.setState({
       agents,
       statuses,
@@ -66,8 +66,9 @@ async function bootstrap(): Promise<void> {
   }
   createRoot(document.getElementById('root')!).render(<App />)
 
-  const saved = await window.vide.sessionLoad().catch(() => [])
+  const saved = persisted.agents
   const lastSelectedId = localStorage.getItem('lastSelectedId')
+  const lastWorkspaceId = localStorage.getItem('lastWorkspaceId')
   useStore.setState({ suppressUnread: true })
   for (const s of saved) {
     if (!s.id) continue
@@ -77,8 +78,13 @@ async function bootstrap(): Promise<void> {
       console.error('agent restore failed', s, err)
     }
   }
+  void window.vide.sessionSave(useStore.getState().agents.map((a) => ({ id: a.id, workspaceId: a.workspaceId, kindId: a.kindId, cwd: a.cwd, createdAt: a.createdAt })))
   if (lastSelectedId && useStore.getState().agents.some((a) => a.id === lastSelectedId)) {
     actions.selectAgent(lastSelectedId, 'click')
+  } else if (lastWorkspaceId && persisted.workspaces.some((w) => w.id === lastWorkspaceId)) {
+    actions.selectWorkspace(lastWorkspaceId, 'click')
+  } else if (persisted.workspaces[0]) {
+    actions.selectWorkspace(persisted.workspaces[0].id, 'click')
   }
   requestAnimationFrame(() => useStore.setState({ booting: false }))
   setTimeout(() => useStore.setState({ suppressUnread: false }), 3000)
@@ -88,18 +94,25 @@ async function bootstrap(): Promise<void> {
     }
   })
   useStore.subscribe((state, prev) => {
+    if (state.selectedWorkspaceId !== prev.selectedWorkspaceId && state.selectedWorkspaceId) localStorage.setItem('lastWorkspaceId', state.selectedWorkspaceId)
+  })
+  useStore.subscribe((state, prev) => {
     if (state.agents === prev.agents && state.titles === prev.titles) return
     void window.vide.sessionSave(
-      state.agents.map((a) => ({
-        id: a.id,
-        kindId: a.kindId,
-        cwd: a.cwd,
-        worktreePath: a.worktreePath,
-        worktreeBranch: a.worktreeBranch,
-        baseSha: a.baseSha,
-        title: state.titles[a.id],
-        createdAt: a.createdAt
-      }))
+      state.agents.map((a) => {
+        const workspace = state.workspaces.find((w) => w.id === a.workspaceId)
+        return {
+          id: a.id,
+          workspaceId: a.workspaceId,
+          kindId: a.kindId,
+          cwd: a.cwd,
+          worktreePath: workspace?.kind === 'worktree' ? workspace.path : undefined,
+          worktreeBranch: workspace?.branch,
+          baseSha: workspace?.baseSha,
+          title: state.titles[a.id],
+          createdAt: a.createdAt
+        }
+      })
     )
   })
 }
