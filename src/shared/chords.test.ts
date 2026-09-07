@@ -7,4 +7,9 @@ describe('keyboard chords', () => {
     expect(matchChord('e', false, false)).toBeNull()
     expect(matchChord('e', true, true)).toBeNull()
   })
+
+  it('maps Command-S to next terminal tab', () => {
+    expect(matchChord('s', true, false)).toBe('next-terminal')
+    expect(matchChord('s', false, false)).toBeNull()
+  })
 })

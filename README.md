@@ -30,7 +30,7 @@ file status letters, and untracked-file support. Built on
 `@git-diff-view/react`.
 
 **Keyboard-first** — `⌘N` workspace, `⌘T` new agent with optional worktree, `⌘W` close terminal,
-`⌘↑/↓` switch workspaces, `Ctrl+Tab` switch terminals, `⌘E` jump to the next terminal needing attention,
+`⌘↑/↓` switch workspaces, `⌘S` switch terminal tabs, `⌘E` jump to the next terminal needing attention,
 and `⌘D` diff.
 
 **macOS-native chrome** — Hidden inset title bar, traffic lights, dark zinc
@@ -155,8 +155,7 @@ deletion.
 | `⌘W`    | Close current terminal        |
 | `⌘↑/↓`  | Previous / next workspace     |
 | `⌘1`–`9` | Jump to workspace N          |
-| `Ctrl+Tab` | Next terminal in workspace  |
-| `Ctrl+Shift+Tab` | Previous terminal       |
+| `⌘S`    | Next terminal in workspace     |
 | `⌘E`    | Next non-idle or unread terminal |
 | `⌘D`    | Toggle diff overlay           |
 | `⌘,`    | Open config file              |

@@ -57,6 +57,9 @@ export function dispatch(chord: ChordId): void {
     case 'next-attention':
       selectNextAttentionTerminal()
       break
+    case 'next-terminal':
+      selectTerminalSibling(1)
+      break
     case 'reload-config':
       void reloadConfig()
       break
@@ -89,12 +92,6 @@ export function installKeyboard(): void {
           e.stopPropagation()
           closeOverlay()
         }
-        return
-      }
-      if (e.ctrlKey && e.key === 'Tab') {
-        e.preventDefault()
-        e.stopPropagation()
-        selectTerminalSibling(e.shiftKey ? -1 : 1)
         return
       }
       if (!e.metaKey || e.altKey || e.ctrlKey) return
