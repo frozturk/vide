@@ -1,9 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { OrphanWorktree } from '../../../shared/types'
 import { closeDialog, spawnAgent } from '../actions'
 import { selectedAgent, useStore } from '../store'
 import { basename } from '../util'
 import { AgentIcon } from './AgentIcon'
+
+const DIR_LIMIT = 5
+
+function FolderGlyph(): React.JSX.Element {
+  return (
+    <svg className="h-4 w-4 shrink-0 text-zinc-500" viewBox="0 0 16 16" fill="currentColor">
+      <path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-7.5A1.75 1.75 0 0 0 14.25 4H7.5L5.696 2.293A1.75 1.75 0 0 0 4.477 1.75L4.25 1H1.75z" />
+    </svg>
+  )
+}
 
 export function SpawnDialog(): React.JSX.Element | null {
   const dialog = useStore((s) => s.dialog)
@@ -17,14 +27,23 @@ function SpawnDialogInner(): React.JSX.Element {
   const recentDirs = useStore((s) => s.recentDirs)
   const current = useStore(selectedAgent)
   const kinds = config?.agentKinds ?? []
+  const mainDir = current?.worktreePath ? current.projectRoot : null
   const [kindId, setKindId] = useState(current?.kindId ?? kinds[0]?.id ?? '')
-  const [dir, setDir] = useState(current?.cwd ?? recentDirs[0]?.path ?? '')
+  const initialDir = useRef(current?.cwd ?? recentDirs[0]?.path ?? '')
+  const [dir, setDir] = useState(initialDir.current)
+  const [picked, setPicked] = useState<string | null>(null)
   const [worktreeName, setWorktreeName] = useState('')
   const [orphans, setOrphans] = useState<OrphanWorktree[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const selectedKind = kinds.find((k) => k.id === kindId)
+
+  const dirOptions = useMemo(() => {
+    const pinned = [initialDir.current, mainDir, picked].filter((p): p is string => !!p)
+    const recents = recentDirs.map((d) => d.path)
+    return [...new Set([...pinned, ...recents])].slice(0, DIR_LIMIT)
+  }, [mainDir, recentDirs, picked])
 
   useEffect(() => {
     if (!dir) {
@@ -56,8 +75,10 @@ function SpawnDialogInner(): React.JSX.Element {
   }
 
   async function pickDir(): Promise<void> {
-    const picked = await window.vide.pickDirectory()
-    if (picked) setDir(picked)
+    const chosen = await window.vide.pickDirectory()
+    if (!chosen) return
+    setPicked(chosen)
+    setDir(chosen)
   }
 
   async function deleteOrphan(path: string): Promise<void> {
@@ -74,6 +95,13 @@ function SpawnDialogInner(): React.JSX.Element {
           if (e.key === 'Enter' && !e.shiftKey && !e.repeat) {
             e.preventDefault()
             void confirm()
+            return
+          }
+          if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && dirOptions.length > 1) {
+            e.preventDefault()
+            const idx = Math.max(0, dirOptions.indexOf(dir))
+            const delta = e.key === 'ArrowDown' ? 1 : -1
+            setDir(dirOptions[(idx + delta + dirOptions.length) % dirOptions.length])
             return
           }
           if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && kinds.length > 1) {
@@ -121,17 +149,36 @@ function SpawnDialogInner(): React.JSX.Element {
           </div>
 
           <div className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">Directory</div>
+          {dirOptions.length > 0 && (
+            <div className="mb-2 overflow-hidden rounded-xl border border-zinc-700">
+              {dirOptions.map((path) => (
+                <button
+                  key={path}
+                  onClick={() => setDir(path)}
+                  className={`flex w-full items-center gap-2 px-3 py-2 text-left transition ${
+                    path === dir ? 'bg-zinc-700/60' : 'bg-zinc-800/50 hover:bg-zinc-800'
+                  }`}
+                >
+                  <FolderGlyph />
+                  <span className="shrink-0 text-sm text-zinc-200">{basename(path)}</span>
+                  {path === mainDir && (
+                    <span className="shrink-0 rounded bg-zinc-700 px-1 text-[10px] font-medium uppercase tracking-wider text-zinc-300">
+                      main
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1 truncate text-right text-xs text-zinc-600">
+                    {path}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
           <button
             onClick={() => void pickDir()}
-            className="mb-5 flex w-full items-center gap-3 rounded-xl border border-zinc-700 bg-zinc-800/50 px-4 py-3 text-left transition hover:border-zinc-600 hover:bg-zinc-800"
+            className="mb-5 flex w-full items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-left transition hover:border-zinc-600 hover:bg-zinc-800"
           >
-            <svg className="h-5 w-5 shrink-0 text-zinc-500" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-7.5A1.75 1.75 0 0 0 14.25 4H7.5L5.696 2.293A1.75 1.75 0 0 0 4.477 1.75L4.25 1H1.75z" />
-            </svg>
-            <span className="min-w-0 flex-1 truncate text-sm text-zinc-300">
-              {dir ? basename(dir) : 'Choose a folder…'}
-            </span>
-            {dir && <span className="shrink-0 text-xs text-zinc-600">{dir}</span>}
+            <FolderGlyph />
+            <span className="text-sm text-zinc-300">Choose another folder…</span>
           </button>
 
           <div className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
@@ -186,6 +233,10 @@ function SpawnDialogInner(): React.JSX.Element {
             <span>
               <kbd className="rounded bg-zinc-800 px-1.5 py-0.5">←</kbd>
               <kbd className="ml-1 rounded bg-zinc-800 px-1.5 py-0.5">→</kbd> type
+            </span>
+            <span>
+              <kbd className="rounded bg-zinc-800 px-1.5 py-0.5">↑</kbd>
+              <kbd className="ml-1 rounded bg-zinc-800 px-1.5 py-0.5">↓</kbd> folder
             </span>
           </span>
           <div className="flex gap-2">

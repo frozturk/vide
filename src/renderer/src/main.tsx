@@ -6,7 +6,6 @@ import { feedData, terminals, disposeTerminal, activateVisual } from './terminal
 import { dispatch, installKeyboard } from './shortcuts'
 import { startStatusTicker, SPINNER_GLYPHS } from './status'
 import * as actions from './actions'
-import type { ChordId } from '../../shared/chords'
 
 async function bootstrap(): Promise<void> {
   const config = await window.vide.configGet()
@@ -60,9 +59,6 @@ async function bootstrap(): Promise<void> {
     })
   })
 
-  window.vide.onBrowserState((browser) => useStore.setState({ browser }))
-  window.vide.onShortcut(({ chord }) => dispatch(chord as ChordId))
-
   installKeyboard()
   startStatusTicker()
   if (import.meta.env.DEV) {
@@ -70,7 +66,7 @@ async function bootstrap(): Promise<void> {
   }
   createRoot(document.getElementById('root')!).render(<App />)
 
-  const saved = await window.vide.sessionLoad()
+  const saved = await window.vide.sessionLoad().catch(() => [])
   const lastSelectedId = localStorage.getItem('lastSelectedId')
   useStore.setState({ suppressUnread: true })
   for (const s of saved) {
@@ -84,6 +80,7 @@ async function bootstrap(): Promise<void> {
   if (lastSelectedId && useStore.getState().agents.some((a) => a.id === lastSelectedId)) {
     actions.selectAgent(lastSelectedId, 'click')
   }
+  requestAnimationFrame(() => useStore.setState({ booting: false }))
   setTimeout(() => useStore.setState({ suppressUnread: false }), 3000)
   useStore.subscribe((state, prev) => {
     if (state.selectedId !== prev.selectedId && state.selectedId) {

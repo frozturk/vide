@@ -5,7 +5,6 @@ import { join } from 'path'
 import type { MenuItemConstructorOptions } from 'electron'
 import { getConfig } from './config'
 import { wireIpc } from './ipc'
-import { initBrowser } from './browser'
 import { liveCount, setTarget, detachAll, beginShutdown, startTitlePoller, reapOrphanSessions, sessionName } from './pty'
 import { loadSession } from './session'
 
@@ -47,7 +46,6 @@ async function createWindow(): Promise<void> {
   })
   setTarget(win.webContents)
   wireIpc(win)
-  initBrowser(win, () => getConfig().defaultBrowserUrl)
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/.test(url)) shell.openExternal(url)
     return { action: 'deny' }

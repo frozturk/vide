@@ -220,40 +220,18 @@ export function closeDialog(): void {
   focusTerminal(useStore.getState().selectedId)
 }
 
-export function toggleOverlay(which: 'diff' | 'browser'): void {
+export function toggleOverlay(which: 'diff'): void {
   const s = useStore.getState()
   if (s.overlay === which) {
     closeOverlay()
     return
   }
   useStore.setState({ overlay: which })
-  if (which === 'browser') void window.vide.browserSetVisible(true, true)
 }
 
 export function closeOverlay(): void {
   useStore.setState({ overlay: 'none' })
   focusTerminal(useStore.getState().selectedId)
-}
-
-export function openUrlInBrowser(url: string): void {
-  useStore.setState({ overlay: 'browser' })
-  void window.vide.browserOpenUrl(url)
-}
-
-export function newBrowserTab(): void {
-  if (useStore.getState().overlay !== 'browser') useStore.setState({ overlay: 'browser' })
-  void window.vide.browserNewTab()
-}
-
-export function closeBrowserTab(id: number): void {
-  if (useStore.getState().browser.tabs.length <= 1) closeOverlay()
-  void window.vide.browserCloseTab(id)
-}
-
-export function focusUrlBar(): void {
-  const s = useStore.getState()
-  if (s.overlay !== 'browser') useStore.setState({ overlay: 'browser' })
-  useStore.setState({ urlFocusSeq: useStore.getState().urlFocusSeq + 1 })
 }
 
 export async function reloadConfig(): Promise<void> {

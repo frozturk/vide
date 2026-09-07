@@ -7,7 +7,6 @@ import { SearchAddon } from '@xterm/addon-search'
 import '@xterm/xterm/css/xterm.css'
 import { matchChord } from '../../shared/chords'
 import { useStore } from './store'
-import { openUrlInBrowser } from './actions'
 
 const MAC_LINE_EDIT: Record<string, string> = {
   Backspace: '\x15',
@@ -63,7 +62,7 @@ export function createTerminal(agentId: string): void {
   })
   term.loadAddon(new Unicode11Addon())
   term.unicode.activeVersion = '11'
-  term.loadAddon(new WebLinksAddon((_e, uri) => openUrlInBrowser(uri)))
+  term.loadAddon(new WebLinksAddon((_e, uri) => void window.vide.openExternal(uri)))
   const fit = new FitAddon()
   term.loadAddon(fit)
   const search = new SearchAddon()

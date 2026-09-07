@@ -1,4 +1,5 @@
 import { BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron'
+import { execFile } from 'child_process'
 import { randomUUID } from 'crypto'
 import type { AttachRequest, Config, KillRequest, SpawnRequest } from '../shared/types'
 import { configPath, getConfig, reloadConfig, saveConfig } from './config'
@@ -18,19 +19,6 @@ import {
   worktreeStatus
 } from './git'
 import { attachPty, killPty, resizePty, sessionName, spawnPty, writePty } from './pty'
-import {
-  browserBack,
-  browserCloseTab,
-  browserForward,
-  browserLoadUrl,
-  browserNewTab,
-  browserOpenUrl,
-  browserReload,
-  browserSelectTab,
-  setBrowserDragging,
-  setBrowserSplit,
-  setBrowserVisible
-} from './browser'
 import { loadSession, saveSession, loadRecent, saveRecent } from './session'
 import type { RecentDir, SessionAgent } from '../shared/types'
 
@@ -146,8 +134,10 @@ export function wireIpc(win: BrowserWindow): void {
     await removeWorktree({ path: p.path, force: true, deleteBranch: false })
   })
 
-  ipcMain.handle('diff:get', (_e, p: { cwd: string; ref?: string; full?: boolean }) =>
-    getDiff(p.cwd, p.ref, p.full)
+  ipcMain.handle(
+    'diff:get',
+    (_e, p: { cwd: string; ref?: string; full?: boolean; allChanges?: boolean }) =>
+      getDiff(p.cwd, p.ref, p.full, p.allChanges)
   )
   ipcMain.handle('diff:statusHash', (_e, p: { cwd: string }) => statusHash(p.cwd))
   ipcMain.handle('git:log', (_e, p: { cwd: string; skip?: number }) => gitLog(p.cwd, p.skip))
@@ -156,25 +146,18 @@ export function wireIpc(win: BrowserWindow): void {
   ipcMain.handle('git:checkout', (_e, p: { cwd: string; branch: string }) =>
     checkoutBranch(p.cwd, p.branch)
   )
-  ipcMain.handle('open:ide', (_e, p: { path: string }) => {
-    shell.openExternal(`vscode://file${p.path}`)
-  })
+  ipcMain.handle(
+    'open:ide',
+    (_e, p: { path: string }) =>
+      new Promise<void>((resolve, reject) => {
+        execFile('/usr/bin/open', ['-b', 'com.microsoft.VSCode', p.path], (error) => {
+          if (error) reject(error)
+          else resolve()
+        })
+      })
+  )
 
-  ipcMain.handle('browser:setVisible', (_e, p: { visible: boolean; focusPage: boolean }) =>
-    setBrowserVisible(p.visible, p.focusPage)
-  )
-  ipcMain.handle('browser:loadUrl', (_e, p: { url: string }) => browserLoadUrl(p.url))
-  ipcMain.handle('browser:back', () => browserBack())
-  ipcMain.handle('browser:forward', () => browserForward())
-  ipcMain.handle('browser:reload', () => browserReload())
-  ipcMain.handle('browser:newTab', () => browserNewTab())
-  ipcMain.handle('browser:closeTab', (_e, p: { id: number }) => browserCloseTab(p.id))
-  ipcMain.handle('browser:selectTab', (_e, p: { id: number }) => browserSelectTab(p.id))
-  ipcMain.handle('browser:openUrl', (_e, p: { url: string }) => browserOpenUrl(p.url))
-  ipcMain.handle('browser:setSplit', (_e, p: { fraction: number }) => setBrowserSplit(p.fraction))
-  ipcMain.handle('browser:setDragging', (_e, p: { dragging: boolean }) =>
-    setBrowserDragging(p.dragging)
-  )
+  ipcMain.handle('open:external', (_e, p: { url: string }) => shell.openExternal(p.url))
 
   ipcMain.handle('dialog:pickDirectory', async () => {
     const r = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'] })

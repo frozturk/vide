@@ -24,33 +24,22 @@ const api: VideApi = {
   agentKill: (req: KillRequest) => ipcRenderer.invoke('agent:kill', req),
   orphanWorktrees: (cwd, livePaths) => ipcRenderer.invoke('git:orphanWorktrees', { cwd, livePaths }),
   deleteOrphanWorktree: (path) => ipcRenderer.invoke('git:deleteOrphan', { path }),
-  diffGet: (cwd, ref, full) => ipcRenderer.invoke('diff:get', { cwd, ref, full }),
+  diffGet: (cwd, ref, full, allChanges) =>
+    ipcRenderer.invoke('diff:get', { cwd, ref, full, allChanges }),
   diffStatusHash: (cwd) => ipcRenderer.invoke('diff:statusHash', { cwd }),
   gitLog: (cwd, skip) => ipcRenderer.invoke('git:log', { cwd, skip }),
   gitSummary: (cwd) => ipcRenderer.invoke('git:summary', { cwd }),
   gitBranches: (cwd) => ipcRenderer.invoke('git:branches', { cwd }),
   gitCheckout: (cwd, branch) => ipcRenderer.invoke('git:checkout', { cwd, branch }),
   openInIde: (path) => ipcRenderer.invoke('open:ide', { path }),
-  browserSetVisible: (visible, focusPage) => ipcRenderer.invoke('browser:setVisible', { visible, focusPage }),
-  browserLoadUrl: (url) => ipcRenderer.invoke('browser:loadUrl', { url }),
-  browserBack: () => ipcRenderer.invoke('browser:back'),
-  browserForward: () => ipcRenderer.invoke('browser:forward'),
-  browserReload: () => ipcRenderer.invoke('browser:reload'),
-  browserNewTab: () => ipcRenderer.invoke('browser:newTab'),
-  browserCloseTab: (id) => ipcRenderer.invoke('browser:closeTab', { id }),
-  browserSelectTab: (id) => ipcRenderer.invoke('browser:selectTab', { id }),
-  browserOpenUrl: (url) => ipcRenderer.invoke('browser:openUrl', { url }),
-  browserSetSplit: (fraction) => ipcRenderer.invoke('browser:setSplit', { fraction }),
-  browserSetDragging: (dragging) => ipcRenderer.invoke('browser:setDragging', { dragging }),
+  openExternal: (url) => ipcRenderer.invoke('open:external', { url }),
   pickDirectory: () => ipcRenderer.invoke('dialog:pickDirectory'),
   clipboardReadText: () => ipcRenderer.invoke('clipboard:readText'),
   ptyInput: (agentId, data) => ipcRenderer.send('pty:input', { agentId, data }),
   ptyResize: (agentId, cols, rows) => ipcRenderer.send('pty:resize', { agentId, cols, rows }),
   onPtyData: (cb) => sub('pty:data', cb),
   onPtyExit: (cb) => sub('pty:exit', cb),
-  onPtyTitle: (cb) => sub('pty:title', cb),
-  onBrowserState: (cb) => sub('browser:state', cb),
-  onShortcut: (cb) => sub('shortcut', cb)
+  onPtyTitle: (cb) => sub('pty:title', cb)
 }
 
 contextBridge.exposeInMainWorld('vide', api)

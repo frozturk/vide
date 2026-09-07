@@ -242,14 +242,19 @@ export async function statusHash(cwd: string): Promise<string> {
 
 const inflight = new Map<string, Promise<DiffResult>>()
 
-export function getDiff(cwd: string, ref?: string, full = false): Promise<DiffResult> {
-  const key = `${cwd}\0${ref ?? ''}\0${full ? 'full' : ''}`
+export function getDiff(
+  cwd: string,
+  ref?: string,
+  full = false,
+  allChanges = false
+): Promise<DiffResult> {
+  const key = `${cwd}\0${ref ?? ''}\0${full ? 'full' : ''}\0${allChanges ? 'all' : ''}`
   const existing = inflight.get(key)
   if (existing) return existing
   const context = full ? FULL_CONTEXT : CONTEXT
-  const p = (ref ? computeCommitDiff(cwd, ref, context) : computeDiff(cwd, context)).finally(() =>
-    inflight.delete(key)
-  )
+  const p = (
+    ref ? computeCommitDiff(cwd, ref, context) : computeDiff(cwd, context, allChanges)
+  ).finally(() => inflight.delete(key))
   inflight.set(key, p)
   return p
 }
@@ -330,10 +335,22 @@ function parseNameStatus(out: string): Map<string, DiffFile['status']> {
   return map
 }
 
-async function computeDiff(cwd: string, context: number): Promise<DiffResult> {
+async function forkPoint(root: string): Promise<string | null> {
+  try {
+    const main = await mainRepoRoot(root)
+    if (resolve(main) === resolve(root)) return null
+    const mainHead = (await git(main, ['rev-parse', '--verify', 'HEAD'])).trim()
+    return (await git(root, ['merge-base', mainHead, 'HEAD'])).trim()
+  } catch {
+    return null
+  }
+}
+
+async function computeDiff(cwd: string, context: number, allChanges: boolean): Promise<DiffResult> {
   const root = await repoRoot(cwd)
   if (!root) return { kind: 'no-repo' }
-  const base = (await headSha(root)) ? 'HEAD' : EMPTY_TREE
+  const fork = allChanges ? await forkPoint(root) : null
+  const base = fork ?? ((await headSha(root)) ? 'HEAD' : EMPTY_TREE)
   const statusOut = await git(root, [
     '-c',
     'core.quotePath=false',
@@ -343,6 +360,18 @@ async function computeDiff(cwd: string, context: number): Promise<DiffResult> {
     '-z'
   ])
   const { statusByPath, untracked } = parseStatus(statusOut)
+  const statuses = fork
+    ? parseNameStatus(
+        await git(root, [
+          '-c',
+          'core.quotePath=false',
+          'diff',
+          '--name-status',
+          '--find-renames',
+          base
+        ])
+      )
+    : statusByPath
   const diffOut = await git(root, [
     '-c',
     'core.quotePath=false',
@@ -355,7 +384,7 @@ async function computeDiff(cwd: string, context: number): Promise<DiffResult> {
   ])
   const files: DiffFile[] = splitDiff(diffOut).map((chunk) => ({
     path: chunk.path,
-    status: statusByPath.get(chunk.path) ?? 'modified',
+    status: statuses.get(chunk.path) ?? 'modified',
     hunks: chunk.text
   }))
   let truncated = 0

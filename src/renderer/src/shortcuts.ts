@@ -1,12 +1,9 @@
 import { matchChord, type ChordId } from '../../shared/chords'
 import {
-  closeBrowserTab,
   closeDialog,
   closeOverlay,
   closePalette,
   closeSearch,
-  focusUrlBar,
-  newBrowserTab,
   openSearch,
   openSpawnDialog,
   panelKeyboardRelease,
@@ -36,28 +33,19 @@ export function dispatch(chord: ChordId): void {
       selectSibling(1)
       break
     case 'spawn':
-      if (s.overlay === 'browser') newBrowserTab()
-      else openSpawnDialog()
+      openSpawnDialog()
       break
     case 'close':
-      if (s.overlay === 'browser') {
-        if (s.browser.activeId !== null) closeBrowserTab(s.browser.activeId)
-      } else void requestClose()
+      void requestClose()
       break
     case 'diff':
       toggleOverlay('diff')
-      break
-    case 'browser':
-      toggleOverlay('browser')
       break
     case 'palette':
       togglePalette()
       break
     case 'find':
       openSearch()
-      break
-    case 'focus-url':
-      focusUrlBar()
       break
     case 'reload-config':
       void reloadConfig()

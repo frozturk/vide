@@ -107,14 +107,6 @@ function SettingsInner(): React.JSX.Element {
                   className={inputCls}
                 />
               </Field>
-              <Field label="Default Browser URL">
-                <input
-                  type="text"
-                  value={draft.defaultBrowserUrl}
-                  onChange={(e) => setField('defaultBrowserUrl', e.target.value)}
-                  className={inputCls}
-                />
-              </Field>
             </div>
           </div>
 

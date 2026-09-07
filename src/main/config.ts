@@ -36,8 +36,7 @@ const defaults: Config = {
       color: '#8b8b8b'
     }
   ],
-  worktreeBase: join('.vide', 'worktrees'),
-  defaultBrowserUrl: 'https://www.google.com'
+  worktreeBase: join('.vide', 'worktrees')
 }
 
 let current: Config | null = null

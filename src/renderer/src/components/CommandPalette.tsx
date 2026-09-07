@@ -74,7 +74,6 @@ function CommandPaletteInner(): React.JSX.Element {
     all.push(
       { id: 'cmd:spawn', label: 'New Agent', hint: 'command', kbd: '⌘T', action: openSpawnDialog },
       { id: 'cmd:diff', label: 'Toggle Diff', hint: 'command', kbd: '⌘D', action: () => toggleOverlay('diff') },
-      { id: 'cmd:browser', label: 'Toggle Browser', hint: 'command', kbd: '⌘B', action: () => toggleOverlay('browser') },
       { id: 'cmd:find', label: 'Find in Terminal', hint: 'command', kbd: '⌘F', action: openSearch },
       { id: 'cmd:settings', label: 'Settings', hint: 'command', action: () => useStore.setState({ settingsOpen: true }) },
       { id: 'cmd:reload', label: 'Reload Config', hint: 'command', kbd: '⌘⇧R', action: () => void reloadConfig() }

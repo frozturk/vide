@@ -26,11 +26,8 @@ unread indicators in the agent strip.
 file status letters, and untracked-file support. Built on
 `@git-diff-view/react`.
 
-**Embedded browser** — A WebContentsView pane (`⌘B`) for viewing your dev
-server alongside your agents, with navigation back/reload and URL focus (`⌘L`).
-
 **Keyboard-first** — `⌘T` spawn, `⌘W` close, `⌘↑/↓` switch agents, `⌘1`–`⌘9`
-jump, `⌘D` diff, `⌘B` browser, `⌘,` open config, `⌘⇧R` reload config.
+jump, `⌘D` diff, `⌘,` open config, `⌘⇧R` reload config.
 
 **macOS-native chrome** — Hidden inset title bar, traffic lights, dark zinc
 palette.
@@ -105,7 +102,6 @@ on first launch. Open it with `⌘,` from the app, or edit it directly —
     }
   ],
   "worktreeBase": ".vide/worktrees",
-  "defaultBrowserUrl": "http://localhost:3000",
   "shell": "/bin/zsh"
 }
 ```
@@ -152,8 +148,6 @@ offers to remove the worktree and delete the branch.
 | `⌘↑/↓`  | Previous / next agent         |
 | `⌘1`–`9` | Jump to agent N               |
 | `⌘D`    | Toggle diff overlay           |
-| `⌘B`    | Toggle browser pane           |
-| `⌘L`    | Focus browser URL bar         |
 | `⌘,`    | Open config file              |
 | `⌘⇧R`   | Reload config                 |
 | `Esc`   | Close overlay / dialog        |

@@ -1,23 +1,16 @@
-import { useEffect } from 'react'
 import { useStore } from './store'
 import { TopBar, TOOLBAR_HEIGHT } from './components/TopBar'
 import { TerminalPane } from './components/TerminalPane'
 import { AgentStrip } from './components/AgentStrip'
-import { BrowserBar } from './components/BrowserBar'
 import { DiffOverlay } from './components/DiffOverlay'
 import { SpawnDialog } from './components/SpawnDialog'
 import { CloseDialog } from './components/CloseDialog'
 import { SettingsOverlay } from './components/SettingsOverlay'
 import { CommandPalette } from './components/CommandPalette'
+import { Spinner } from './components/Spinner'
 
 export default function App(): React.JSX.Element {
-  const overlay = useStore((s) => s.overlay)
-  const dialog = useStore((s) => s.dialog)
-  const paletteOpen = useStore((s) => s.paletteOpen)
-
-  useEffect(() => {
-    void window.vide.browserSetVisible(overlay === 'browser' && !dialog && !paletteOpen, false)
-  }, [overlay, dialog, paletteOpen])
+  const booting = useStore((s) => s.booting)
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-zinc-950 text-zinc-200">
@@ -26,12 +19,17 @@ export default function App(): React.JSX.Element {
         <TerminalPane />
       </div>
       <AgentStrip />
-      <BrowserBar />
       <DiffOverlay />
       <SpawnDialog />
       <CloseDialog />
       <SettingsOverlay />
       <CommandPalette />
+      {booting && (
+        <div className="fixed inset-0 z-60 flex flex-col items-center justify-center gap-3 bg-zinc-950">
+          <Spinner size={22} />
+          <span className="text-xs text-zinc-500">restoring agents…</span>
+        </div>
+      )}
     </div>
   )
 }

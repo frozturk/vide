@@ -4,10 +4,8 @@ export type ChordId =
   | 'spawn'
   | 'close'
   | 'diff'
-  | 'browser'
   | 'palette'
   | 'find'
-  | 'focus-url'
   | 'reload-config'
   | 'open-config'
   | 'jump-1'
@@ -34,10 +32,8 @@ export const CHORDS: ChordDef[] = [
   { id: 'spawn', key: 't' },
   { id: 'close', key: 'w' },
   { id: 'diff', key: 'd' },
-  { id: 'browser', key: 'b' },
   { id: 'palette', key: 'k' },
   { id: 'find', key: 'f' },
-  { id: 'focus-url', key: 'l' },
   { id: 'reload-config', key: 'r', shift: true },
   { id: 'open-config', key: ',' },
   ...jumps

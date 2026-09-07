@@ -1,14 +1,15 @@
 import { create } from 'zustand'
-import type { Agent, AgentStatus, BrowserState, Config, RecentDir } from '../../shared/types'
+import type { Agent, AgentStatus, Config, RecentDir } from '../../shared/types'
 
 export type PanelState = 'closed' | 'hover' | 'keyboard'
-export type OverlayState = 'none' | 'diff' | 'browser'
+export type OverlayState = 'none' | 'diff'
 
 export type DialogState =
   | { kind: 'spawn' }
   | { kind: 'close'; agentId: string; dirty: boolean; hasOwnCommits: boolean }
 
 export interface VideStore {
+  booting: boolean
   config: Config | null
   agents: Agent[]
   selectedId: string | null
@@ -19,8 +20,6 @@ export interface VideStore {
   panel: PanelState
   overlay: OverlayState
   dialog: DialogState | null
-  browser: BrowserState
-  urlFocusSeq: number
   recentDirs: RecentDir[]
   settingsOpen: boolean
   suppressUnread: boolean
@@ -30,6 +29,7 @@ export interface VideStore {
 }
 
 export const useStore = create<VideStore>(() => ({
+  booting: true,
   config: null,
   agents: [],
   selectedId: null,
@@ -40,8 +40,6 @@ export const useStore = create<VideStore>(() => ({
   panel: 'closed',
   overlay: 'none',
   dialog: null,
-  browser: { tabs: [], activeId: null },
-  urlFocusSeq: 0,
   recentDirs: [],
   settingsOpen: false,
   suppressUnread: false,

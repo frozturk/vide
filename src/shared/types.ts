@@ -42,7 +42,6 @@ export interface RecentDir {
 export interface Config {
   agentKinds: AgentKind[]
   worktreeBase: string
-  defaultBrowserUrl: string
   shell?: string
 }
 
@@ -114,20 +113,6 @@ export interface GitCommit {
   subject: string
 }
 
-export interface BrowserTab {
-  id: number
-  url: string
-  title: string
-  loading: boolean
-  canGoBack: boolean
-  canGoForward: boolean
-}
-
-export interface BrowserState {
-  tabs: BrowserTab[]
-  activeId: number | null
-}
-
 export interface VideApi {
   configGet(): Promise<Config>
   configReload(): Promise<Config>
@@ -143,24 +128,14 @@ export interface VideApi {
   agentKill(req: KillRequest): Promise<{ branchKept: boolean }>
   orphanWorktrees(cwd: string, livePaths: string[]): Promise<OrphanWorktree[]>
   deleteOrphanWorktree(path: string): Promise<void>
-  diffGet(cwd: string, ref?: string, full?: boolean): Promise<DiffResult>
+  diffGet(cwd: string, ref?: string, full?: boolean, allChanges?: boolean): Promise<DiffResult>
   diffStatusHash(cwd: string): Promise<string>
   gitLog(cwd: string, skip?: number): Promise<GitCommit[]>
   gitSummary(cwd: string): Promise<GitSummary>
   gitBranches(cwd: string): Promise<string[]>
   gitCheckout(cwd: string, branch: string): Promise<{ ok: boolean; error?: string }>
   openInIde(path: string): Promise<void>
-  browserSetVisible(visible: boolean, focusPage: boolean): Promise<void>
-  browserLoadUrl(url: string): Promise<void>
-  browserBack(): Promise<void>
-  browserForward(): Promise<void>
-  browserReload(): Promise<void>
-  browserNewTab(): Promise<void>
-  browserCloseTab(id: number): Promise<void>
-  browserSelectTab(id: number): Promise<void>
-  browserOpenUrl(url: string): Promise<void>
-  browserSetSplit(fraction: number): Promise<void>
-  browserSetDragging(dragging: boolean): Promise<void>
+  openExternal(url: string): Promise<void>
   pickDirectory(): Promise<string | null>
   clipboardReadText(): Promise<string>
   ptyInput(agentId: string, data: string): void
@@ -168,6 +143,4 @@ export interface VideApi {
   onPtyData(cb: (p: { agentId: string; data: string }) => void): () => void
   onPtyExit(cb: (p: { agentId: string; exitCode: number }) => void): () => void
   onPtyTitle(cb: (p: { agentId: string; title: string }) => void): () => void
-  onBrowserState(cb: (s: BrowserState) => void): () => void
-  onShortcut(cb: (p: { chord: string }) => void): () => void
 }

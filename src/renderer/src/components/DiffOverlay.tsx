@@ -8,6 +8,7 @@ import { DEFAULT_PANE_FRACTION } from '../../../shared/layout'
 import { Resizer, useHSplit } from './Resizer'
 import { TOOLBAR_HEIGHT } from './TopBar'
 import { FileIcon } from './FileIcon'
+import { Spinner } from './Spinner'
 
 const STATUS_LETTER: Record<DiffFile['status'], { letter: string; color: string }> = {
   modified: { letter: 'M', color: '#f59e0b' },
@@ -173,18 +174,22 @@ const DiffBody = memo(function DiffBody({
 function GitTree({
   commits,
   selectedRef,
+  allChanges,
   expanded,
   hasMore,
   onToggle,
   onSelect,
+  onSelectAll,
   onLoadMore
 }: {
   commits: GitCommit[]
   selectedRef: string | null
+  allChanges: boolean
   expanded: boolean
   hasMore: boolean
   onToggle: () => void
   onSelect: (ref: string | null) => void
+  onSelectAll: () => void
   onLoadMore: () => void
 }): React.JSX.Element {
   return (
@@ -203,11 +208,20 @@ function GitTree({
           <button
             onClick={() => onSelect(null)}
             className={`flex w-full items-center gap-1 px-1.5 py-1.5 text-left text-xs outline-none focus:outline-none hover:bg-zinc-900 ${
-              selectedRef === null ? 'bg-zinc-900' : ''
+              selectedRef === null && !allChanges ? 'bg-zinc-900' : ''
             }`}
           >
             <span className="w-14 shrink-0 font-mono text-emerald-400">working</span>
-            <span className="min-w-0 flex-1 truncate text-zinc-300">Current work</span>
+            <span className="min-w-0 flex-1 truncate text-zinc-300">Uncommitted vs HEAD</span>
+          </button>
+          <button
+            onClick={onSelectAll}
+            className={`flex w-full items-center gap-1 px-1.5 py-1.5 text-left text-xs outline-none focus:outline-none hover:bg-zinc-900 ${
+              selectedRef === null && allChanges ? 'bg-zinc-900' : ''
+            }`}
+          >
+            <span className="w-14 shrink-0 font-mono text-sky-400">all</span>
+            <span className="min-w-0 flex-1 truncate text-zinc-300">All changes vs base</span>
           </button>
           {commits.map((c) => (
             <button
@@ -265,15 +279,18 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
   )
   const [showNums, setShowNums] = useState(() => localStorage.getItem('diffShowNums') === '1')
   const [fullFile, setFullFile] = useState(() => localStorage.getItem('diffFullFile') !== '0')
+  const [allChanges, setAllChanges] = useState(() => localStorage.getItem('diffAllChanges') === '1')
   const [hasMore, setHasMore] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [frac, setFrac] = useHSplit('diffSplit', DEFAULT_PANE_FRACTION, 0.2, 0.85)
   const [sidebarFrac, setSidebarFrac] = useHSplit('diffSidebarSplit', 0.25, 0.12, 0.6)
   const lastHash = useRef('')
 
-  const refresh = useCallback(async (): Promise<void> => {
+  const refresh = useCallback(async (quiet = false): Promise<void> => {
     if (!cwd) return
+    if (!quiet) setLoading(true)
     try {
-      const res = await window.vide.diffGet(cwd, selectedRef ?? undefined, fullFile)
+      const res = await window.vide.diffGet(cwd, selectedRef ?? undefined, fullFile, allChanges)
       setResult(res)
       if (res.kind === 'ok') {
         setSelectedPath((prev) =>
@@ -283,8 +300,10 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
       if (!selectedRef) lastHash.current = await window.vide.diffStatusHash(cwd)
     } catch (err) {
       setResult({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+    } finally {
+      if (!quiet) setLoading(false)
     }
-  }, [cwd, selectedRef, fullFile])
+  }, [cwd, selectedRef, fullFile, allChanges])
 
   useEffect(() => {
     rootRef.current?.focus()
@@ -323,7 +342,7 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
     const timer = setInterval(async () => {
       try {
         const h = await window.vide.diffStatusHash(cwd)
-        if (h !== lastHash.current) void refresh()
+        if (h !== lastHash.current) void refresh(true)
       } catch {
         /* transient git failure; next tick retries */
       }
@@ -336,6 +355,15 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
     const idx = result.files.findIndex((f) => f.path === selectedPath)
     const next = result.files[Math.min(result.files.length - 1, Math.max(0, idx + delta))]
     setSelectedPath(next.path)
+  }
+
+  function toggleAllChanges(): void {
+    setSelectedRef(null)
+    setAllChanges((v) => {
+      const next = !v
+      localStorage.setItem('diffAllChanges', next ? '1' : '0')
+      return next
+    })
   }
 
   const selected = result?.kind === 'ok' ? (result.files.find((f) => f.path === selectedPath) ?? null) : null
@@ -368,6 +396,9 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
             localStorage.setItem('diffFullFile', next ? '1' : '0')
             return next
           })
+        } else if (e.key === 'a') {
+          e.preventDefault()
+          toggleAllChanges()
         } else if (e.key === 'o') {
           e.preventDefault()
           openFile(selectedPath)
@@ -390,6 +421,16 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
         {selectedCommit && (
           <span className="shrink-0 font-mono text-amber-500">{selectedCommit.short}</span>
         )}
+        {!selectedCommit && allChanges && (
+          <button
+            onClick={toggleAllChanges}
+            className="shrink-0 rounded border border-sky-900/60 bg-sky-950/40 px-1.5 font-mono text-sky-400"
+            title="Showing all changes vs base (a)"
+          >
+            all vs base
+          </button>
+        )}
+        {loading && <Spinner size={11} />}
         {selected && (
           <>
             <span className="shrink-0 font-semibold text-zinc-300">{basename(selected.path)}</span>
@@ -397,10 +438,15 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
           </>
         )}
         <span className="ml-auto shrink-0">
-          j/k navigate · o open · f {fullFile ? 'hunks' : 'full file'} · n numbers · r refresh · esc
-          close
+          j/k navigate · o open · a {allChanges ? 'uncommitted' : 'all vs base'} · f{' '}
+          {fullFile ? 'hunks' : 'full file'} · n numbers · r refresh · esc close
         </span>
       </div>
+      {!result && loading && (
+        <div className="flex flex-1 items-center justify-center">
+          <Spinner size={20} />
+        </div>
+      )}
       {result?.kind === 'no-repo' && (
         <div className="flex flex-1 items-center justify-center text-sm text-zinc-600">not a git repository</div>
       )}
@@ -411,6 +457,11 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
       )}
       {result?.kind === 'ok' && (
         <div ref={bodyRef} className="relative flex min-h-0 flex-1">
+          {loading && (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/50">
+              <Spinner size={20} />
+            </div>
+          )}
           <div
             className="flex shrink-0 flex-col border-r border-zinc-800"
             style={{ width: `${sidebarFrac * 100}%` }}
@@ -465,6 +516,7 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
             <GitTree
               commits={commits}
               selectedRef={selectedRef}
+              allChanges={allChanges}
               expanded={treeExpanded}
               hasMore={hasMore}
               onToggle={() =>
@@ -474,7 +526,13 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
                   return next
                 })
               }
-              onSelect={setSelectedRef}
+              onSelect={(ref) => {
+                setSelectedRef(ref)
+                if (ref) setAllChanges(false)
+              }}
+              onSelectAll={() => {
+                if (!allChanges || selectedRef) toggleAllChanges()
+              }}
               onLoadMore={() => void loadMore()}
             />
           </div>
