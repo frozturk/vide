@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { panelHoverEnter, panelHoverLeave, requestDeleteWorkspace, selectAgent, selectWorkspace, togglePanelPinned } from '../actions'
 import { useStore } from '../store'
+import { terminalNavigation, workspaceNavigation } from '../workspaceNavigation'
 import type { AgentStatus, Workspace } from '../../../shared/types'
 import { PANEL_MAX_WIDTH, PANEL_MIN_WIDTH, RAIL_WIDTH, TOOLBAR_HEIGHT } from '../../../shared/layout'
 import { Resizer } from './Resizer'
@@ -29,16 +30,17 @@ export function AgentStrip(): React.JSX.Element | null {
   const [resizing, setResizing] = useState(false)
   if (!projects.length) return null
 
-  const projectHasAgents = (projectId: string): boolean =>
-    agents.some((a) => workspaces.some((w) => w.id === a.workspaceId && w.projectId === projectId))
-  const visible = projects.filter((p) => projectHasAgents(p.id))
+  const navigation = workspaceNavigation(projects, workspaces, agents)
+  const railAgents = terminalNavigation(navigation, agents)
+  const projectByWorkspace = new Map(navigation.map((w) => [w.id, w.projectId]))
+  const visible = projects.filter((p) => navigation.some((w) => w.projectId === p.id))
 
   return <>
     <div className="fixed left-0 z-50 flex flex-col items-center bg-zinc-900 pt-3" style={{ width: RAIL_WIDTH, top: TOOLBAR_HEIGHT, bottom: 0 }} onMouseEnter={panelHoverEnter} onMouseLeave={panelHoverLeave}>
-      {agents.map((agent, index) => {
+      {railAgents.map((agent, index) => {
         const status = statuses[agent.id] ?? 'idle'
-        const previous = agents[index - 1]
-        const newProject = index > 0 && previous?.projectRoot !== agent.projectRoot
+        const previous = railAgents[index - 1]
+        const newProject = previous && projectByWorkspace.get(previous.workspaceId) !== projectByWorkspace.get(agent.workspaceId)
         const selected = agent.id === selectedId
         return <button key={agent.id} onClick={(event) => { selectAgent(agent.id, 'click'); event.currentTarget.blur() }} aria-label={`${agent.title}: ${status}`} className="relative flex w-full items-center justify-center py-3" style={{ marginTop: newProject ? 10 : 0, borderRadius: '0 6px 6px 0', background: selected ? 'rgba(255,255,255,0.08)' : 'transparent' }} title={`${agent.title} · ${status}`}><span className={status === 'busy' ? 'animate-pulse' : ''} style={{ width: 8, height: 8, borderRadius: 9999, background: STATUS_COLOR[status], boxShadow: unread[agent.id] ? '0 0 0 1.5px white' : '0 0 0 1px rgba(255,255,255,0.2)' }} /></button>
       })}
@@ -48,8 +50,8 @@ export function AgentStrip(): React.JSX.Element | null {
       <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2 pb-3">
         {visible.map((project) => <div key={project.id} className="mb-3">
           <div className="mb-1 truncate px-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500" title={project.rootPath}>{project.name}</div>
-          {workspaces.filter((w) => w.projectId === project.id).map((workspace) => {
-            const index = workspaces.findIndex((w) => w.id === workspace.id)
+          {navigation.filter((w) => w.projectId === project.id).map((workspace) => {
+            const index = navigation.findIndex((w) => w.id === workspace.id)
             const status = workspaceStatus(workspace, agents, statuses)
             const count = agents.filter((a) => a.workspaceId === workspace.id).length
             const hasUnread = agents.some((a) => a.workspaceId === workspace.id && unread[a.id])

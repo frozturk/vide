@@ -2,19 +2,21 @@ import { useEffect, useRef, useState } from 'react'
 import { openAddTerminalDialog, selectAgent, spawnInDir } from '../actions'
 import { useStore } from '../store'
 import { attachTerminal } from '../terminals'
+import { workspaceTerminals } from '../workspaceNavigation'
 import { AgentIcon } from './AgentIcon'
 import { SearchBar } from './SearchBar'
 import { basename } from '../util'
 
 export function TerminalPane(): React.JSX.Element {
   const agents = useStore((s) => s.agents)
+  const titles = useStore((s) => s.titles)
   const selectedId = useStore((s) => s.selectedId)
   const selectedWorkspaceId = useStore((s) => s.selectedWorkspaceId)
   const config = useStore((s) => s.config)
-  const workspaceAgents = agents.filter((a) => a.workspaceId === selectedWorkspaceId)
+  const workspaceAgents = workspaceTerminals(agents, selectedWorkspaceId)
   return <div className="relative h-full w-full">
     {selectedWorkspaceId && <div className="absolute inset-x-0 top-0 flex h-8 items-center gap-1 border-b border-zinc-800 bg-zinc-900 px-2">
-      {workspaceAgents.map((agent) => { const kind = config?.agentKinds.find((k) => k.id === agent.kindId); return <button key={agent.id} onClick={() => selectAgent(agent.id, 'click')} className={`flex h-6 max-w-48 items-center gap-1.5 rounded px-2 text-xs ${agent.id === selectedId ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-500 hover:bg-zinc-800'}`}><span style={{ color: kind?.color }}><AgentIcon kindId={agent.kindId} size={12} /></span><span className="truncate">{agent.title}</span></button> })}
+      {workspaceAgents.map((agent) => { const kind = config?.agentKinds.find((k) => k.id === agent.kindId); const title = titles[agent.id] || agent.title; return <button key={agent.id} title={title} onClick={() => selectAgent(agent.id, 'click')} className={`flex h-6 max-w-48 items-center gap-1.5 rounded px-2 text-xs ${agent.id === selectedId ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-500 hover:bg-zinc-800'}`}><span style={{ color: kind?.color }}><AgentIcon kindId={agent.kindId} size={12} /></span><span className="truncate">{title}</span></button> })}
       <button onClick={openAddTerminalDialog} title="Add terminal (⌘T)" className="flex h-6 w-6 items-center justify-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200">+</button>
     </div>}
     <div className={selectedWorkspaceId ? 'absolute inset-x-0 bottom-0 top-8' : 'absolute inset-0'}>

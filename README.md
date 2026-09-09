@@ -3,8 +3,8 @@
 A keyboard-driven desktop shell for running multiple AI coding agents in
 parallel.
 
-Vide organizes repositories into projects, gives each project a permanent Main
-workspace plus isolated git-worktree workspaces, and runs one or more
+Vide organizes folders into projects, gives each project a permanent Main
+workspace, offers isolated git-worktree workspaces for Git repositories, and runs one or more
 tmux-backed agent terminals in each workspace.
 
 ## Features
@@ -13,12 +13,13 @@ tmux-backed agent terminals in each workspace.
 PTY backed by a tmux session, so it survives app restarts. Reopen vide and
 your agents are right where you left them.
 
-**Projects and workspaces** — Register a Git repository once, work directly in
-its permanent Main workspace, or create isolated workspaces for parallel work.
+**Projects and workspaces** — Open any folder and work directly in
+its permanent Main workspace. Git repositories also support isolated workspaces for parallel work.
 Each workspace can contain multiple agent and shell terminals.
 
 **Git worktree isolation** — New workspaces get a unique `vide/<slug>` branch
-off Main's current HEAD. Orphaned Vide worktrees can be adopted. Closing a
+off a selected local or origin branch (defaulting to Main's current HEAD). The base branch
+picker lists local and fetched origin branches together by latest commit date, newest first. Orphaned Vide worktrees can be adopted. Closing a
 terminal never removes its workspace.
 
 **Live status detection** — Per-agent regexes parse terminal output to show
@@ -141,7 +142,8 @@ production or development namespace.
 
 Adding a project creates a permanent Main workspace for the repository root.
 Creating an isolated workspace runs `git worktree add -b vide/<slug> <path>
-HEAD`, then launches the selected agent there. Additional terminals share the
+<base-commit>`, using the selected branch's tip or Main's current HEAD by default,
+then launches the selected agent there. Additional terminals share the
 same workspace. Deleting a dirty workspace requires typed confirmation;
 branches containing commits are preserved unless explicitly selected for
 deletion.

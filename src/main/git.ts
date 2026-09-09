@@ -9,6 +9,7 @@ import type {
   GitCommit,
   GitSummary,
   OrphanWorktree,
+  WorktreeBranch,
   WorktreeStatus
 } from '../shared/types'
 
@@ -89,6 +90,18 @@ export async function checkoutBranch(
   }
 }
 
+export async function listWorktreeBranches(cwd: string): Promise<WorktreeBranch[]> {
+  const out = await git(cwd, [
+    'for-each-ref', '--format=%(refname)%00%(symref)',
+    '--sort=refname', '--sort=-committerdate', 'refs/heads/', 'refs/remotes/origin/'
+  ])
+  return out.split('\n').flatMap((line) => {
+    const [ref, symbolicTarget] = line.split('\0')
+    if (!ref || symbolicTarget || ref === 'refs/remotes/origin/HEAD') return []
+    return [{ ref, name: ref.startsWith('refs/heads/') ? ref.slice('refs/heads/'.length) : ref.slice('refs/remotes/'.length) }]
+  })
+}
+
 async function copyEnvFiles(from: string, to: string): Promise<void> {
   const seen = new Set<string>()
   for (const ignored of [[], ['--ignored']]) {
@@ -126,10 +139,18 @@ async function copyEnvFiles(from: string, to: string): Promise<void> {
 export async function createWorktree(
   agentCwd: string,
   kindId: string,
-  customName?: string
+  customName?: string,
+  baseBranch?: string
 ): Promise<{ path: string; branch: string; baseSha: string; name: string }> {
   const root = await mainRepoRoot(agentCwd)
-  const sha = await headSha(agentCwd)
+  // Pickers send full refs to distinguish local origin/foo from remote origin/foo.
+  const baseRef = baseBranch?.startsWith('refs/heads/') || baseBranch?.startsWith('refs/remotes/origin/')
+    ? baseBranch : `refs/heads/${baseBranch}`
+  const sha = baseBranch
+    ? await git(root, ['show-ref', '--verify', '--hash', baseRef])
+      .then((out) => out.trim())
+      .catch(() => { throw new Error(`Base branch no longer exists: ${baseBranch}`) })
+    : await headSha(agentCwd)
   if (!sha) throw new Error('repository has no commits')
   const now = new Date()
   const stamp = [

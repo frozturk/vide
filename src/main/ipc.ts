@@ -1,6 +1,8 @@
 import { BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron'
 import { execFile } from 'child_process'
 import { randomUUID } from 'crypto'
+import { stat } from 'fs/promises'
+import { resolve } from 'path'
 import type { Agent, AttachRequest, Config, KillRequest, ProjectAddRequest, SpawnRequest, WorkspaceAdoptRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest } from '../shared/types'
 import { configPath, getConfig, reloadConfig, saveConfig } from './config'
 import {
@@ -11,6 +13,7 @@ import {
   gitLog,
   gitSummary,
   listBranches,
+  listWorktreeBranches,
   orphanWorktrees,
   projectRootOf,
   removeWorktree,
@@ -41,6 +44,9 @@ async function spawnAgent(req: SpawnRequest): Promise<Agent> {
   const cfg = getConfig()
   const kind = cfg.agentKinds.find((k) => k.id === req.kindId)
   if (!kind) throw new Error(`unknown agent kind: ${req.kindId}`)
+  if ((req.adoptWorktreePath || req.worktreeName?.trim()) && !(await repoRoot(req.cwd))) {
+    throw new Error('Worktrees require a Git repository')
+  }
   let cwd = req.cwd
   let worktreePath: string | undefined
   let worktreeBranch: string | undefined
@@ -50,7 +56,7 @@ async function spawnAgent(req: SpawnRequest): Promise<Agent> {
     worktreePath = cwd
     worktreeBranch = (await currentBranch(cwd)) ?? undefined
   } else if (req.worktreeName?.trim()) {
-    const wt = await createWorktree(req.cwd, kind.id, req.worktreeName.trim())
+    const wt = await createWorktree(req.cwd, kind.id, req.worktreeName.trim(), req.baseBranch)
     cwd = wt.path
     worktreePath = wt.path
     worktreeBranch = wt.branch
@@ -125,8 +131,9 @@ export function wireIpc(win: BrowserWindow): void {
   ipcMain.handle('session:save', (_e, agents: SessionAgent[]) => updateAgents(agents))
   ipcMain.handle('state:load', () => loadState())
   ipcMain.handle('project:add', async (_e, req: ProjectAddRequest) => {
-    if (!(await repoRoot(req.path))) throw new Error('Projects must be Git repositories')
-    const rootPath = await projectRootOf(req.path)
+    const path = resolve(req.path)
+    if (!(await stat(path)).isDirectory()) throw new Error('Choose a project folder')
+    const rootPath = await projectRootOf(path)
     const state = await loadState()
     const existing = state.projects.find((p) => p.rootPath === rootPath)
     if (existing) {
@@ -151,7 +158,8 @@ export function wireIpc(win: BrowserWindow): void {
     const state = await loadState()
     const project = state.projects.find((p) => p.id === req.projectId)
     if (!project) throw new Error('Project not found')
-    const wt = await createWorktree(project.rootPath, 'workspace', req.name)
+    if (!(await repoRoot(project.rootPath))) throw new Error('Worktrees require a Git repository')
+    const wt = await createWorktree(project.rootPath, 'workspace', req.name, req.baseBranch)
     const workspace = { id: randomUUID(), projectId: project.id, name: wt.name, kind: 'worktree' as const, path: wt.path, branch: wt.branch, baseSha: wt.baseSha, createdAt: Date.now() }
     saveState({ ...state, workspaces: [...state.workspaces, workspace] })
     try {
@@ -167,6 +175,7 @@ export function wireIpc(win: BrowserWindow): void {
     const state = await loadState()
     const project = state.projects.find((p) => p.id === req.projectId)
     if (!project) throw new Error('Project not found')
+    if (!(await repoRoot(project.rootPath))) throw new Error('Worktrees require a Git repository')
     const livePaths = state.workspaces.filter((w) => w.kind === 'worktree').map((w) => w.path)
     const orphan = (await orphanWorktrees(project.rootPath, livePaths)).find((w) => w.path === req.path)
     if (!orphan) throw new Error('Worktree is already managed or is not a Vide worktree')
@@ -225,7 +234,9 @@ export function wireIpc(win: BrowserWindow): void {
   ipcMain.handle('diff:statusHash', (_e, p: { cwd: string }) => statusHash(p.cwd))
   ipcMain.handle('git:log', (_e, p: { cwd: string; skip?: number }) => gitLog(p.cwd, p.skip))
   ipcMain.handle('git:summary', (_e, p: { cwd: string }) => gitSummary(p.cwd))
+  ipcMain.handle('git:repoRoot', (_e, p: { cwd: string }) => repoRoot(p.cwd))
   ipcMain.handle('git:branches', (_e, p: { cwd: string }) => listBranches(p.cwd))
+  ipcMain.handle('git:worktreeBranches', (_e, p: { cwd: string }) => listWorktreeBranches(p.cwd))
   ipcMain.handle('git:checkout', (_e, p: { cwd: string; branch: string }) =>
     checkoutBranch(p.cwd, p.branch)
   )

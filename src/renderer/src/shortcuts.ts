@@ -19,13 +19,14 @@ import {
   togglePalette
 } from './actions'
 import { useStore } from './store'
+import { workspaceNavigation } from './workspaceNavigation'
 
 export function dispatch(chord: ChordId): void {
   const s = useStore.getState()
   if (s.dialog) return
   if (chord.startsWith('jump-')) {
     const idx = Number(chord.slice(5)) - 1
-    const workspace = s.workspaces[idx]
+    const workspace = workspaceNavigation(s.projects, s.workspaces, s.agents)[idx]
     if (workspace) selectWorkspace(workspace.id, 'click')
     return
   }

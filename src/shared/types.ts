@@ -78,6 +78,7 @@ export interface SpawnRequest {
   cwd: string
   workspaceId?: string
   worktreeName?: string
+  baseBranch?: string
   adoptWorktreePath?: string
 }
 
@@ -100,6 +101,7 @@ export interface WorkspaceCreateRequest {
   projectId: string
   name: string
   kindId: string
+  baseBranch?: string
 }
 
 export interface WorkspaceAdoptRequest {
@@ -165,6 +167,11 @@ export interface GitCommit {
   subject: string
 }
 
+export interface WorktreeBranch {
+  ref: string
+  name: string
+}
+
 export interface VideApi {
   configGet(): Promise<Config>
   configReload(): Promise<Config>
@@ -193,7 +200,9 @@ export interface VideApi {
   diffStatusHash(cwd: string): Promise<string>
   gitLog(cwd: string, skip?: number): Promise<GitCommit[]>
   gitSummary(cwd: string): Promise<GitSummary>
+  gitRepoRoot(cwd: string): Promise<string | null>
   gitBranches(cwd: string): Promise<string[]>
+  gitWorktreeBranches(cwd: string): Promise<WorktreeBranch[]>
   gitCheckout(cwd: string, branch: string): Promise<{ ok: boolean; error?: string }>
   openInIde(path: string): Promise<void>
   openExternal(url: string): Promise<void>

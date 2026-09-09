@@ -1,5 +1,6 @@
 import type { Agent, SessionAgent, SpawnRequest } from '../../shared/types'
 import { useStore } from './store'
+import { terminalNavigation, workspaceNavigation, workspaceTerminals } from './workspaceNavigation'
 import { activateVisual, clearTerminalSearch, createTerminal, disposeTerminal, focusTerminal } from './terminals'
 
 let hoverOpenTimer: ReturnType<typeof setTimeout> | null = null
@@ -66,7 +67,7 @@ export function selectAgent(id: string, via: 'keyboard' | 'click'): void {
 export function selectWorkspace(id: string, via: 'keyboard' | 'click'): void {
   const s = useStore.getState()
   if (!s.workspaces.some((w) => w.id === id)) return
-  const agents = s.agents.filter((a) => a.workspaceId === id)
+  const agents = workspaceTerminals(s.agents, id)
   const selected = agents.find((a) => a.id === s.selectedId) ?? agents[0] ?? null
   useStore.setState({ selectedWorkspaceId: id, selectedId: selected?.id ?? null })
   if (via === 'keyboard') panelKeyboardShow()
@@ -75,21 +76,17 @@ export function selectWorkspace(id: string, via: 'keyboard' | 'click'): void {
 
 export function selectSibling(delta: 1 | -1): void {
   const s = useStore.getState()
-  if (s.workspaces.length === 0) return
-  const current = s.workspaces.findIndex((w) => w.id === s.selectedWorkspaceId)
-  for (let offset = 1; offset <= s.workspaces.length; offset += 1) {
-    const index = (current + delta * offset + s.workspaces.length) % s.workspaces.length
-    const candidate = s.workspaces[index]
-    if (s.agents.some((agent) => agent.workspaceId === candidate.id)) {
-      selectWorkspace(candidate.id, 'keyboard')
-      return
-    }
-  }
+  const workspaces = workspaceNavigation(s.projects, s.workspaces, s.agents)
+  if (workspaces.length === 0) return
+  const current = workspaces.findIndex((w) => w.id === s.selectedWorkspaceId)
+  const index = current === -1 ? (delta === 1 ? 0 : workspaces.length - 1)
+    : (current + delta + workspaces.length) % workspaces.length
+  selectWorkspace(workspaces[index].id, 'keyboard')
 }
 
 export function selectTerminalSibling(delta: 1 | -1): void {
   const s = useStore.getState()
-  const agents = s.agents.filter((a) => a.workspaceId === s.selectedWorkspaceId)
+  const agents = workspaceTerminals(s.agents, s.selectedWorkspaceId)
   if (agents.length < 2) return
   const idx = agents.findIndex((a) => a.id === s.selectedId)
   selectAgent(agents[(idx + delta + agents.length) % agents.length].id, 'click')
@@ -97,10 +94,11 @@ export function selectTerminalSibling(delta: 1 | -1): void {
 
 export function selectNextAttentionTerminal(): void {
   const s = useStore.getState()
-  if (s.agents.length < 2) return
-  const current = s.agents.findIndex((agent) => agent.id === s.selectedId)
-  for (let offset = 1; offset < s.agents.length; offset += 1) {
-    const candidate = s.agents[(current + offset + s.agents.length) % s.agents.length]
+  const agents = terminalNavigation(workspaceNavigation(s.projects, s.workspaces, s.agents), s.agents)
+  if (agents.length < 2) return
+  const current = agents.findIndex((agent) => agent.id === s.selectedId)
+  for (let offset = 1; offset < agents.length; offset += 1) {
+    const candidate = agents[(current + offset + agents.length) % agents.length]
     if ((s.statuses[candidate.id] ?? 'idle') !== 'idle' || s.unread[candidate.id]) {
       selectAgent(candidate.id, 'keyboard')
       return
@@ -120,7 +118,7 @@ function sortAgents(agents: Agent[]): Agent[] {
       const gy = groupSeen.get(y.projectRoot)!
       return gx !== gy ? gx - gy : x.projectRoot < y.projectRoot ? -1 : 1
     }
-    return y.createdAt - x.createdAt
+    return x.createdAt - y.createdAt
   })
 }
 
@@ -201,8 +199,8 @@ export function openAddTerminalDialog(): void {
   else useStore.setState({ dialog: { kind: 'new-workspace' } })
 }
 
-export async function createWorkspace(projectId: string, name: string, kindId: string): Promise<string | null> {
-  const result = await window.vide.workspaceCreate({ projectId, name, kindId })
+export async function createWorkspace(projectId: string, name: string, kindId: string, baseBranch?: string): Promise<string | null> {
+  const result = await window.vide.workspaceCreate({ projectId, name, kindId, baseBranch })
   const s = useStore.getState()
   useStore.setState({ workspaces: [...s.workspaces, result.workspace], selectedWorkspaceId: result.workspace.id, dialog: null })
   if (result.agent) {
@@ -247,7 +245,7 @@ export async function addTerminal(kindId: string): Promise<void> {
   await spawnAgent({ kindId, cwd: workspace.path, workspaceId: workspace.id })
 }
 
-export async function spawnFromDialog(kindId: string, cwd: string, worktreeName?: string, adoptPath?: string): Promise<void> {
+export async function spawnFromDialog(kindId: string, cwd: string, worktreeName?: string, adoptPath?: string, baseBranch?: string): Promise<void> {
   const added = await window.vide.projectAdd({ path: cwd })
   let s = useStore.getState()
   if (!s.projects.some((p) => p.id === added.project.id)) {
@@ -258,7 +256,7 @@ export async function spawnFromDialog(kindId: string, cwd: string, worktreeName?
     const error = await adoptWorkspace(added.project.id, adoptPath, kindId)
     if (error) alert(`Workspace adopted, but the agent failed to launch: ${error}`)
   } else if (worktreeName?.trim()) {
-    const error = await createWorkspace(added.project.id, worktreeName.trim(), kindId)
+    const error = await createWorkspace(added.project.id, worktreeName.trim(), kindId, baseBranch)
     if (error) alert(`Workspace created, but the agent failed to launch: ${error}`)
   } else {
     const workspace = s.workspaces.find((w) => w.path === cwd) ?? added.workspace
