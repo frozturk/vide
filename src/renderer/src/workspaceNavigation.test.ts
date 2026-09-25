@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Agent, Project, Workspace } from '../../shared/types'
-import { createWorkspace, selectSibling, selectWorkspace } from './actions'
+import { createWorkspace, requestClose, selectSibling, selectWorkspace } from './actions'
 import { dispatch } from './shortcuts'
 import { useStore } from './store'
 import { activateVisual } from './terminals'
@@ -80,29 +80,46 @@ describe('workspace keyboard navigation', () => {
     expect(useStore.getState().selectedWorkspaceId).toBe('a-new')
   })
 
-  it('includes a new visible workspace even when its terminal fails to launch', async () => {
+  it('keeps a workspace saved but hides it when its terminal fails to launch', async () => {
     vi.stubGlobal('window', { vide: { workspaceCreate: vi.fn().mockResolvedValue({
       workspace: workspace('a-empty', 'a'), launchError: 'Launch failed'
     }) } })
     await createWorkspace('a', 'a-empty', 'shell')
+    expect(useStore.getState().workspaces.some((w) => w.id === 'a-empty')).toBe(true)
     selectWorkspace('a-main', 'click')
     selectSibling(1)
-    expect(useStore.getState()).toMatchObject({ selectedWorkspaceId: 'a-empty', selectedId: null })
-    selectSibling(1)
     expect(useStore.getState().selectedWorkspaceId).toBe('b-main')
+    selectSibling(1)
+    expect(useStore.getState().selectedWorkspaceId).toBe('a-main')
   })
 
-  it('uses the sidebar order for numbered jumps and excludes hidden projects', () => {
+  it('uses the sidebar order for numbered jumps and excludes empty workspaces and projects', () => {
     useStore.setState({
       projects: [project('hidden'), project('a'), project('b')],
       workspaces: [workspace('hidden-main', 'hidden'), workspace('a-main', 'a'), workspace('b-main', 'b'), workspace('a-new', 'a')]
     })
     const s = useStore.getState()
-    expect(workspaceNavigation(s.projects, s.workspaces, s.agents).map((w) => w.id)).toEqual(['a-main', 'a-new', 'b-main'])
-    for (const [index, id] of ['a-main', 'a-new', 'b-main'].entries()) {
+    expect(workspaceNavigation(s.projects, s.workspaces, s.agents).map((w) => w.id)).toEqual(['a-main', 'b-main'])
+    for (const [index, id] of ['a-main', 'b-main'].entries()) {
       dispatch(`jump-${index + 1}` as 'jump-1' | 'jump-2' | 'jump-3')
       expect(useStore.getState().selectedWorkspaceId).toBe(id)
     }
+  })
+
+  it('hides a workspace after its last terminal closes and shows it again when a terminal opens', async () => {
+    vi.stubGlobal('window', { vide: { terminalKill: vi.fn().mockResolvedValue(undefined) } })
+    useStore.setState({ agents: [...useStore.getState().agents, agent('a-second', 'a-main')] })
+    const visibleIds = () => {
+      const s = useStore.getState()
+      return workspaceNavigation(s.projects, s.workspaces, s.agents).map((w) => w.id)
+    }
+    await requestClose()
+    expect(visibleIds()).toEqual(['a-main', 'b-main'])
+    await requestClose()
+    expect(visibleIds()).toEqual(['b-main'])
+    expect(useStore.getState().workspaces.some((w) => w.id === 'a-main')).toBe(true)
+    useStore.setState({ agents: [...useStore.getState().agents, agent('a-reopened', 'a-main')] })
+    expect(visibleIds()).toEqual(['a-main', 'b-main'])
   })
 
   it('wraps and handles a missing selection or no visible workspaces', () => {
