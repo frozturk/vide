@@ -4,7 +4,7 @@ import { createWorkspace, requestClose, selectSibling, selectWorkspace } from '.
 import { dispatch } from './shortcuts'
 import { useStore } from './store'
 import { activateVisual } from './terminals'
-import { terminalNavigation, workspaceNavigation, workspaceTerminals } from './workspaceNavigation'
+import { sidebarWorkspaces, terminalNavigation, workspaceNavigation, workspaceTerminals } from './workspaceNavigation'
 
 vi.hoisted(() => { vi.stubGlobal('localStorage', { getItem: () => null }) })
 vi.mock('./terminals', () => ({
@@ -100,6 +100,7 @@ describe('workspace keyboard navigation', () => {
     })
     const s = useStore.getState()
     expect(workspaceNavigation(s.projects, s.workspaces, s.agents).map((w) => w.id)).toEqual(['a-main', 'b-main'])
+    expect(sidebarWorkspaces(s.projects, s.workspaces, s.agents).map((w) => w.id)).toEqual(['a-main', 'a-new', 'b-main'])
     for (const [index, id] of ['a-main', 'b-main'].entries()) {
       dispatch(`jump-${index + 1}` as 'jump-1' | 'jump-2' | 'jump-3')
       expect(useStore.getState().selectedWorkspaceId).toBe(id)

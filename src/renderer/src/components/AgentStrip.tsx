@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { panelHoverEnter, panelHoverLeave, requestDeleteWorkspace, selectAgent, selectWorkspace, togglePanelPinned } from '../actions'
 import { useStore } from '../store'
-import { terminalNavigation, workspaceNavigation } from '../workspaceNavigation'
+import { sidebarWorkspaces, terminalNavigation, workspaceNavigation } from '../workspaceNavigation'
 import type { AgentStatus, Workspace } from '../../../shared/types'
 import { PANEL_MAX_WIDTH, PANEL_MIN_WIDTH, RAIL_WIDTH, TOOLBAR_HEIGHT } from '../../../shared/layout'
 import { Resizer } from './Resizer'
@@ -31,9 +31,10 @@ export function AgentStrip(): React.JSX.Element | null {
   if (!projects.length) return null
 
   const navigation = workspaceNavigation(projects, workspaces, agents)
+  const listed = sidebarWorkspaces(projects, workspaces, agents)
   const railAgents = terminalNavigation(navigation, agents)
   const projectByWorkspace = new Map(navigation.map((w) => [w.id, w.projectId]))
-  const visible = projects.filter((p) => navigation.some((w) => w.projectId === p.id))
+  const visible = projects.filter((p) => listed.some((w) => w.projectId === p.id))
 
   return <>
     <div className="fixed left-0 z-50 flex flex-col items-center bg-zinc-900 pt-3" style={{ width: RAIL_WIDTH, top: TOOLBAR_HEIGHT, bottom: 0 }} onMouseEnter={panelHoverEnter} onMouseLeave={panelHoverLeave}>
@@ -50,7 +51,7 @@ export function AgentStrip(): React.JSX.Element | null {
       <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2 pb-3">
         {visible.map((project) => <div key={project.id} className="mb-3">
           <div className="mb-1 truncate px-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500" title={project.rootPath}>{project.name}</div>
-          {navigation.filter((w) => w.projectId === project.id).map((workspace) => {
+          {listed.filter((w) => w.projectId === project.id).map((workspace) => {
             const index = navigation.findIndex((w) => w.id === workspace.id)
             const status = workspaceStatus(workspace, agents, statuses)
             const count = agents.filter((a) => a.workspaceId === workspace.id).length
@@ -60,7 +61,7 @@ export function AgentStrip(): React.JSX.Element | null {
               <span className="min-w-0 flex-1 truncate text-zinc-200">{workspace.kind === 'main' ? 'Main' : workspace.name}</span>
               {count > 0 && <span className="text-[10px] text-zinc-600">{count}</span>}
               {workspace.kind === 'worktree' && <span role="button" title="Delete workspace" onClick={(e) => { e.stopPropagation(); void requestDeleteWorkspace(workspace.id) }} className="opacity-0 text-zinc-600 hover:text-red-400 group-hover:opacity-100">×</span>}
-              {index < 9 && <kbd className="rounded border border-zinc-700/60 px-1 text-[10px] text-zinc-600">⌘{index + 1}</kbd>}
+              {index >= 0 && index < 9 && <kbd className="rounded border border-zinc-700/60 px-1 text-[10px] text-zinc-600">⌘{index + 1}</kbd>}
             </button>
           })}
         </div>)}
