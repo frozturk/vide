@@ -254,7 +254,7 @@ export async function orphanWorktrees(cwd: string, livePaths: string[]): Promise
 export async function statusHash(cwd: string): Promise<string> {
   const root = await repoRoot(cwd)
   if (!root) return 'no-repo'
-  const out = await git(root, ['--no-optional-locks', 'status', '--porcelain=v2', '-z'])
+  const out = await git(root, ['--no-optional-locks', 'status', '--porcelain=v2', '--untracked-files=all', '-z'])
   const base = (await headSha(root)) ? 'HEAD' : EMPTY_TREE
   const diffStat = await git(root, ['--no-optional-locks', 'diff', base, '--stat', '--no-color']).catch(() => '')
   let untrackedSig = ''
@@ -390,6 +390,7 @@ async function computeDiff(cwd: string, context: number, allChanges: boolean): P
     '--no-optional-locks',
     'status',
     '--porcelain=v2',
+    '--untracked-files=all',
     '-z'
   ])
   const { statusByPath, untracked } = parseStatus(statusOut)

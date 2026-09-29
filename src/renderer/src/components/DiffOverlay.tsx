@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import { DiffModeEnum, DiffView } from '@git-diff-view/react'
+import { DiffModeEnum, DiffView, highlighter } from '@git-diff-view/react'
 import '@git-diff-view/react/styles/diff-view.css'
 import type { DiffFile, DiffResult, GitCommit } from '../../../shared/types'
 import { selectedProject, selectedWorkspace, useStore } from '../store'
@@ -9,6 +9,8 @@ import { Resizer, useHSplit } from './Resizer'
 import { TOOLBAR_HEIGHT } from './TopBar'
 import { FileIcon } from './FileIcon'
 import { Spinner } from './Spinner'
+
+highlighter.setMaxLineToIgnoreSyntax(10000)
 
 const STATUS_LETTER: Record<DiffFile['status'], { letter: string; color: string }> = {
   modified: { letter: 'M', color: '#f59e0b' },

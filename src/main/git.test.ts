@@ -1,15 +1,30 @@
 import { execFileSync } from 'child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { describe, expect, it } from 'vitest'
-import { createWorktree, listBranches, listWorktreeBranches, removeWorktree, worktreeStatus } from './git'
+import { createWorktree, getDiff, listBranches, listWorktreeBranches, removeWorktree, worktreeStatus } from './git'
 
 function git(cwd: string, ...args: string[]): void {
   execFileSync('git', args, { cwd, stdio: 'ignore' })
 }
 
 describe('workspace worktrees', () => {
+  it('lists untracked files inside new folders', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'vide-untracked-test-'))
+    try {
+      git(root, 'init', '-b', 'main')
+      mkdirSync(join(root, 'feature', 'nested'), { recursive: true })
+      writeFileSync(join(root, 'feature', 'nested', 'file.ts'), 'export const x = 1\n')
+      const diff = await getDiff(root)
+      if (diff.kind !== 'ok') throw new Error(diff.kind)
+      expect(diff.files.map((f) => [f.path, f.status])).toEqual([['feature/nested/file.ts', 'untracked']])
+      expect(diff.files[0].hunks).toContain('+export const x = 1')
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+  })
+
   it('lists branches by commit date and rejects a missing base without creating a worktree', async () => {
     const root = mkdtempSync(join(tmpdir(), 'vide-branches-test-'))
     try {
