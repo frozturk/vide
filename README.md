@@ -27,12 +27,23 @@ terminal never removes its workspace.
 unread indicators in the agent strip.
 
 **Diff viewer** — A full git diff overlay (`⌘D`) with syntax-highlighted hunks,
-file status letters, and untracked-file support. Built on
-`@git-diff-view/react`.
+file status letters, Seti file icons, untracked-file support, and a commit
+history list for per-commit diffs. Built on `@git-diff-view/react`.
+
+**Git in the top bar** — Current branch with ahead/behind and change counts.
+Main workspaces get a branch switcher; `IDE` opens the workspace in VS Code.
+
+**Localhost servers** — A top bar button lists every process listening on a
+local port: ports (click to open in the browser), process, pid, uptime, and
+where it runs (shown as `repo / worktree` for Vide worktrees). `Kill` sends
+SIGTERM, then `Force kill` sends SIGKILL. Ports 49152 and up are hidden.
+
+**Command palette and search** — `⌘K` for commands, workspaces, terminals, and
+Settings; `⌘F` searches the current terminal.
 
 **Keyboard-first** — `⌘N` workspace, `⌘T` new agent with optional worktree, `⌘W` close terminal,
 `⌘↑/↓` switch workspaces, `⌘S` switch terminal tabs, `⌘E` jump to the next terminal needing attention,
-and `⌘D` diff.
+`⌘K` palette, `⌘F` find, and `⌘D` diff.
 
 **macOS-native chrome** — Hidden inset title bar, traffic lights, dark zinc
 palette.
@@ -85,8 +96,8 @@ Output lands in `dist/`. The app is unsigned — on first launch right-click →
 ## Configuration
 
 The config file is created at `~/Library/Application Support/vide/config.json`
-on first launch. Open it with `⌘,` from the app, or edit it directly —
-`⌘⇧R` reloads it without restarting.
+on first launch. Edit agent kinds in Settings (sidebar or `⌘K`), open the file
+with `⌘,`, or edit it directly — `⌘⇧R` reloads it without restarting.
 
 ```jsonc
 {
@@ -160,6 +171,8 @@ deletion.
 | `⌘S`    | Next terminal in workspace     |
 | `⌘E`    | Next non-idle or unread terminal |
 | `⌘D`    | Toggle diff overlay           |
+| `⌘K`    | Command palette               |
+| `⌘F`    | Search terminal               |
 | `⌘,`    | Open config file              |
 | `⌘⇧R`   | Reload config                 |
 | `Esc`   | Close overlay / dialog        |
