@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { selectedAgent, selectedProject, selectedWorkspace, useStore } from '../store'
 import { basename } from '../util'
 import { AgentIcon } from './AgentIcon'
+import { LocalServers } from './LocalServers'
 import { toggleOverlay } from '../actions'
 import logoWhite from '../assets/v-white.svg'
 import type { GitSummary } from '../../../shared/types'
@@ -206,6 +207,7 @@ export function TopBar(): React.JSX.Element {
             </button>
           </>
         )}
+        <LocalServers />
       </div>
     </div>
   )

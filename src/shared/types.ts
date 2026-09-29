@@ -131,6 +131,15 @@ export interface GitSummary {
   untracked: number
 }
 
+export interface LocalServer {
+  pid: number
+  command: string
+  args: string
+  cwd: string | null
+  startedAt: number | null
+  ports: { host: string; port: number }[]
+}
+
 export interface KillRequest {
   agentId: string
   worktree?: {
@@ -204,6 +213,8 @@ export interface VideApi {
   gitBranches(cwd: string): Promise<string[]>
   gitWorktreeBranches(cwd: string): Promise<WorktreeBranch[]>
   gitCheckout(cwd: string, branch: string): Promise<{ ok: boolean; error?: string }>
+  localServers(): Promise<LocalServer[]>
+  localServerKill(pid: number, force: boolean): Promise<void>
   openInIde(path: string): Promise<void>
   openExternal(url: string): Promise<void>
   pickDirectory(): Promise<string | null>

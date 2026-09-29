@@ -21,6 +21,7 @@ import {
   statusHash,
   worktreeStatus
 } from './git'
+import { killLocalServer, listLocalServers } from './ports'
 import { attachPty, killPty, resizePty, sessionName, spawnPty, writePty } from './pty'
 import { loadSession, loadRecent, saveRecent } from './session'
 import type { RecentDir, SessionAgent } from '../shared/types'
@@ -240,6 +241,8 @@ export function wireIpc(win: BrowserWindow): void {
   ipcMain.handle('git:checkout', (_e, p: { cwd: string; branch: string }) =>
     checkoutBranch(p.cwd, p.branch)
   )
+  ipcMain.handle('ports:list', () => listLocalServers())
+  ipcMain.handle('ports:kill', (_e, p: { pid: number; force: boolean }) => killLocalServer(p.pid, p.force))
   ipcMain.handle(
     'open:ide',
     (_e, p: { path: string }) =>
