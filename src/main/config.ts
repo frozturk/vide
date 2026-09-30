@@ -9,25 +9,19 @@ const defaults: Config = {
       id: 'claude',
       name: 'Claude Code',
       command: 'claude {prompt}',
-      color: '#d97757',
-      busyRegex: 'esc to interrupt',
-      waitingRegex: 'esc to cancel'
+      color: '#d97757'
     },
     {
       id: 'codex',
       name: 'Codex CLI',
       command: 'codex {prompt}',
-      color: '#4a9eff',
-      busyRegex: 'esc to interrupt',
-      waitingRegex: 'enter to submit'
+      color: '#4a9eff'
     },
     {
       id: 'opencode',
       name: 'OpenCode',
       command: 'opencode {prompt}',
-      color: '#f97316',
-      busyRegex: 'esc interrupt',
-      waitingRegex: 'esc dismiss'
+      color: '#f97316'
     },
     {
       id: 'shell',

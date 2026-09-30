@@ -139,7 +139,7 @@ function addAgent(agent: Agent, select = true): void {
     agents,
     selectedId: agent.id,
     selectedWorkspaceId: agent.workspaceId,
-    statuses: { ...s.statuses, [agent.id]: 'busy' },
+    statuses: { ...s.statuses, [agent.id]: 'idle' },
     unread,
     dialog: null
   })
@@ -202,21 +202,18 @@ export function dropAgent(agentId: string): void {
   const statuses = { ...s.statuses }
   const unread = { ...s.unread }
   const titles = { ...s.titles }
-  const titleBusy = { ...s.titleBusy }
-  const hookStates = { ...s.hookStates }
+  const activities = { ...s.activities }
+  delete activities[agentId]
   delete statuses[agentId]
   delete unread[agentId]
   delete titles[agentId]
-  delete titleBusy[agentId]
-  delete hookStates[agentId]
   const nextSelected = s.selectedId === agentId ? (agents.find((a) => a.workspaceId === agent.workspaceId) ?? null) : null
   useStore.setState({
     agents,
     statuses,
     unread,
     titles,
-    titleBusy,
-    hookStates,
+    activities,
     selectedId: s.selectedId === agentId ? (nextSelected?.id ?? null) : s.selectedId
   })
   if (nextSelected) activateVisual(nextSelected.id)
@@ -391,11 +388,9 @@ async function finalizeKill(agent: Agent, worktree: Parameters<typeof window.vid
   const statuses = { ...s.statuses }
   const unread = { ...s.unread }
   const titles = { ...s.titles }
-  const titleBusy = { ...s.titleBusy }
   delete statuses[agent.id]
   delete unread[agent.id]
   delete titles[agent.id]
-  delete titleBusy[agent.id]
   const sameWorkspace = agents.filter((a) => a.workspaceId === agent.workspaceId)
   const nextSelected = s.selectedId === agent.id ? (sameWorkspace[0] ?? null) : null
   useStore.setState({
@@ -403,7 +398,6 @@ async function finalizeKill(agent: Agent, worktree: Parameters<typeof window.vid
     statuses,
     unread,
     titles,
-    titleBusy,
     dialog: null,
     selectedId: s.selectedId === agent.id ? (nextSelected?.id ?? null) : s.selectedId
   })
@@ -422,6 +416,11 @@ export function toggleOverlay(which: 'diff'): void {
     return
   }
   useStore.setState({ overlay: which })
+}
+
+export function setDiffFullFile(full: boolean): void {
+  localStorage.setItem('diffFullFile', full ? '1' : '0')
+  useStore.setState({ diffFullFile: full })
 }
 
 export function closeOverlay(): void {

@@ -5,8 +5,6 @@ export interface AgentKind {
   name: string
   command: string
   color: string
-  busyRegex?: string
-  waitingRegex?: string
 }
 
 export interface Agent {
@@ -244,7 +242,7 @@ export interface VideApi {
   onPtyData(cb: (p: { agentId: string; data: string }) => void): () => void
   onPtyExit(cb: (p: { agentId: string; exitCode: number }) => void): () => void
   onPtyTitle(cb: (p: { agentId: string; title: string }) => void): () => void
-  onPtyState(cb: (p: { agentId: string; state: AgentStatus }) => void): () => void
+  onPtyState(cb: (p: { agentId: string; state: AgentStatus; activity: string | null }) => void): () => void
   onStateChanged(cb: () => void): () => void
   onConfigChanged(cb: () => void): () => void
   webInfo(): Promise<WebInfo>

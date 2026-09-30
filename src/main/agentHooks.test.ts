@@ -1,7 +1,11 @@
+import { execFileSync } from 'child_process'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
 import { describe, expect, it } from 'vitest'
-import { answersPrompt, hookCommand, mergeHooks, parsePaneStatus } from './agentHooks'
+import { hookCommand, mergeHooks, parsePaneStatus, parseState, stateAfterInput } from './agentHooks'
 
-const events = [{ event: 'Stop', state: 'idle' as const }, { event: 'Notification', matcher: 'permission_prompt', state: 'waiting' as const }]
+const events = [{ event: 'Stop', value: 'idle' as const }, { event: 'Notification', matcher: 'permission_prompt', value: 'waiting' as const }]
 
 describe('agent hooks', () => {
   it('adds vide hooks next to user hooks and keeps other settings', () => {
@@ -27,16 +31,33 @@ describe('agent hooks', () => {
     expect(command.endsWith('; true')).toBe(true)
   })
 
-  it('reads the pane title and reported state', () => {
-    expect(parsePaneStatus('✳ Fix bug\twaiting')).toEqual({ title: '✳ Fix bug', state: 'waiting' })
-    expect(parsePaneStatus('zsh\t')).toEqual({ title: 'zsh', state: null })
-    expect(parsePaneStatus('zsh\tbogus')).toEqual({ title: 'zsh', state: null })
+  it('reports the tool name from the hook payload', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'vide-hook-'))
+    const fake = join(dir, 'tmux')
+    writeFileSync(fake, `#!/bin/sh\necho "$@" > ${join(dir, 'args')}\n`, { mode: 0o755 })
+    execFileSync('/bin/sh', ['-c', hookCommand(fake, 'tool')], {
+      input: '{"session_id":"s","tool_name":"Bash","tool_input":{"command":"ls"}}',
+      env: { VIDE_AGENT: 'a', TMUX_PANE: '%1', PATH: process.env.PATH ?? '' }
+    })
+    expect(readFileSync(join(dir, 'args'), 'utf8').trim()).toBe('set-option -p -t %1 @vide_state busy:Bash')
+    rmSync(dir, { recursive: true, force: true })
   })
 
-  it('treats Esc and Enter, but not arrow keys, as answering a prompt', () => {
-    expect(answersPrompt('\x1b')).toBe(true)
-    expect(answersPrompt('\r')).toBe(true)
-    expect(answersPrompt('\x1b[A')).toBe(false)
-    expect(answersPrompt('y')).toBe(false)
+  it('updates the state from what the user types', () => {
+    expect(stateAfterInput('waiting', '\r')).toBe('busy')
+    expect(stateAfterInput('waiting', '\x1b')).toBe('idle')
+    expect(stateAfterInput('busy:Bash', '\x1b')).toBe('idle')
+    expect(stateAfterInput('waiting', '\x1b[A')).toBeNull()
+    expect(stateAfterInput('idle', '\x1b')).toBeNull()
+    expect(stateAfterInput('busy', 'x')).toBeNull()
+  })
+
+  it('reads the pane title, state and activity', () => {
+    expect(parsePaneStatus('✳ Fix bug\tbusy:Edit')).toEqual({ title: '✳ Fix bug', raw: 'busy:Edit' })
+    expect(parseState('busy:Edit')).toEqual({ state: 'busy', activity: 'Edit' })
+    expect(parseState('busy')).toEqual({ state: 'busy', activity: 'Thinking' })
+    expect(parseState('waiting')).toEqual({ state: 'waiting', activity: null })
+    expect(parseState('')).toBeNull()
+    expect(parseState('bogus')).toBeNull()
   })
 })

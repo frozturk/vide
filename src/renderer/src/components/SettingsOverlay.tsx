@@ -201,24 +201,6 @@ function SettingsInner(): React.JSX.Element {
                         className={inputCls}
                       />
                     </Field>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field label="Busy Regex" hint="Pattern for busy state (optional)">
-                        <input
-                          type="text"
-                          value={k.busyRegex ?? ''}
-                          onChange={(e) => updateKind(i, { busyRegex: e.target.value || undefined })}
-                          className={inputCls}
-                        />
-                      </Field>
-                      <Field label="Waiting Regex" hint="Pattern for waiting state (optional)">
-                        <input
-                          type="text"
-                          value={k.waitingRegex ?? ''}
-                          onChange={(e) => updateKind(i, { waitingRegex: e.target.value || undefined })}
-                          className={inputCls}
-                        />
-                      </Field>
-                    </div>
                   </div>
                 </div>
               ))}

@@ -3,7 +3,7 @@ import { DiffModeEnum, DiffView, highlighter } from '@git-diff-view/react'
 import '@git-diff-view/react/styles/diff-view.css'
 import type { DiffFile, DiffResult, GitCommit } from '../../../shared/types'
 import { selectedProject, selectedWorkspace, useStore } from '../store'
-import { closeOverlay } from '../actions'
+import { closeOverlay, setDiffFullFile } from '../actions'
 import { basename, dirname } from '../util'
 import { DEFAULT_PANE_FRACTION } from '../../../shared/layout'
 import { Resizer, useHSplit } from './Resizer'
@@ -272,7 +272,6 @@ export function DiffOverlay(): React.JSX.Element | null {
 
 function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | null }): React.JSX.Element {
   const compact = useStore((s) => s.compact)
-  const isWeb = useStore((s) => s.isWeb)
   const rootRef = useRef<HTMLDivElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
   const [result, setResult] = useState<DiffResult | null>(null)
@@ -283,7 +282,7 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
     () => localStorage.getItem('diffTreeExpanded') === '1'
   )
   const [showNums, setShowNums] = useState(() => localStorage.getItem('diffShowNums') === '1')
-  const [fullFile, setFullFile] = useState(() => localStorage.getItem('diffFullFile') !== '0')
+  const fullFile = useStore((s) => s.diffFullFile)
   const [allChanges, setAllChanges] = useState(() => localStorage.getItem('diffAllChanges') === '1')
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -396,11 +395,7 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
           })
         } else if (e.key === 'f') {
           e.preventDefault()
-          setFullFile((v) => {
-            const next = !v
-            localStorage.setItem('diffFullFile', next ? '1' : '0')
-            return next
-          })
+          setDiffFullFile(!useStore.getState().diffFullFile)
         } else if (e.key === 'a') {
           e.preventDefault()
           toggleAllChanges()
@@ -442,25 +437,10 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
             <span className="min-w-0 truncate text-zinc-600">{selected.path}</span>
           </>
         )}
-        {isWeb && <div role="group" aria-label="Diff view" className={`${compact ? '' : 'ml-auto'} flex shrink-0 rounded-lg bg-zinc-900 p-0.5 ring-1 ring-zinc-800`}>
-          {([['Changes', false], ['Full file', true]] as const).map(([label, full]) => (
-            <button
-              key={label}
-              aria-pressed={fullFile === full}
-              onClick={() => {
-                localStorage.setItem('diffFullFile', full ? '1' : '0')
-                setFullFile(full)
-              }}
-              className={`rounded-md font-medium transition ${compact ? 'px-2.5 py-1.5 text-xs' : 'px-2 py-0.5 text-[11px]'} ${fullFile === full ? 'bg-zinc-700 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>}
         {compact ? (
           <button onClick={closeOverlay} aria-label="Close diff" className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-lg text-zinc-400 active:bg-zinc-800">×</button>
         ) : (
-          <span className={`${isWeb ? '' : 'ml-auto '}shrink-0`}>
+          <span className="ml-auto shrink-0">
             j/k navigate · o open · a {allChanges ? 'uncommitted' : 'all vs base'} · f{' '}
             {fullFile ? 'hunks' : 'full file'} · n numbers · r refresh · esc close
           </span>

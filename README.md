@@ -23,11 +23,12 @@ picker lists local and fetched origin branches together by latest commit date, n
 terminal never removes its workspace.
 
 **Live status detection**: Claude Code and Codex report `busy`, `waiting`,
-and `idle` through their own hooks. At startup vide merges guarded entries
-into `~/.claude/settings.json` and `~/.codex/hooks.json`; they only run inside
-vide terminals (`VIDE_AGENT` is set) and leave your own hooks untouched. Other
-agents fall back to per-agent regexes on terminal output. Pulsing dots and
-unread indicators in the agent strip show which terminal needs you.
+and `idle` through their own hooks, the same way on every screen. At startup
+vide merges guarded entries into `~/.claude/settings.json` and
+`~/.codex/hooks.json`; they only run inside vide terminals (`VIDE_AGENT` is
+set) and leave your own hooks untouched. Agents without hooks (shells,
+OpenCode) show as idle. Pulsing dots and unread indicators in the agent strip
+show which terminal needs you.
 
 **Diff viewer** — A full git diff overlay (`⌘D`) with syntax-highlighted hunks,
 file status letters, Seti file icons, untracked-file support, and a commit
@@ -135,9 +136,7 @@ with `⌘,`, or edit it directly — `⌘⇧R` reloads it without restarting.
       "id": "claude",
       "name": "Claude Code",
       "command": "claude {prompt}",
-      "color": "#d97757",
-      "busyRegex": "esc to interrupt",
-      "waitingRegex": "Do you want|\\(y/n\\)"
+      "color": "#d97757"
     },
     {
       "id": "codex",
@@ -153,7 +152,7 @@ with `⌘,`, or edit it directly — `⌘⇧R` reloads it without restarting.
 
 ### Agent kinds
 
-Each kind defines how an agent is launched and how its status is detected.
+Each kind defines how an agent is launched.
 
 | field          | purpose                                                                |
 | -------------- | --------------------------------------------------------------------- |
@@ -161,8 +160,6 @@ Each kind defines how an agent is launched and how its status is detected.
 | `name`         | Display label in buttons and the agent strip.                         |
 | `command`      | Shell command template. `{prompt}` is shell-quoted and substituted in. |
 | `color`        | Accent color for the agent's icon and active states.                  |
-| `busyRegex`    | When matched in output, the agent shows **busy**.                    |
-| `waitingRegex` | When matched in output, the agent shows **waiting**.                  |
 
 Leave `command` empty for a plain shell. The `shell` kind is included by
 default for ad hoc terminals.

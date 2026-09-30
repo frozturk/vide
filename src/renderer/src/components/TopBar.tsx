@@ -3,7 +3,8 @@ import { selectedAgent, selectedProject, selectedWorkspace, useStore } from '../
 import { basename } from '../util'
 import { AgentIcon } from './AgentIcon'
 import { LocalServers } from './LocalServers'
-import { toggleOverlay } from '../actions'
+import { selectNextAttentionTerminal, setDiffFullFile, toggleOverlay } from '../actions'
+import { activityLabel } from '../activity'
 import logoWhite from '../assets/v-white.svg'
 import type { GitSummary } from '../../../shared/types'
 import { TOOLBAR_HEIGHT } from '../../../shared/layout'
@@ -18,6 +19,10 @@ export function TopBar(): React.JSX.Element {
   const isWeb = useStore((s) => s.isWeb)
   const compact = useStore((s) => s.compact)
   const attention = useStore((s) => s.agents.some((a) => a.workspaceId !== s.selectedWorkspaceId && (s.unread[a.id] || s.statuses[a.id] === 'waiting')))
+  const status = useStore((s) => (agent ? s.statuses[agent.id] ?? 'idle' : null))
+  const activity = useStore((s) => (agent ? s.activities[agent.id] ?? null : null))
+  const fullFile = useStore((s) => s.diffFullFile)
+  const others = useStore((s) => s.agents.filter((a) => a.id !== s.selectedId && ((s.statuses[a.id] ?? 'idle') !== 'idle' || s.unread[a.id])).length)
   const [summary, setSummary] = useState<GitSummary | null>(null)
   const [branchesOpen, setBranchesOpen] = useState(false)
   const [branches, setBranches] = useState<string[]>([])
@@ -112,6 +117,18 @@ export function TopBar(): React.JSX.Element {
                 <>{project?.name} / {workspace.kind === 'main' ? 'Main' : workspace.name}</>
               )}
             </span>
+            {status === 'busy' && (
+              <span className="flex shrink-0 items-center gap-1.5 text-xs leading-none text-emerald-400">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                {activityLabel(activity)}
+              </span>
+            )}
+            {status === 'waiting' && (
+              <span className="flex shrink-0 items-center gap-1.5 text-xs leading-none text-amber-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                Needs input
+              </span>
+            )}
             {agent && !compact && <><span className="shrink-0 text-xs text-zinc-500 leading-none">·</span><span className="shrink-0 truncate text-xs text-zinc-400 leading-none">{title ?? agent.sessionName}</span></>}
 
             {summary?.branch && !compact && (
@@ -202,6 +219,31 @@ export function TopBar(): React.JSX.Element {
       </div>
 
       <div className={`flex shrink-0 items-center h-full ${compact ? 'gap-0.5 pr-1.5' : 'gap-1 pr-3'}`} style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+        {isWeb && overlay === 'diff' && (
+          <div role="group" aria-label="Diff view" className="mr-1 flex shrink-0 rounded-lg bg-zinc-950 p-0.5 ring-1 ring-zinc-800">
+            {([['Changes', false], ['Full file', true]] as const).map(([label, full]) => (
+              <button
+                key={label}
+                aria-pressed={fullFile === full}
+                onClick={() => setDiffFullFile(full)}
+                className={`rounded-md font-medium transition ${compact ? 'px-2 py-1.5 text-xs' : 'px-2 py-0.5 text-[11px]'} ${fullFile === full ? 'bg-zinc-700 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+        {isWeb && others > 0 && (
+          <button
+            onClick={selectNextAttentionTerminal}
+            aria-label={`Next active agent (${others})`}
+            title="Next busy, waiting or unread agent"
+            className={`relative flex items-center justify-center text-zinc-300 transition hover:bg-zinc-800 active:scale-95 ${compact ? 'h-10 w-10 rounded-xl' : 'h-6 w-7 rounded-md'}`}
+          >
+            <svg className={compact ? 'h-4 w-4' : 'h-3.5 w-3.5'} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M2 8h9M8 4.5 11.5 8 8 11.5M14 3v10" /></svg>
+            <span className={`absolute flex min-w-4 items-center justify-center rounded-full bg-amber-400 px-1 text-[10px] font-semibold leading-4 text-zinc-950 ${compact ? 'right-1 top-1' : '-right-1 -top-1'}`}>{others}</span>
+          </button>
+        )}
         {workspace && (
           <>
             <button

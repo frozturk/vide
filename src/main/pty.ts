@@ -6,7 +6,7 @@ import { existsSync } from 'fs'
 import { homedir } from 'os'
 import { ownsTmuxSession, tmuxSessionPrefix } from './runtime'
 import { post } from './clients'
-import { AGENT_ENV, STATE_OPTION, answersPrompt, parsePaneStatus } from './agentHooks'
+import { AGENT_ENV, STATE_OPTION, parsePaneStatus, parseState, stateAfterInput } from './agentHooks'
 
 const exec = promisify(execFile)
 
@@ -162,8 +162,8 @@ async function attachInternal(clientId: string, agentId: string, name: string, e
   })
   const title = lastTitles.get(agentId)
   if (title) post(clientId, 'pty:title', { agentId, title })
-  const state = lastStates.get(agentId)
-  if (state) post(clientId, 'pty:state', { agentId, state })
+  const state = parseState(lastStates.get(agentId) ?? '')
+  if (state) post(clientId, 'pty:state', { agentId, ...state })
 }
 
 export async function attachPty(clientId: string, agentId: string, kindId?: string, cwd?: string): Promise<boolean> {
@@ -181,10 +181,11 @@ export function writePty(clientId: string, agentId: string, data: string): void 
   const e = entryOf(clientId, agentId)
   if (!e || !e.alive || e.exited) return
   e.p.write(data)
-  if (lastStates.get(agentId) === 'waiting' && answersPrompt(data)) {
-    lastStates.set(agentId, 'idle')
-    void exec1(getTmux(), ['set-option', '-p', '-t', e.sessionName, STATE_OPTION, 'idle'])
-    for (const c of ptys.get(agentId)?.values() ?? []) post(c.clientId, 'pty:state', { agentId, state: 'idle' })
+  const next = stateAfterInput(lastStates.get(agentId), data)
+  if (next) {
+    lastStates.set(agentId, next)
+    void exec1(getTmux(), ['set-option', '-p', '-t', e.sessionName, STATE_OPTION, next])
+    for (const c of ptys.get(agentId)?.values() ?? []) post(c.clientId, 'pty:state', { agentId, ...parseState(next)! })
   }
 }
 
@@ -280,10 +281,11 @@ async function pollTitles(): Promise<void> {
     } catch {
       continue
     }
-    const { title, state } = parsePaneStatus(line)
-    if (state && lastStates.get(agentId) !== state) {
-      lastStates.set(agentId, state)
-      for (const e of clients.values()) post(e.clientId, 'pty:state', { agentId, state })
+    const { title, raw } = parsePaneStatus(line)
+    const state = parseState(raw)
+    if (state && lastStates.get(agentId) !== raw) {
+      lastStates.set(agentId, raw)
+      for (const e of clients.values()) post(e.clientId, 'pty:state', { agentId, ...state })
     }
     if (!title || lastTitles.get(agentId) === title) continue
     lastTitles.set(agentId, title)

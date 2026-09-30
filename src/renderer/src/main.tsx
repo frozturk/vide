@@ -4,7 +4,6 @@ import App from './App'
 import { useStore } from './store'
 import { feedData, terminals, refit } from './terminals'
 import { dispatch, installKeyboard } from './shortcuts'
-import { startStatusTicker, SPINNER_GLYPHS } from './status'
 import * as actions from './actions'
 import { createWebApi } from './webApi'
 import { composerFocused, rememberKeyboard } from './keyboard'
@@ -68,18 +67,23 @@ async function bootstrap(): Promise<void> {
     const agent = s.agents.find((a) => a.id === agentId)
     if (!agent) return
     if (s.workspaces.find((w) => w.id === agent.workspaceId)?.kind === 'worktree') {
-      useStore.setState({
-        statuses: { ...s.statuses, [agentId]: 'exited' },
-        titleBusy: { ...s.titleBusy, [agentId]: false }
-      })
+      useStore.setState({ statuses: { ...s.statuses, [agentId]: 'exited' } })
       return
     }
     void window.vide.terminalKill(agentId)
     actions.dropAgent(agentId)
   })
 
-  window.vide.onPtyState(({ agentId, state }) => {
-    useStore.setState({ hookStates: { ...useStore.getState().hookStates, [agentId]: state } })
+  window.vide.onPtyState(({ agentId, state, activity }) => {
+    const s = useStore.getState()
+    const prev = s.statuses[agentId] ?? 'idle'
+    if (prev === 'exited' || (prev === state && s.activities[agentId] === activity)) return
+    const finished = prev === 'busy' && state === 'idle' && agentId !== s.selectedId && !s.suppressUnread
+    useStore.setState({
+      statuses: { ...s.statuses, [agentId]: state },
+      activities: { ...s.activities, [agentId]: activity },
+      unread: finished ? { ...s.unread, [agentId]: true } : s.unread
+    })
   })
 
   window.vide.onStateChanged(() => void actions.syncState())
@@ -97,17 +101,12 @@ async function bootstrap(): Promise<void> {
   window.addEventListener('pointerdown', reassertSize, { passive: true })
 
   window.vide.onPtyTitle(({ agentId, title }) => {
-    const busy = SPINNER_GLYPHS.test(title)
     const cleaned = title.replace(/^[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\u{2190}-\u{21FF}\u{2190}-\u{21FF}\u{2300}-\u{23FF}\u{25A0}-\u{25FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\s]+/u, '').trim()
     const st = useStore.getState()
-    useStore.setState({
-      titles: { ...st.titles, [agentId]: cleaned },
-      titleBusy: { ...st.titleBusy, [agentId]: busy }
-    })
+    useStore.setState({ titles: { ...st.titles, [agentId]: cleaned } })
   })
 
   installKeyboard()
-  startStatusTicker()
   if (import.meta.env.DEV) {
     ;(window as unknown as Record<string, unknown>).__vide = { useStore, terminals, dispatch, actions }
   }
