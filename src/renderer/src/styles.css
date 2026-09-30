@@ -7,6 +7,87 @@ body,
   overflow: hidden;
 }
 
+:root {
+  --toolbar-h: 38px;
+  --keybar-h: 0px;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+html.web,
+html.web body {
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+html.web body {
+  position: fixed;
+  inset: 0;
+}
+
+@media (max-width: 768px) {
+  html.web {
+    --toolbar-h: calc(46px + env(safe-area-inset-top));
+    --keybar-h: calc(48px + env(safe-area-inset-bottom));
+  }
+
+  html.web.keyboard-open {
+    --keybar-h: 48px;
+  }
+
+  .sheet {
+    animation: sheet-up 280ms var(--ease-out);
+  }
+
+  .sheet-panel {
+    width: 100% !important;
+    max-height: 92% !important;
+    margin-top: auto !important;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    border-left-width: 0 !important;
+    border-right-width: 0 !important;
+    border-bottom-width: 0 !important;
+    padding-bottom: env(safe-area-inset-bottom);
+    animation: sheet-up 280ms var(--ease-out);
+  }
+
+  .sheet-backdrop {
+    bottom: auto !important;
+    height: var(--app-h, 100dvh);
+    align-items: flex-end !important;
+    animation: fade-in 200ms ease-out;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(28px);
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes pill-in {
+  from {
+    transform: translate(-50%, -8px);
+    opacity: 0;
+  }
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 .xterm {
   height: 100%;
   padding: 6px;

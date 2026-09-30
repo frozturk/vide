@@ -131,11 +131,11 @@ function CommandPaletteInner(): React.JSX.Element {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex justify-center bg-black/70 backdrop-blur-sm"
+      className="sheet-backdrop fixed inset-0 z-50 flex justify-center bg-black/70 backdrop-blur-sm"
       onMouseDown={closePalette}
     >
       <div
-        className="mt-24 h-fit w-[560px] overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl"
+        className="sheet-panel mt-24 h-fit w-[560px] overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <input

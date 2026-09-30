@@ -25,8 +25,8 @@ export function CloseDialog(): React.JSX.Element | null {
     }
   }
 
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onMouseDown={closeDialog}>
-    <div className="w-[480px] overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl" onMouseDown={(e) => e.stopPropagation()}>
+  return <div className="sheet-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onMouseDown={closeDialog}>
+    <div className="sheet-panel w-[480px] overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl" onMouseDown={(e) => e.stopPropagation()}>
       <div className="border-b border-zinc-800 px-6 py-4 text-base font-semibold text-zinc-100">Delete Workspace</div>
       <div className="space-y-3 px-6 py-5 text-sm text-zinc-300">
         <p>Remove <span className="font-medium text-zinc-100">{workspace.name}</span> and stop all of its terminals?</p>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { LocalServer } from '../../../shared/types'
 import { basename } from '../util'
+import { useStore } from '../store'
 
 function shortPath(p: string): string {
   return p.replace(/^\/Users\/[^/]+/, '~')
@@ -33,6 +34,8 @@ export function LocalServers(): React.JSX.Element {
   const [servers, setServers] = useState<LocalServer[]>([])
   const [terminated, setTerminated] = useState<Set<number>>(new Set())
   const [error, setError] = useState<string | null>(null)
+  const isWeb = useStore((s) => s.isWeb)
+  const compact = useStore((s) => s.compact)
 
   const refresh = (): void => {
     window.vide.localServers().then(setServers).catch(() => {})
@@ -64,12 +67,12 @@ export function LocalServers(): React.JSX.Element {
           setOpen(!open)
           setError(null)
         }}
-        className={`flex items-center justify-center rounded-md h-6 w-7 text-xs transition ${
+        className={`flex items-center justify-center text-xs transition ${compact ? 'h-10 w-10 rounded-xl active:scale-95' : 'h-6 w-7 rounded-md'} ${
           open ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
         }`}
         title="Running localhost servers"
       >
-        <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+        <svg className={compact ? 'h-4 w-4' : 'h-3.5 w-3.5'} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
           <rect x="2" y="2.5" width="12" height="4.5" rx="1" />
           <rect x="2" y="9" width="12" height="4.5" rx="1" />
           <circle cx="4.75" cy="4.75" r="0.6" fill="currentColor" />
@@ -79,7 +82,10 @@ export function LocalServers(): React.JSX.Element {
       {open && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full z-40 mt-1 max-h-[70vh] w-[420px] overflow-y-auto rounded-md border border-zinc-700 bg-zinc-900 py-1 shadow-lg">
+          <div
+            className={compact ? 'sheet fixed inset-x-2 z-40 max-h-[70vh] overflow-y-auto rounded-2xl border border-zinc-800 bg-zinc-900 py-1 shadow-2xl' : 'absolute right-0 top-full z-40 mt-1 max-h-[70vh] w-[420px] overflow-y-auto rounded-md border border-zinc-700 bg-zinc-900 py-1 shadow-lg'}
+            style={compact ? { top: 'calc(var(--toolbar-h) + 6px)' } : undefined}
+          >
             <div className="px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">Localhost</div>
             {servers.length === 0 && <div className="px-3 py-2 text-xs text-zinc-600">no running servers</div>}
             {servers.map((s) => (
@@ -89,6 +95,7 @@ export function LocalServers(): React.JSX.Element {
                     {[...new Set(s.ports.map((p) => p.port))].map((port) => (
                       <button
                         key={port}
+                        disabled={isWeb}
                         onClick={() => void window.vide.openExternal(`http://localhost:${port}`)}
                         className="rounded bg-emerald-950/50 px-1.5 py-0.5 text-[11px] leading-none text-emerald-400 transition hover:bg-emerald-900/60"
                         title={`Open http://localhost:${port}`}
@@ -115,7 +122,7 @@ export function LocalServers(): React.JSX.Element {
                 </div>
                 <button
                   onClick={() => void kill(s.pid)}
-                  className="shrink-0 rounded px-2 py-1 text-[11px] leading-none text-red-400 transition hover:bg-red-950/50"
+                  className={`shrink-0 rounded text-[11px] leading-none text-red-400 transition hover:bg-red-950/50 ${compact ? 'px-3 py-2' : 'px-2 py-1'}`}
                   title={terminated.has(s.pid) ? 'Send SIGKILL' : 'Send SIGTERM'}
                 >
                   {terminated.has(s.pid) ? 'Force kill' : 'Kill'}

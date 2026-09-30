@@ -6,10 +6,13 @@ import { useStore } from './store'
 import { activateVisual } from './terminals'
 import { sidebarWorkspaces, terminalNavigation, workspaceNavigation, workspaceTerminals } from './workspaceNavigation'
 
-vi.hoisted(() => { vi.stubGlobal('localStorage', { getItem: () => null }) })
+vi.hoisted(() => {
+  vi.stubGlobal('localStorage', { getItem: () => null })
+  vi.stubGlobal('window', { matchMedia: () => ({ matches: false, addEventListener: () => {} }) })
+})
 vi.mock('./terminals', () => ({
   activateVisual: vi.fn(), clearTerminalSearch: vi.fn(), createTerminal: vi.fn(),
-  disposeTerminal: vi.fn(), focusTerminal: vi.fn()
+  disposeTerminal: vi.fn(), focusTerminal: vi.fn(), refit: vi.fn(), terminals: new Map()
 }))
 
 const project = (id: string): Project => ({ id, name: id, rootPath: `/${id}`, createdAt: 0, lastOpenedAt: 0 })

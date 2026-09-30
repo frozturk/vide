@@ -2,12 +2,43 @@ import './styles.css'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import { useStore } from './store'
-import { feedData, terminals, disposeTerminal, activateVisual } from './terminals'
+import { feedData, terminals, refit } from './terminals'
 import { dispatch, installKeyboard } from './shortcuts'
 import { startStatusTicker, SPINNER_GLYPHS } from './status'
 import * as actions from './actions'
+import { createWebApi } from './webApi'
+
+function syncViewport(): void {
+  const vv = window.visualViewport
+  const update = (): void => {
+    const height = vv ? vv.height : window.innerHeight
+    document.documentElement.style.setProperty('--app-h', `${height}px`)
+    document.documentElement.classList.toggle('keyboard-open', window.innerHeight - height > 120)
+    if (vv && vv.offsetTop > 0) window.scrollTo(0, 0)
+  }
+  update()
+  vv?.addEventListener('resize', update)
+  vv?.addEventListener('scroll', update)
+  window.addEventListener('resize', update)
+}
+
+async function connectWeb(): Promise<void> {
+  if (window.vide) return
+  const { api, connection, ready } = createWebApi()
+  window.vide = api
+  useStore.setState({ isWeb: true })
+  document.documentElement.classList.add('web')
+  connection.onClose(() => useStore.setState({ connection: 'reconnecting' }))
+  connection.onOpen((reconnected) => {
+    useStore.setState({ connection: 'online' })
+    if (reconnected) void actions.reattachAll()
+  })
+  await ready
+}
 
 async function bootstrap(): Promise<void> {
+  syncViewport()
+  await connectWeb()
   const config = await window.vide.configGet()
   const recentDirs = await window.vide.recentDirsLoad()
   const persisted = await window.vide.stateLoad()
@@ -27,27 +58,22 @@ async function bootstrap(): Promise<void> {
       return
     }
     void window.vide.terminalKill(agentId)
-    disposeTerminal(agentId)
-    const agents = s.agents.filter((a) => a.id !== agentId)
-    const statuses = { ...s.statuses }
-    const unread = { ...s.unread }
-    const titles = { ...s.titles }
-    const titleBusy = { ...s.titleBusy }
-    delete statuses[agentId]
-    delete unread[agentId]
-    delete titles[agentId]
-    delete titleBusy[agentId]
-    const nextSelected = s.selectedId === agentId ? (agents.find((a) => a.workspaceId === agent.workspaceId) ?? null) : null
-    useStore.setState({
-      agents,
-      statuses,
-      unread,
-      titles,
-      titleBusy,
-      selectedId: s.selectedId === agentId ? (nextSelected?.id ?? null) : s.selectedId
-    })
-    if (nextSelected) activateVisual(nextSelected.id)
+    actions.dropAgent(agentId)
   })
+
+  window.vide.onStateChanged(() => void actions.syncState())
+  window.vide.onConfigChanged(() => void actions.reloadConfigFromServer())
+
+  let lastAssert = 0
+  const reassertSize = (): void => {
+    const id = useStore.getState().selectedId
+    if (!id || document.visibilityState !== 'visible' || Date.now() - lastAssert < 1500) return
+    lastAssert = Date.now()
+    refit(id)
+  }
+  window.addEventListener('focus', reassertSize)
+  document.addEventListener('visibilitychange', reassertSize)
+  window.addEventListener('pointerdown', reassertSize, { passive: true })
 
   window.vide.onPtyTitle(({ agentId, title }) => {
     const busy = SPINNER_GLYPHS.test(title)

@@ -1,6 +1,6 @@
 import { useStore } from './store'
 import { TopBar } from './components/TopBar'
-import { RAIL_WIDTH, TOOLBAR_HEIGHT } from '../../shared/layout'
+import { RAIL_WIDTH } from '../../shared/layout'
 import { TerminalPane } from './components/TerminalPane'
 import { AgentStrip } from './components/AgentStrip'
 import { DiffOverlay } from './components/DiffOverlay'
@@ -9,18 +9,29 @@ import { CloseDialog } from './components/CloseDialog'
 import { SettingsOverlay } from './components/SettingsOverlay'
 import { CommandPalette } from './components/CommandPalette'
 import { Spinner } from './components/Spinner'
+import { KeyBar } from './components/KeyBar'
 
 export default function App(): React.JSX.Element {
   const booting = useStore((s) => s.booting)
   const pinned = useStore((s) => s.panelPinned)
   const panelWidth = useStore((s) => s.panelWidth)
+  const compact = useStore((s) => s.compact)
+  const keyBar = useStore((s) => s.compact && s.isWeb && Boolean(s.selectedId))
+  const reconnecting = useStore((s) => s.connection === 'reconnecting')
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-zinc-950 text-zinc-200">
+    <div className="relative w-screen overflow-hidden bg-zinc-950 text-zinc-200" style={{ height: 'var(--app-h, 100vh)' }}>
       <TopBar />
-      <div style={{ position: 'absolute', inset: `${TOOLBAR_HEIGHT}px 0 0 ${pinned ? RAIL_WIDTH + panelWidth : RAIL_WIDTH}px`, transition: 'left 150ms' }}>
+      <div style={{ position: 'absolute', inset: compact ? `var(--toolbar-h) 0 ${keyBar ? 'var(--keybar-h)' : '0px'} 0` : `var(--toolbar-h) 0 0 ${pinned ? RAIL_WIDTH + panelWidth : RAIL_WIDTH}px`, transition: 'left 150ms' }}>
         <TerminalPane />
       </div>
+      {keyBar && <KeyBar />}
+      {reconnecting && (
+        <div className="fixed left-1/2 z-[70] flex -translate-x-1/2 items-center gap-2 rounded-full border border-zinc-700/80 bg-zinc-900/95 px-3.5 py-1.5 text-xs text-zinc-300 shadow-xl backdrop-blur" style={{ top: 'calc(var(--toolbar-h) + 10px)', animation: 'pill-in 220ms var(--ease-out)' }}>
+          <Spinner size={11} />
+          Reconnecting…
+        </div>
+      )}
       <AgentStrip />
       <DiffOverlay />
       <SpawnDialog />

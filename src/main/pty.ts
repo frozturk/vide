@@ -4,8 +4,8 @@ import { promisify } from 'util'
 import { basename } from 'path'
 import { existsSync } from 'fs'
 import { homedir } from 'os'
-import type { WebContents } from 'electron'
 import { ownsTmuxSession, tmuxSessionPrefix } from './runtime'
+import { post } from './clients'
 
 const exec = promisify(execFile)
 
@@ -53,30 +53,21 @@ function getTmux(): string {
 interface Entry {
   p: pty.IPty
   agentId: string
+  clientId: string
   sessionName: string
   alive: boolean
   exited: boolean
 }
 
 let shuttingDown = false
-const ptys = new Map<string, Entry>()
+const ptys = new Map<string, Map<string, Entry>>()
 
 export function beginShutdown(): void {
   shuttingDown = true
 }
-let target: WebContents | null = null
 
-export function setTarget(wc: WebContents): void {
-  target = wc
-}
-
-function post(channel: string, payload: unknown): void {
-  if (!target || target.isDestroyed()) return
-  try {
-    target.send(channel, payload)
-  } catch {
-    return
-  }
+function entryOf(clientId: string, agentId: string): Entry | undefined {
+  return ptys.get(agentId)?.get(clientId)
 }
 
 function sanitize(s: string): string {
@@ -114,6 +105,7 @@ async function configureSession(name: string): Promise<void> {
 }
 
 export async function spawnPty(
+  clientId: string,
   agentId: string,
   shell: string,
   command: string,
@@ -143,10 +135,10 @@ export async function spawnPty(
   await configureSession(name)
   const exists = await sessionExists(name)
   console.log('[vide/spawnPty] session created:', name, 'exists:', exists)
-  await attachInternal(agentId, name, env)
+  await attachInternal(clientId, agentId, name, env)
 }
 
-async function attachInternal(agentId: string, name: string, env: Record<string, string>): Promise<void> {
+async function attachInternal(clientId: string, agentId: string, name: string, env: Record<string, string>): Promise<void> {
   const p = pty.spawn(getTmux(), ['attach', '-t', name], {
     name: 'xterm-256color',
     cols: 80,
@@ -154,36 +146,40 @@ async function attachInternal(agentId: string, name: string, env: Record<string,
     cwd: env.PWD ?? process.env.HOME ?? '/',
     env
   })
-  const entry: Entry = { p, agentId, sessionName: name, alive: true, exited: false }
-  ptys.set(agentId, entry)
+  const entry: Entry = { p, agentId, clientId, sessionName: name, alive: true, exited: false }
+  const clients = ptys.get(agentId) ?? new Map<string, Entry>()
+  clients.set(clientId, entry)
+  ptys.set(agentId, clients)
   p.onData((data) => {
-    post('pty:data', { agentId, data })
+    if (entry.alive) post(clientId, 'pty:data', { agentId, data })
   })
   p.onExit(({ exitCode }) => {
     entry.exited = true
-    if (shuttingDown) return
-    post('pty:exit', { agentId, exitCode })
+    if (shuttingDown || !entry.alive) return
+    post(clientId, 'pty:exit', { agentId, exitCode })
   })
+  const title = lastTitles.get(agentId)
+  if (title) post(clientId, 'pty:title', { agentId, title })
 }
 
-export async function attachPty(agentId: string, kindId?: string, cwd?: string): Promise<boolean> {
+export async function attachPty(clientId: string, agentId: string, kindId?: string, cwd?: string): Promise<boolean> {
   const name = sessionName(agentId, kindId, cwd)
   if (!(await sessionExists(name))) return false
   await configureSession(name)
-  const existing = ptys.get(agentId)
+  const existing = entryOf(clientId, agentId)
   if (existing && !existing.exited) return true
   const env = buildEnv()
-  await attachInternal(agentId, name, env)
+  await attachInternal(clientId, agentId, name, env)
   return true
 }
 
-export function writePty(agentId: string, data: string): void {
-  const e = ptys.get(agentId)
+export function writePty(clientId: string, agentId: string, data: string): void {
+  const e = entryOf(clientId, agentId)
   if (e && e.alive && !e.exited) e.p.write(data)
 }
 
-export function resizePty(agentId: string, cols: number, rows: number): void {
-  const e = ptys.get(agentId)
+export function resizePty(clientId: string, agentId: string, cols: number, rows: number): void {
+  const e = entryOf(clientId, agentId)
   if (!e || !e.alive || e.exited || cols < 2 || rows < 2) return
   void exec1(getTmux(), ['resize-window', '-t', e.sessionName, '-x', String(cols), '-y', String(rows)])
   try {
@@ -194,26 +190,28 @@ export function resizePty(agentId: string, cols: number, rows: number): void {
 }
 
 export async function killPty(agentId: string): Promise<void> {
-  const e = ptys.get(agentId)
-  const name = e?.sessionName ?? sessionName(agentId)
+  const clients = ptys.get(agentId)
+  const name = clients?.values().next().value?.sessionName ?? sessionName(agentId)
   await exec1(getTmux(), ['kill-session', '-t', name])
-  if (e) {
-    detachEntry(e)
+  if (clients) {
+    for (const e of clients.values()) detachEntry(e)
     ptys.delete(agentId)
   }
 }
 
-export function killAll(killSessions = false): void {
-  for (const e of ptys.values()) {
+export function detachClient(clientId: string): void {
+  for (const [agentId, clients] of ptys) {
+    const e = clients.get(clientId)
+    if (!e) continue
     detachEntry(e)
-    if (killSessions) void exec1(getTmux(), ['kill-session', '-t', e.sessionName])
+    clients.delete(clientId)
+    if (!clients.size) ptys.delete(agentId)
   }
-  ptys.clear()
 }
 
 export function detachAll(): void {
-  for (const e of ptys.values()) {
-    detachEntry(e)
+  for (const clients of ptys.values()) {
+    for (const e of clients.values()) detachEntry(e)
   }
   ptys.clear()
 }
@@ -231,7 +229,7 @@ function detachEntry(e: Entry): void {
 
 export function liveCount(): number {
   let n = 0
-  for (const e of ptys.values()) if (!e.exited) n++
+  for (const clients of ptys.values()) if ([...clients.values()].some((e) => !e.exited)) n++
   return n
 }
 
@@ -261,8 +259,9 @@ export function startTitlePoller(): void {
 }
 
 async function pollTitles(): Promise<void> {
-  for (const [agentId, entry] of ptys) {
-    if (entry.exited) continue
+  for (const [agentId, clients] of ptys) {
+    const entry = [...clients.values()].find((e) => !e.exited)
+    if (!entry) continue
     let title: string
     try {
       const { stdout } = await exec(getTmux(), ['display-message', '-p', '-t', entry.sessionName, '#{pane_title}'], { timeout: 3000 })
@@ -274,6 +273,6 @@ async function pollTitles(): Promise<void> {
     const prev = lastTitles.get(agentId)
     if (prev === title) continue
     lastTitles.set(agentId, title)
-    post('pty:title', { agentId, title })
+    for (const e of clients.values()) post(e.clientId, 'pty:title', { agentId, title })
   }
 }

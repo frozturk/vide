@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SessionAgent } from '../shared/types'
-import { migrateLegacySessions } from './state'
+import { mergeAgents, migrateLegacySessions } from './state'
 
 describe('legacy state migration', () => {
   it('groups repositories, creates Main, and shares a worktree workspace', async () => {
@@ -21,5 +21,16 @@ describe('legacy state migration', () => {
 
   it('returns an empty v2 state for an empty legacy session', async () => {
     expect(await migrateLegacySessions([])).toEqual({ version: 2, projects: [], workspaces: [], agents: [] })
+  })
+})
+
+describe('agent metadata updates', () => {
+  it('merges titles without adding or removing agents', () => {
+    const current: SessionAgent[] = [
+      { id: 'a', kindId: 'shell', cwd: '/a', title: 'old' },
+      { id: 'b', kindId: 'shell', cwd: '/b' }
+    ]
+    const merged = mergeAgents(current, [{ id: 'a', kindId: 'shell', cwd: '/a', title: 'new' }, { id: 'stale', kindId: 'shell', cwd: '/x' }])
+    expect(merged).toEqual([{ id: 'a', kindId: 'shell', cwd: '/a', title: 'new' }, { id: 'b', kindId: 'shell', cwd: '/b' }])
   })
 })

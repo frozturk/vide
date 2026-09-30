@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useStore } from '../store'
-import type { AgentKind, Config } from '../../../shared/types'
-import { TOOLBAR_HEIGHT } from './TopBar'
+import type { AgentKind, Config, WebInfo } from '../../../shared/types'
+import { QrCode } from './QrCode'
 
 export function SettingsOverlay(): React.JSX.Element | null {
   const open = useStore((s) => s.settingsOpen)
@@ -11,6 +11,7 @@ export function SettingsOverlay(): React.JSX.Element | null {
 
 function SettingsInner(): React.JSX.Element {
   const config = useStore((s) => s.config)
+  const isWeb = useStore((s) => s.isWeb)
   const [draft, setDraft] = useState<Config | null>(config ? JSON.parse(JSON.stringify(config)) : null)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -66,13 +67,13 @@ function SettingsInner(): React.JSX.Element {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      className="sheet-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
       onMouseDown={close}
     >
       <div
-        className="flex max-h-[80vh] w-[640px] flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl"
+        className="sheet-panel flex max-h-[80vh] w-[640px] flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl"
         onMouseDown={(e) => e.stopPropagation()}
-        style={{ marginTop: TOOLBAR_HEIGHT }}
+        style={{ marginTop: 'var(--toolbar-h)' }}
       >
         <div className="flex items-center justify-between border-b border-zinc-800 px-6 py-4">
           <span className="text-base font-semibold text-zinc-100">Settings</span>
@@ -109,6 +110,33 @@ function SettingsInner(): React.JSX.Element {
               </Field>
             </div>
           </div>
+
+          {!isWeb && (
+            <div className="mb-6">
+              <div className="mb-3 text-xs font-medium uppercase tracking-wider text-zinc-500">Web access</div>
+              <WebAccess />
+              <div className="mt-4 grid grid-cols-[1fr_120px] gap-3">
+                <Field label="Public URL" hint="Your tunnel address. Leave empty to use Tailscale automatically">
+                  <input
+                    type="text"
+                    value={draft.webPublicUrl ?? ''}
+                    onChange={(e) => setField('webPublicUrl', e.target.value || undefined)}
+                    placeholder="https://mac.tailnet.ts.net"
+                    className={inputCls}
+                  />
+                </Field>
+                <Field label="Port">
+                  <input
+                    type="number"
+                    value={draft.webPort ?? ''}
+                    onChange={(e) => setField('webPort', Number(e.target.value) || undefined)}
+                    placeholder="7878"
+                    className={inputCls}
+                  />
+                </Field>
+              </div>
+            </div>
+          )}
 
           <div>
             <div className="mb-3 flex items-center justify-between">
@@ -216,6 +244,79 @@ function SettingsInner(): React.JSX.Element {
             >
               {busy ? 'Saving…' : 'Save'}
             </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function WebAccess(): React.JSX.Element {
+  const [info, setInfo] = useState<WebInfo | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = (): void => {
+      window.vide.webInfo().then((i) => {
+        if (!cancelled) setInfo(i)
+      }).catch(() => {})
+    }
+    load()
+    const timer = setInterval(load, 2000)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [])
+
+  async function copy(): Promise<void> {
+    const link = info?.publicUrl ?? info?.url
+    if (!link) return
+    await navigator.clipboard.writeText(link)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  async function regenerate(): Promise<void> {
+    if (!confirm('Regenerate the access token? Every browser signed in with the old token is signed out.')) return
+    setInfo(await window.vide.webRegenerateToken())
+  }
+
+  const port = info?.url ? new URL(info.url).port : '7878'
+  const link = info?.publicUrl ?? info?.url ?? ''
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
+      <div className="mb-3 flex items-center gap-2 text-sm">
+        <span className={`h-2 w-2 rounded-full ${info?.listening ? 'bg-emerald-400' : 'bg-red-500'}`} />
+        <span className="text-zinc-300">{info?.listening ? `Listening on localhost:${port}` : info?.error ? `Not running: ${info.error}` : 'Starting…'}</span>
+      </div>
+      <div className="flex gap-4">
+        <div className="shrink-0">
+          {info?.publicUrl ? (
+            <QrCode value={info.publicUrl} size={148} />
+          ) : (
+            <div className="flex h-[148px] w-[148px] items-center justify-center rounded-xl border border-dashed border-zinc-700 p-3 text-center text-[11px] leading-snug text-zinc-500">
+              Set a public URL to get a QR code for your phone
+            </div>
+          )}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <div className="text-[11px] text-zinc-500">
+            {info?.publicSource === 'tailscale' ? 'Tailscale address (detected)' : info?.publicSource === 'config' ? 'Public URL' : 'Local only'}
+          </div>
+          <input readOnly value={link} onFocus={(e) => e.currentTarget.select()} className={`${inputCls} font-mono text-xs`} />
+          <div className="flex gap-2">
+            <button onClick={() => void copy()} className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 transition hover:bg-zinc-800">
+              {copied ? 'Copied' : 'Copy link'}
+            </button>
+            <button onClick={() => void regenerate()} className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200">
+              Regenerate token
+            </button>
+          </div>
+          <div className="mt-auto text-[11px] leading-relaxed text-zinc-600">
+            The link and QR hold the access token, so treat them like a password. To reach vide from your phone without installing anything there, run{' '}
+            <code className="rounded bg-zinc-800/80 px-1 text-zinc-400">tailscale funnel --bg {port}</code> on this Mac.
           </div>
         </div>
       </div>

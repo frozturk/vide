@@ -71,6 +71,16 @@ export interface Config {
   agentKinds: AgentKind[]
   worktreeBase: string
   shell?: string
+  webPort?: number
+  webPublicUrl?: string
+}
+
+export interface WebInfo {
+  url: string
+  publicUrl: string | null
+  publicSource: 'config' | 'tailscale' | null
+  listening: boolean
+  error: string | null
 }
 
 export interface SpawnRequest {
@@ -224,4 +234,8 @@ export interface VideApi {
   onPtyData(cb: (p: { agentId: string; data: string }) => void): () => void
   onPtyExit(cb: (p: { agentId: string; exitCode: number }) => void): () => void
   onPtyTitle(cb: (p: { agentId: string; title: string }) => void): () => void
+  onStateChanged(cb: () => void): () => void
+  onConfigChanged(cb: () => void): () => void
+  webInfo(): Promise<WebInfo>
+  webRegenerateToken(): Promise<WebInfo>
 }

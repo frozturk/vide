@@ -4,8 +4,10 @@ import { existsSync } from 'fs'
 import { join } from 'path'
 import type { MenuItemConstructorOptions } from 'electron'
 import { getConfig } from './config'
-import { wireIpc } from './ipc'
-import { liveCount, setTarget, detachAll, beginShutdown, startTitlePoller, reapOrphanSessions, sessionName } from './pty'
+import { DESKTOP_ONLY, runHandler, senders, wireIpc } from './ipc'
+import { liveCount, detachAll, beginShutdown, startTitlePoller, reapOrphanSessions, sessionName } from './pty'
+import { DESKTOP, registerClient } from './clients'
+import { startWebServer, stopWebServer } from './web'
 import { loadState } from './state'
 
 function probePath(shellPath: string): Promise<void> {
@@ -44,8 +46,15 @@ async function createWindow(): Promise<void> {
       backgroundThrottling: false
     }
   })
-  setTarget(win.webContents)
-  wireIpc(win)
+  registerClient(DESKTOP, (channel, payload) => {
+    if (!win.webContents.isDestroyed()) win.webContents.send(channel, payload)
+  })
+  const handlers = wireIpc(win)
+  startWebServer({
+    invoke: (channel, arg, clientId) => runHandler(handlers, channel, arg, clientId),
+    send: (channel, arg, clientId) => senders[channel]?.(arg, clientId),
+    blocked: DESKTOP_ONLY
+  })
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/.test(url)) shell.openExternal(url)
     return { action: 'deny' }
@@ -94,6 +103,7 @@ app.whenReady().then(async () => {
 })
 
 app.on('will-quit', () => {
+  stopWebServer()
   beginShutdown()
   detachAll()
 })

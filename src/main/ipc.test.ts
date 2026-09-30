@@ -76,7 +76,7 @@ describe('folder projects', () => {
     expect(await invoke('project:add', { path: join(root, '.') })).toEqual(added)
     const agent = await invoke('agent:spawn', { kindId: 'shell', cwd: root, workspaceId: added.workspace.id })
     expect(agent).toMatchObject({ cwd: root, repoRoot: null, projectRoot: root, workspaceId: added.workspace.id })
-    expect(spawnPty).toHaveBeenCalledWith(agent.id, '/bin/zsh', '', root, 'shell')
+    expect(spawnPty).toHaveBeenCalledWith('desktop', agent.id, '/bin/zsh', '', root, 'shell')
     expect(mocks.state.projects).toHaveLength(1)
     expect(mocks.state.agents).toHaveLength(1)
   })

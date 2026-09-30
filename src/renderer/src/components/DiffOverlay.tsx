@@ -3,10 +3,10 @@ import { DiffModeEnum, DiffView, highlighter } from '@git-diff-view/react'
 import '@git-diff-view/react/styles/diff-view.css'
 import type { DiffFile, DiffResult, GitCommit } from '../../../shared/types'
 import { selectedProject, selectedWorkspace, useStore } from '../store'
+import { closeOverlay } from '../actions'
 import { basename, dirname } from '../util'
 import { DEFAULT_PANE_FRACTION } from '../../../shared/layout'
 import { Resizer, useHSplit } from './Resizer'
-import { TOOLBAR_HEIGHT } from './TopBar'
 import { FileIcon } from './FileIcon'
 import { Spinner } from './Spinner'
 
@@ -271,6 +271,7 @@ export function DiffOverlay(): React.JSX.Element | null {
 }
 
 function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | null }): React.JSX.Element {
+  const compact = useStore((s) => s.compact)
   const rootRef = useRef<HTMLDivElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
   const [result, setResult] = useState<DiffResult | null>(null)
@@ -407,19 +408,19 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
           openFile(selectedPath)
         }
       }}
-      className="fixed right-0 z-40 flex flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl outline-none"
-      style={{ top: TOOLBAR_HEIGHT, bottom: 0, width: `${frac * 100}%` }}
+      className={`fixed right-0 z-40 flex flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl outline-none ${compact ? 'sheet' : ''}`}
+      style={{ top: 'var(--toolbar-h)', bottom: 0, width: compact ? '100%' : `${frac * 100}%` }}
     >
-      <Resizer
+      {!compact && <Resizer
         onDrag={(clientX) => setFrac((window.innerWidth - clientX) / window.innerWidth)}
         style={{
           position: 'fixed',
-          top: TOOLBAR_HEIGHT,
+          top: 'var(--toolbar-h)',
           bottom: 0,
           width: 7,
           right: `calc(${frac * 100}% - 3px)`
         }}
-      />
+      />}
       <div className="flex items-center gap-2 border-b border-zinc-800 px-3 py-2 text-xs text-zinc-500">
         {selectedCommit && (
           <span className="shrink-0 font-mono text-amber-500">{selectedCommit.short}</span>
@@ -440,10 +441,14 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
             <span className="min-w-0 truncate text-zinc-600">{selected.path}</span>
           </>
         )}
-        <span className="ml-auto shrink-0">
-          j/k navigate · o open · a {allChanges ? 'uncommitted' : 'all vs base'} · f{' '}
-          {fullFile ? 'hunks' : 'full file'} · n numbers · r refresh · esc close
-        </span>
+        {compact ? (
+          <button onClick={closeOverlay} aria-label="Close diff" className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-lg text-zinc-400 active:bg-zinc-800">×</button>
+        ) : (
+          <span className="ml-auto shrink-0">
+            j/k navigate · o open · a {allChanges ? 'uncommitted' : 'all vs base'} · f{' '}
+            {fullFile ? 'hunks' : 'full file'} · n numbers · r refresh · esc close
+          </span>
+        )}
       </div>
       {!result && loading && (
         <div className="flex flex-1 items-center justify-center">
@@ -459,15 +464,15 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
         </div>
       )}
       {result?.kind === 'ok' && (
-        <div ref={bodyRef} className="relative flex min-h-0 flex-1">
+        <div ref={bodyRef} className={`relative flex min-h-0 flex-1 ${compact ? 'flex-col' : ''}`}>
           {loading && (
             <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-zinc-950/50">
               <Spinner size={20} />
             </div>
           )}
           <div
-            className="flex shrink-0 flex-col border-r border-zinc-800"
-            style={{ width: `${sidebarFrac * 100}%` }}
+            className={`flex shrink-0 flex-col border-zinc-800 ${compact ? 'max-h-[34%] border-b' : 'border-r'}`}
+            style={{ width: compact ? '100%' : `${sidebarFrac * 100}%` }}
           >
             <div className="min-h-0 flex-1 overflow-y-auto">
               {result.files.map((f) => {
@@ -476,7 +481,7 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
                   <div
                     key={f.path}
                     onClick={() => setSelectedPath(f.path)}
-                    className={`group flex w-full cursor-pointer items-center gap-1 px-1.5 py-1.5 text-left text-xs hover:bg-zinc-900 ${
+                    className={`group flex w-full cursor-pointer items-center gap-1 px-1.5 text-left text-xs hover:bg-zinc-900 ${compact ? 'py-2.5' : 'py-1.5'} ${
                       f.path === selectedPath ? 'bg-zinc-900' : ''
                     }`}
                     title={f.path}
@@ -516,7 +521,7 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
                 <div className="px-2 py-1.5 text-xs text-zinc-600">+{result.truncated} more untracked</div>
               )}
             </div>
-            <GitTree
+            {!compact && <GitTree
               commits={commits}
               selectedRef={selectedRef}
               allChanges={allChanges}
@@ -538,9 +543,9 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
                 if (!allChanges || selectedRef) toggleAllChanges()
               }}
               onLoadMore={() => void loadMore()}
-            />
+            />}
           </div>
-          <Resizer
+          {!compact && <Resizer
             onDrag={(clientX) => {
               const rect = bodyRef.current?.getBoundingClientRect()
               if (rect) setSidebarFrac((clientX - rect.left) / rect.width)
@@ -552,7 +557,7 @@ function DiffOverlayInner({ cwd, root }: { cwd: string | null; root: string | nu
               width: 7,
               left: `calc(${sidebarFrac * 100}% - 3px)`
             }}
-          />
+          />}
           {selected ? (
             <DiffBody path={selected.path} hunks={selected.hunks} showNums={showNums} />
           ) : (

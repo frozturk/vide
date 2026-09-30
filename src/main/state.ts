@@ -110,7 +110,15 @@ export function saveState(state: PersistedState): PersistedState {
   return state
 }
 
+export function mergeAgents(current: SessionAgent[], updates: SessionAgent[]): SessionAgent[] {
+  const byId = new Map(updates.map((a) => [a.id, a]))
+  return current.map((a) => {
+    const update = byId.get(a.id)
+    return update ? { ...a, title: update.title ?? a.title } : a
+  })
+}
+
 export async function updateAgents(agents: SessionAgent[]): Promise<void> {
   const state = await loadState()
-  saveState({ ...state, agents })
+  saveState({ ...state, agents: mergeAgents(state.agents, agents) })
 }

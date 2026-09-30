@@ -48,6 +48,30 @@ Settings; `⌘F` searches the current terminal.
 **macOS-native chrome** — Hidden inset title bar, traffic lights, dark zinc
 palette.
 
+## Web access
+
+While vide runs, it also serves itself at `http://localhost:7878` (`7879`
+during `npm run dev`), so you can use it from a browser or your phone. Browser
+tabs and the desktop window share the same agents: typing, spawning, and
+closing terminals stay in sync.
+
+- **Token auth**: open the link or scan the QR code from Settings → Web access
+  once, and the token is stored in a cookie. Without it you get an unlock page
+  where you can paste the token. Ten wrong attempts lock logins for a minute.
+  Regenerate signs out every browser.
+- **Remote access**: the server only accepts connections from this Mac, so
+  expose it with a tunnel. `tailscale funnel --bg 7878` gives a public HTTPS
+  URL that terminates TLS on your Mac, so Tailscale can't read the traffic and
+  your phone needs no app. vide detects the Tailscale address for the QR code;
+  for any other tunnel, set Public URL in Settings.
+- **Mobile**: a responsive layout with a workspace drawer, bottom-sheet dialogs,
+  touch scrolling, and a key bar (`esc`, `tab`, sticky `ctrl`, arrows, `^C`,
+  paste). Add it to your home screen for a full-screen app.
+- **Not indexed**: every response sends `X-Robots-Tag: noindex`, and
+  `robots.txt` disallows all crawlers.
+- The port is configurable in Settings (`webPort`). A browser tab can't capture
+  `⌘T`/`⌘W`/`⌘N`, so use the command palette or the on-screen buttons there.
+
 ## Requirements
 
 - macOS (Apple Silicon or Intel)

@@ -28,6 +28,13 @@ export interface TermEntry {
 }
 
 export const terminals = new Map<string, TermEntry>()
+
+export function ctrlOf(ch: string): string {
+  if (ch === ' ' || ch === '@') return '\x00'
+  if (ch === '?') return '\x7f'
+  const code = ch.toUpperCase().charCodeAt(0)
+  return code >= 64 && code <= 95 ? String.fromCharCode(code & 0x1f) : ch
+}
 const pending = new Map<string, string[]>()
 
 export function feedData(agentId: string, data: string): void {
@@ -47,7 +54,7 @@ export function createTerminal(agentId: string): void {
   if (terminals.has(agentId)) return
   const term = new Terminal({
     allowProposedApi: true,
-    fontSize: 13,
+    fontSize: useStore.getState().compact ? 12 : 13,
     fontFamily: 'SF Mono, Menlo, monospace',
     scrollback: 10000,
     // Keep trackpad scrolling at xterm's baseline speed.
@@ -73,7 +80,7 @@ export function createTerminal(agentId: string): void {
       window.vide.ptyInput(agentId, '\x1b\r')
       return false
     }
-    if (e.type === 'keydown' && e.key.toLowerCase() === 'v' && e.metaKey && !e.ctrlKey && !e.altKey) {
+    if (e.type === 'keydown' && e.key.toLowerCase() === 'v' && e.metaKey && !e.ctrlKey && !e.altKey && !useStore.getState().isWeb) {
       e.preventDefault()
       void window.vide.clipboardReadText().then((text) => {
         if (text && terminals.get(agentId)?.term === term) term.paste(text)
@@ -93,7 +100,13 @@ export function createTerminal(agentId: string): void {
     }
     return true
   })
-  term.onData((d) => window.vide.ptyInput(agentId, d))
+  term.onData((d) => {
+    if (useStore.getState().ctrlArmed && d.length === 1) {
+      useStore.setState({ ctrlArmed: false })
+      d = ctrlOf(d)
+    }
+    window.vide.ptyInput(agentId, d)
+  })
   term.onResize(({ cols, rows }) => window.vide.ptyResize(agentId, cols, rows))
   const entry: TermEntry = {
     term,
@@ -149,11 +162,86 @@ export function attachTerminal(agentId: string, container: HTMLElement): void {
   container.addEventListener('mousedown', nativeSelectionHandler, true)
   e.nativeSelectionHandler = nativeSelectionHandler
   e.term.open(container)
+  if (useStore.getState().isWeb) installTouch(agentId, container)
   const ro = new ResizeObserver(() => {
     requestAnimationFrame(() => fitIfVisible(agentId))
   })
   ro.observe(container)
   e.observer = ro
+}
+
+const WHEEL_STEP = 18
+
+function installTouch(agentId: string, container: HTMLElement): void {
+  let lastY = 0
+  let startX = 0
+  let startY = 0
+  let acc = 0
+  let moved = false
+  let velocity = 0
+  let lastT = 0
+  let raf = 0
+  const cell = (x: number, y: number): [number, number] => {
+    const e = terminals.get(agentId)
+    const rect = container.getBoundingClientRect()
+    if (!e) return [1, 1]
+    const col = Math.max(1, Math.min(e.term.cols, Math.floor(((x - rect.left) / rect.width) * e.term.cols) + 1))
+    const row = Math.max(1, Math.min(e.term.rows, Math.floor(((y - rect.top) / rect.height) * e.term.rows) + 1))
+    return [col, row]
+  }
+  const wheel = (dy: number): void => {
+    acc += dy
+    const [col, row] = cell(startX, startY)
+    while (Math.abs(acc) >= WHEEL_STEP) {
+      const up = acc > 0
+      acc -= up ? WHEEL_STEP : -WHEEL_STEP
+      window.vide.ptyInput(agentId, `\x1b[<${up ? 64 : 65};${col};${row}M`)
+    }
+  }
+  container.addEventListener('touchstart', (ev) => {
+    cancelAnimationFrame(raf)
+    const t = ev.touches[0]
+    startX = t.clientX
+    startY = lastY = t.clientY
+    lastT = performance.now()
+    acc = 0
+    velocity = 0
+    moved = false
+  }, { passive: true, capture: true })
+  container.addEventListener('touchmove', (ev) => {
+    const t = ev.touches[0]
+    const dy = t.clientY - lastY
+    if (!moved && Math.abs(t.clientY - startY) < 8) return
+    moved = true
+    ev.preventDefault()
+    ev.stopPropagation()
+    const now = performance.now()
+    velocity = dy / Math.max(1, now - lastT)
+    lastT = now
+    lastY = t.clientY
+    wheel(dy)
+  }, { passive: false, capture: true })
+  container.addEventListener('touchend', (ev) => {
+    if (!moved) {
+      terminals.get(agentId)?.term.focus()
+      return
+    }
+    ev.preventDefault()
+    ev.stopPropagation()
+    let v = velocity * 16
+    const glide = (): void => {
+      if (Math.abs(v) < 0.6) return
+      wheel(v)
+      v *= 0.92
+      raf = requestAnimationFrame(glide)
+    }
+    raf = requestAnimationFrame(glide)
+  }, { passive: false, capture: true })
+}
+
+export function refit(agentId: string): void {
+  const e = terminals.get(agentId)
+  if (e) window.vide.ptyResize(agentId, e.term.cols, e.term.rows)
 }
 
 function fitIfVisible(agentId: string): void {
@@ -182,6 +270,7 @@ export function activateVisual(agentId: string): void {
     const e = terminals.get(agentId)
     if (!e) return
     fitIfVisible(agentId)
+    refit(agentId)
     if (!e.webgl) {
       try {
         const gl = new WebglAddon()
@@ -195,7 +284,7 @@ export function activateVisual(agentId: string): void {
         e.webgl = null
       }
     }
-    e.term.focus()
+    if (!useStore.getState().compact) e.term.focus()
   })
 }
 

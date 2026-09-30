@@ -34,7 +34,14 @@ export interface VideStore {
   paletteOpen: boolean
   searchOpen: boolean
   searchSeq: number
+  isWeb: boolean
+  compact: boolean
+  drawerOpen: boolean
+  connection: 'online' | 'reconnecting'
+  ctrlArmed: boolean
 }
+
+const compactQuery = window.matchMedia('(max-width: 768px)')
 
 export const useStore = create<VideStore>(() => ({
   booting: true,
@@ -58,8 +65,15 @@ export const useStore = create<VideStore>(() => ({
   suppressUnread: false,
   paletteOpen: false,
   searchOpen: false,
-  searchSeq: 0
+  searchSeq: 0,
+  isWeb: false,
+  compact: compactQuery.matches,
+  drawerOpen: false,
+  connection: 'online',
+  ctrlArmed: false
 }))
+
+compactQuery.addEventListener('change', (e) => useStore.setState({ compact: e.matches, drawerOpen: false }))
 
 export function selectedAgent(s: VideStore): Agent | null {
   return s.agents.find((a) => a.id === s.selectedId) ?? null

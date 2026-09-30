@@ -1,7 +1,7 @@
 import type { Agent, SessionAgent, SpawnRequest } from '../../shared/types'
 import { useStore } from './store'
 import { terminalNavigation, workspaceNavigation, workspaceTerminals } from './workspaceNavigation'
-import { activateVisual, clearTerminalSearch, createTerminal, disposeTerminal, focusTerminal } from './terminals'
+import { activateVisual, clearTerminalSearch, createTerminal, disposeTerminal, focusTerminal, refit, terminals } from './terminals'
 
 let hoverOpenTimer: ReturnType<typeof setTimeout> | null = null
 let hoverCloseTimer: ReturnType<typeof setTimeout> | null = null
@@ -59,7 +59,7 @@ export function selectAgent(id: string, via: 'keyboard' | 'click'): void {
   if (!agent) return
   const unread = { ...s.unread }
   delete unread[id]
-  useStore.setState({ selectedId: id, selectedWorkspaceId: agent.workspaceId, unread })
+  useStore.setState({ selectedId: id, selectedWorkspaceId: agent.workspaceId, unread, drawerOpen: false })
   if (via === 'keyboard') panelKeyboardShow()
   activateVisual(id)
 }
@@ -69,7 +69,7 @@ export function selectWorkspace(id: string, via: 'keyboard' | 'click'): void {
   if (!s.workspaces.some((w) => w.id === id)) return
   const agents = workspaceTerminals(s.agents, id)
   const selected = agents.find((a) => a.id === s.selectedId) ?? agents[0] ?? null
-  useStore.setState({ selectedWorkspaceId: id, selectedId: selected?.id ?? null })
+  useStore.setState({ selectedWorkspaceId: id, selectedId: selected?.id ?? null, drawerOpen: false })
   if (via === 'keyboard') panelKeyboardShow()
   if (selected) activateVisual(selected.id)
 }
@@ -122,9 +122,17 @@ function sortAgents(agents: Agent[]): Agent[] {
   })
 }
 
-function addAgent(agent: Agent): void {
+function addAgent(agent: Agent, select = true): void {
   const s = useStore.getState()
+  if (s.agents.some((a) => a.id === agent.id)) {
+    if (select) selectAgent(agent.id, 'click')
+    return
+  }
   const agents = sortAgents([...s.agents, agent])
+  if (!select) {
+    useStore.setState({ agents, statuses: { ...s.statuses, [agent.id]: 'idle' } })
+    return
+  }
   const unread = { ...s.unread }
   delete unread[agent.id]
   useStore.setState({
@@ -166,7 +174,7 @@ export async function spawnInDir(cwd: string, kindId?: string): Promise<void> {
   await spawnAgent({ kindId: id, cwd: added.workspace.path, workspaceId: added.workspace.id })
 }
 
-export async function restoreAgent(saved: SessionAgent): Promise<void> {
+export async function restoreAgent(saved: SessionAgent, select = true): Promise<void> {
   const agent = await window.vide.terminalAttach({
     id: saved.id,
     workspaceId: saved.workspaceId,
@@ -179,10 +187,75 @@ export async function restoreAgent(saved: SessionAgent): Promise<void> {
   })
   if (!agent) return
   createTerminal(agent.id)
-  addAgent(agent)
+  addAgent(agent, select)
   if (saved.title) {
     useStore.setState({ titles: { ...useStore.getState().titles, [agent.id]: saved.title } })
   }
+}
+
+export function dropAgent(agentId: string): void {
+  const s = useStore.getState()
+  const agent = s.agents.find((a) => a.id === agentId)
+  if (!agent) return
+  disposeTerminal(agentId)
+  const agents = s.agents.filter((a) => a.id !== agentId)
+  const statuses = { ...s.statuses }
+  const unread = { ...s.unread }
+  const titles = { ...s.titles }
+  const titleBusy = { ...s.titleBusy }
+  delete statuses[agentId]
+  delete unread[agentId]
+  delete titles[agentId]
+  delete titleBusy[agentId]
+  const nextSelected = s.selectedId === agentId ? (agents.find((a) => a.workspaceId === agent.workspaceId) ?? null) : null
+  useStore.setState({
+    agents,
+    statuses,
+    unread,
+    titles,
+    titleBusy,
+    selectedId: s.selectedId === agentId ? (nextSelected?.id ?? null) : s.selectedId
+  })
+  if (nextSelected) activateVisual(nextSelected.id)
+}
+
+let syncing: Promise<void> = Promise.resolve()
+
+export function syncState(): Promise<void> {
+  syncing = syncing.then(async () => {
+    const persisted = await window.vide.stateLoad()
+    const ids = new Set(persisted.agents.map((a) => a.id))
+    for (const agent of useStore.getState().agents) if (!ids.has(agent.id)) dropAgent(agent.id)
+    useStore.setState({ projects: persisted.projects, workspaces: persisted.workspaces })
+    const have = new Set(useStore.getState().agents.map((a) => a.id))
+    for (const saved of persisted.agents) {
+      if (!saved.id || have.has(saved.id)) continue
+      await restoreAgent(saved, false).catch((err) => console.error('agent sync failed', saved, err))
+    }
+    const s = useStore.getState()
+    if (s.selectedWorkspaceId && !s.workspaces.some((w) => w.id === s.selectedWorkspaceId)) {
+      const next = s.workspaces[0]
+      if (next) selectWorkspace(next.id, 'click')
+      else useStore.setState({ selectedWorkspaceId: null, selectedId: null })
+    }
+  }).catch((err) => console.error('state sync failed', err))
+  return syncing
+}
+
+export async function reattachAll(): Promise<void> {
+  for (const agent of useStore.getState().agents) {
+    terminals.get(agent.id)?.term.reset()
+    const attached = await window.vide.terminalAttach({ id: agent.id, workspaceId: agent.workspaceId, kindId: agent.kindId, cwd: agent.cwd, worktreePath: agent.worktreePath, worktreeBranch: agent.worktreeBranch, baseSha: agent.baseSha, createdAt: agent.createdAt }).catch(() => null)
+    if (attached) refit(agent.id)
+    else dropAgent(agent.id)
+  }
+  await syncState()
+  const selected = useStore.getState().selectedId
+  if (selected) activateVisual(selected)
+}
+
+export async function reloadConfigFromServer(): Promise<void> {
+  useStore.setState({ config: await window.vide.configGet() })
 }
 
 export function openNewWorkspaceDialog(): void {
