@@ -23,3 +23,9 @@ export function workspaceTerminals(agents: Agent[], workspaceId: string | null):
 export function terminalNavigation(workspaces: Workspace[], agents: Agent[]): Agent[] {
   return workspaces.flatMap((workspace) => workspaceTerminals(agents, workspace.id))
 }
+
+export function switchQueue(queue: string[], agents: Agent[]): string[] {
+  const ids = agents.map((agent) => agent.id)
+  const kept = queue.filter((id) => ids.includes(id))
+  return [...kept, ...ids.filter((id) => !kept.includes(id))]
+}

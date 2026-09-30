@@ -1,6 +1,6 @@
-import type { Agent, SessionAgent, SpawnRequest } from '../../shared/types'
+import type { Agent, AgentStatus, SessionAgent, SpawnRequest } from '../../shared/types'
 import { useStore } from './store'
-import { terminalNavigation, workspaceNavigation, workspaceTerminals } from './workspaceNavigation'
+import { switchQueue, terminalNavigation, workspaceNavigation, workspaceTerminals } from './workspaceNavigation'
 import { activateVisual, clearTerminalSearch, createTerminal, disposeTerminal, focusTerminal, refit, terminals } from './terminals'
 
 let hoverOpenTimer: ReturnType<typeof setTimeout> | null = null
@@ -95,15 +95,24 @@ export function selectTerminalSibling(delta: 1 | -1): void {
 export function selectNextAttentionTerminal(): void {
   const s = useStore.getState()
   const agents = terminalNavigation(workspaceNavigation(s.projects, s.workspaces, s.agents), s.agents)
-  if (agents.length < 2) return
-  const current = agents.findIndex((agent) => agent.id === s.selectedId)
-  for (let offset = 1; offset < agents.length; offset += 1) {
-    const candidate = agents[(current + offset + agents.length) % agents.length]
-    if ((s.statuses[candidate.id] ?? 'idle') !== 'idle' || s.unread[candidate.id]) {
-      selectAgent(candidate.id, 'keyboard')
-      return
-    }
-  }
+  const queue = switchQueue(s.switchQueue, agents).filter((id) => id !== s.selectedId)
+  if (!queue.length) return
+  useStore.setState({ switchQueue: [...queue.slice(1), ...(s.selectedId ? [s.selectedId] : [])] })
+  selectAgent(queue[0], 'keyboard')
+}
+
+export function applyAgentState(agentId: string, state: AgentStatus, activity: string | null): void {
+  const s = useStore.getState()
+  const prev = s.statuses[agentId] ?? 'idle'
+  if (prev === 'exited' || (prev === state && s.activities[agentId] === activity)) return
+  const finished = prev === 'busy' && state === 'idle' && agentId !== s.selectedId && !s.suppressUnread
+  const bumped = prev !== state && agentId !== s.selectedId
+  useStore.setState({
+    statuses: { ...s.statuses, [agentId]: state },
+    activities: { ...s.activities, [agentId]: activity },
+    unread: finished ? { ...s.unread, [agentId]: true } : s.unread,
+    switchQueue: bumped ? [agentId, ...s.switchQueue.filter((id) => id !== agentId)] : s.switchQueue
+  })
 }
 
 function sortAgents(agents: Agent[]): Agent[] {

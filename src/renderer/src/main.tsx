@@ -74,17 +74,7 @@ async function bootstrap(): Promise<void> {
     actions.dropAgent(agentId)
   })
 
-  window.vide.onPtyState(({ agentId, state, activity }) => {
-    const s = useStore.getState()
-    const prev = s.statuses[agentId] ?? 'idle'
-    if (prev === 'exited' || (prev === state && s.activities[agentId] === activity)) return
-    const finished = prev === 'busy' && state === 'idle' && agentId !== s.selectedId && !s.suppressUnread
-    useStore.setState({
-      statuses: { ...s.statuses, [agentId]: state },
-      activities: { ...s.activities, [agentId]: activity },
-      unread: finished ? { ...s.unread, [agentId]: true } : s.unread
-    })
-  })
+  window.vide.onPtyState(({ agentId, state, activity }) => actions.applyAgentState(agentId, state, activity))
 
   window.vide.onStateChanged(() => void actions.syncState())
   window.vide.onConfigChanged(() => void actions.reloadConfigFromServer())

@@ -23,6 +23,7 @@ export interface VideStore {
   activities: Record<string, string | null>
   diffFullFile: boolean
   unread: Record<string, boolean>
+  switchQueue: string[]
   titles: Record<string, string>
   panel: PanelState
   panelPinned: boolean
@@ -56,6 +57,7 @@ export const useStore = create<VideStore>(() => ({
   activities: {},
   diffFullFile: localStorage.getItem('diffFullFile') !== '0',
   unread: {},
+  switchQueue: [],
   titles: {},
   panel: 'closed',
   panelPinned: localStorage.getItem('panelPinned') === '1',

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Agent, Project, Workspace } from '../../shared/types'
-import { createWorkspace, requestClose, selectSibling, selectWorkspace } from './actions'
+import { applyAgentState, createWorkspace, requestClose, selectSibling, selectWorkspace } from './actions'
 import { dispatch } from './shortcuts'
 import { useStore } from './store'
 import { activateVisual } from './terminals'
@@ -53,17 +53,22 @@ describe('workspace keyboard navigation', () => {
     expect(useStore.getState().selectedId).toBe('a-second')
   })
 
-  it('visits terminals needing attention in left-bar order and wraps', () => {
+  it('loops through all terminals and moves the latest state change to the front', () => {
     useStore.setState({
       workspaces: [workspace('a-main', 'a'), workspace('b-main', 'b'), workspace('a-new', 'a')],
-      agents: [agent('a-terminal', 'a-main'), agent('b-terminal', 'b-main'), agent('new-terminal', 'a-new')],
-      statuses: { 'a-terminal': 'waiting', 'b-terminal': 'busy' },
-      unread: { 'new-terminal': true }
+      agents: [agent('a-terminal', 'a-main'), agent('b-terminal', 'b-main'), agent('new-terminal', 'a-new')]
     })
     dispatch('next-attention')
     expect(useStore.getState().selectedId).toBe('new-terminal')
     dispatch('next-attention')
     expect(useStore.getState().selectedId).toBe('b-terminal')
+    dispatch('next-attention')
+    expect(useStore.getState().selectedId).toBe('a-terminal')
+    applyAgentState('b-terminal', 'waiting', null)
+    dispatch('next-attention')
+    expect(useStore.getState().selectedId).toBe('b-terminal')
+    dispatch('next-attention')
+    expect(useStore.getState().selectedId).toBe('new-terminal')
     dispatch('next-attention')
     expect(useStore.getState().selectedId).toBe('a-terminal')
   })
