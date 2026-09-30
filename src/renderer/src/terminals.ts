@@ -162,7 +162,10 @@ export function attachTerminal(agentId: string, container: HTMLElement): void {
   container.addEventListener('mousedown', nativeSelectionHandler, true)
   e.nativeSelectionHandler = nativeSelectionHandler
   e.term.open(container)
-  if (useStore.getState().isWeb) installTouch(agentId, container)
+  if (useStore.getState().isWeb && touchDevice()) {
+    e.term.textarea?.setAttribute('inputmode', 'none')
+    installTouch(agentId, container)
+  }
   const ro = new ResizeObserver(() => {
     requestAnimationFrame(() => fitIfVisible(agentId))
   })
@@ -171,6 +174,10 @@ export function attachTerminal(agentId: string, container: HTMLElement): void {
 }
 
 const WHEEL_STEP = 18
+
+function touchDevice(): boolean {
+  return window.matchMedia('(pointer: coarse)').matches
+}
 
 function installTouch(agentId: string, container: HTMLElement): void {
   let lastY = 0
@@ -222,10 +229,7 @@ function installTouch(agentId: string, container: HTMLElement): void {
     wheel(dy)
   }, { passive: false, capture: true })
   container.addEventListener('touchend', (ev) => {
-    if (!moved) {
-      terminals.get(agentId)?.term.focus()
-      return
-    }
+    if (!moved) return
     ev.preventDefault()
     ev.stopPropagation()
     let v = velocity * 16

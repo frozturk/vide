@@ -9,7 +9,8 @@ body,
 
 :root {
   --toolbar-h: 38px;
-  --keybar-h: 0px;
+  --dock-h: 0px;
+  --kb-h: 0px;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -28,11 +29,17 @@ html.web body {
 @media (max-width: 768px) {
   html.web {
     --toolbar-h: calc(46px + env(safe-area-inset-top));
-    --keybar-h: calc(48px + env(safe-area-inset-bottom));
+    --dock-h: calc(104px + env(safe-area-inset-bottom));
   }
 
-  html.web.keyboard-open {
-    --keybar-h: 48px;
+  .dock {
+    bottom: var(--kb-h);
+    padding-bottom: env(safe-area-inset-bottom);
+    transition: bottom 220ms var(--ease-out);
+  }
+
+  html.web.keyboard-open .dock {
+    padding-bottom: 0;
   }
 
   .sheet {
@@ -54,7 +61,7 @@ html.web body {
 
   .sheet-backdrop {
     bottom: auto !important;
-    height: var(--app-h, 100dvh);
+    height: var(--vv-h, 100dvh);
     align-items: flex-end !important;
     animation: fade-in 200ms ease-out;
   }

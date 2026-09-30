@@ -10,10 +10,20 @@ import { createWebApi } from './webApi'
 
 function syncViewport(): void {
   const vv = window.visualViewport
+  const root = document.documentElement
+  let stable = window.innerHeight
+  let width = window.innerWidth
   const update = (): void => {
-    const height = vv ? vv.height : window.innerHeight
-    document.documentElement.style.setProperty('--app-h', `${height}px`)
-    document.documentElement.classList.toggle('keyboard-open', window.innerHeight - height > 120)
+    const visible = vv ? vv.height : window.innerHeight
+    if (window.innerWidth !== width || visible >= stable - 120) {
+      width = window.innerWidth
+      stable = window.innerHeight
+    }
+    const keyboard = vv ? Math.max(0, stable - vv.height - vv.offsetTop) : 0
+    root.style.setProperty('--app-h', `${stable}px`)
+    root.style.setProperty('--vv-h', `${visible}px`)
+    root.style.setProperty('--kb-h', `${keyboard}px`)
+    root.classList.toggle('keyboard-open', stable - visible > 120)
     if (vv && vv.offsetTop > 0) window.scrollTo(0, 0)
   }
   update()
