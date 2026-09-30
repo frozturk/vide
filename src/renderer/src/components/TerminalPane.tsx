@@ -18,13 +18,13 @@ export function TerminalPane(): React.JSX.Element {
   const selectedTab = useRef<HTMLButtonElement>(null)
   useEffect(() => { selectedTab.current?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' }) }, [selectedId])
   if (compact) return <div className="relative h-full w-full">
-    {selectedWorkspaceId && <div className="absolute inset-x-0 top-0 flex h-11 items-center border-b border-zinc-800/80 bg-zinc-900">
+    {selectedWorkspaceId && <div className="absolute inset-x-0 top-0 flex h-9 items-center border-b border-zinc-800/80 bg-zinc-900">
       <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-2">
-        {workspaceAgents.map((agent) => { const kind = config?.agentKinds.find((k) => k.id === agent.kindId); const title = titles[agent.id] || agent.title; const active = agent.id === selectedId; return <button key={agent.id} ref={active ? selectedTab : undefined} onClick={() => selectAgent(agent.id, 'click')} className={`flex h-8 max-w-44 shrink-0 items-center gap-1.5 rounded-lg pl-2.5 text-[13px] transition active:scale-95 ${active ? 'bg-zinc-700/80 pr-1 text-zinc-50' : 'pr-2.5 text-zinc-500'}`}><span style={{ color: kind?.color }}><AgentIcon kindId={agent.kindId} size={13} /></span><span className="truncate">{title}</span>{active && <span role="button" aria-label="Close terminal" onClick={(e) => { e.stopPropagation(); void requestClose() }} className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-zinc-400 active:bg-zinc-600">×</span>}</button> })}
+        {workspaceAgents.map((agent) => { const kind = config?.agentKinds.find((k) => k.id === agent.kindId); const title = titles[agent.id] || agent.title; const active = agent.id === selectedId; return <button key={agent.id} ref={active ? selectedTab : undefined} onClick={() => selectAgent(agent.id, 'click')} className={`flex h-7 max-w-44 shrink-0 items-center gap-1.5 rounded-lg pl-2.5 text-[13px] transition active:scale-95 ${active ? 'bg-zinc-700/80 pr-1 text-zinc-50' : 'pr-2.5 text-zinc-500'}`}><span style={{ color: kind?.color }}><AgentIcon kindId={agent.kindId} size={13} /></span><span className="truncate">{title}</span>{active && <span role="button" aria-label="Close terminal" onClick={(e) => { e.stopPropagation(); void requestClose() }} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-zinc-400 active:bg-zinc-600">×</span>}</button> })}
       </div>
-      <button onClick={openAddTerminalDialog} aria-label="Add terminal" className="mr-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-lg text-zinc-400 transition active:scale-95 active:bg-zinc-800">+</button>
+      <button onClick={openAddTerminalDialog} aria-label="Add terminal" className="mr-1.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-lg text-zinc-400 transition active:scale-95 active:bg-zinc-800">+</button>
     </div>}
-    <div className={selectedWorkspaceId ? 'absolute inset-x-0 bottom-0 top-11' : 'absolute inset-0'}>
+    <div className={selectedWorkspaceId ? 'absolute inset-x-0 bottom-0 top-9' : 'absolute inset-0'}>
       {agents.map((a) => <TerminalHost key={a.id} id={a.id} visible={a.id === selectedId && a.workspaceId === selectedWorkspaceId} />)}
       <SearchBar />
       {agents.length === 0 ? <EmptyState /> : selectedWorkspaceId && workspaceAgents.length === 0 ? <WorkspaceEmpty /> : null}
