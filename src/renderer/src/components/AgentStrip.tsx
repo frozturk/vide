@@ -92,8 +92,8 @@ function CompactDrawer(): React.JSX.Element {
     <div onClick={close} className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px] transition-opacity duration-200 ${open ? 'opacity-100' : 'pointer-events-none opacity-0'}`} />
     <aside
       aria-hidden={!open}
-      className={`fixed left-0 top-0 z-50 flex flex-col border-r border-zinc-800/80 bg-zinc-950 shadow-2xl ${drag ? '' : 'transition-transform duration-[260ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]'}`}
-      style={{ width: 'min(85vw, 320px)', height: 'var(--app-h, 100dvh)', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', transform: open ? `translateX(${Math.min(0, drag)}px)` : 'translateX(-100%)' }}
+      className={`fixed bottom-0 left-0 top-0 z-50 flex flex-col border-r border-zinc-800/80 bg-zinc-950 shadow-2xl ${drag ? '' : 'transition-transform duration-[260ms] ease-[cubic-bezier(0.2,0.8,0.2,1)]'}`}
+      style={{ width: 'min(85vw, 320px)', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)', transform: open ? `translateX(${Math.min(0, drag)}px)` : 'translateX(-100%)' }}
       onTouchStart={(e) => { startX.current = e.touches[0].clientX }}
       onTouchMove={(e) => { if (startX.current !== null) setDrag(Math.min(0, e.touches[0].clientX - startX.current)) }}
       onTouchEnd={() => { if (drag < -70) close(); startX.current = null; setDrag(0) }}

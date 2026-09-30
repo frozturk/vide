@@ -29,12 +29,13 @@ html.web body {
 @media (max-width: 768px) {
   html.web {
     --toolbar-h: calc(46px + env(safe-area-inset-top));
-    --dock-h: calc(104px + env(safe-area-inset-bottom));
+    --dock-inset: max(6px, calc(env(safe-area-inset-bottom) - 12px));
+    --dock-h: calc(96px + var(--dock-inset));
   }
 
   .dock {
     bottom: var(--kb-h);
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: var(--dock-inset);
     transition: bottom 300ms cubic-bezier(0.32, 0.72, 0, 1);
   }
 

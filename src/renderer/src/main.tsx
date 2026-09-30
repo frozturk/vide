@@ -21,7 +21,6 @@ function syncViewport(): void {
       stable = window.innerHeight
     }
     const keyboard = vv ? Math.max(0, stable - vv.height - vv.offsetTop) : 0
-    root.style.setProperty('--app-h', `${stable}px`)
     root.style.setProperty('--vv-h', `${visible}px`)
     if (keyboard > 120) {
       root.style.setProperty('--kb-h', `${keyboard}px`)

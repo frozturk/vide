@@ -21,7 +21,7 @@ export default function App(): React.JSX.Element {
   const reconnecting = useStore((s) => s.connection === 'reconnecting')
 
   return (
-    <div className="relative w-screen overflow-hidden bg-zinc-950 text-zinc-200" style={{ height: 'var(--app-h, 100vh)' }}>
+    <div className="relative h-full w-full overflow-hidden bg-zinc-950 text-zinc-200">
       <TopBar />
       <div style={{ position: 'absolute', inset: compact ? `var(--toolbar-h) 0 ${dock ? 'var(--dock-h)' : '0px'} 0` : `var(--toolbar-h) 0 0 ${pinned ? RAIL_WIDTH + panelWidth : RAIL_WIDTH}px`, transition: 'left 150ms' }}>
         <TerminalPane />

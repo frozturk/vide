@@ -73,7 +73,7 @@ export function KeyBar(): React.JSX.Element | null {
 
   return (
     <div>
-      <div className="no-scrollbar mx-auto flex h-12 max-w-2xl items-center gap-1.5 overflow-x-auto px-3">
+      <div className="no-scrollbar mx-auto flex h-11 max-w-2xl items-center gap-1.5 overflow-x-auto px-3">
         {KEYS.map((key) => {
           const armed = key.action === 'ctrl' && ctrlArmed
           return (

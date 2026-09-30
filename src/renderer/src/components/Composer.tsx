@@ -36,7 +36,7 @@ export function Composer({ agentId }: { agentId: string }): React.JSX.Element {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-3 pt-3">
+    <div className="mx-auto w-full max-w-2xl px-3 pt-2">
       <div className="flex items-end gap-1 rounded-[22px] bg-black py-1 pl-4 pr-1 shadow-[0_10px_40px_-8px_rgba(0,0,0,0.9)] ring-1 ring-white/10 transition-shadow focus-within:ring-white/20">
         <textarea
           ref={ref}
