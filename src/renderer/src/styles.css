@@ -35,7 +35,7 @@ html.web body {
   .dock {
     bottom: var(--kb-h);
     padding-bottom: env(safe-area-inset-bottom);
-    transition: bottom 220ms var(--ease-out);
+    transition: bottom 300ms cubic-bezier(0.32, 0.72, 0, 1);
   }
 
   html.web.keyboard-open .dock {

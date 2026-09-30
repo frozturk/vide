@@ -73,7 +73,7 @@ export function KeyBar(): React.JSX.Element | null {
 
   return (
     <div>
-      <div className="no-scrollbar flex h-12 items-center gap-1.5 overflow-x-auto px-2">
+      <div className="no-scrollbar mx-auto flex h-12 max-w-2xl items-center gap-1.5 overflow-x-auto px-3">
         {KEYS.map((key) => {
           const armed = key.action === 'ctrl' && ctrlArmed
           return (
@@ -89,8 +89,8 @@ export function KeyBar(): React.JSX.Element | null {
               onPointerLeave={stop}
               onPointerCancel={stop}
               onContextMenu={(e) => e.preventDefault()}
-              className={`flex h-9 shrink-0 select-none items-center justify-center rounded-lg font-mono text-[13px] transition-[transform,background-color,color] duration-100 active:scale-90 ${key.wide ? 'min-w-14 px-3' : 'min-w-10 px-2.5'} ${
-                armed ? 'bg-sky-500 text-white shadow-[0_0_0_1px_rgba(56,189,248,0.5)]' : 'bg-zinc-800 text-zinc-200 active:bg-zinc-700'
+              className={`flex h-8 shrink-0 select-none items-center justify-center rounded-full font-mono text-[12px] tracking-tight transition-[transform,background-color,color] duration-100 active:scale-90 ${key.wide ? 'min-w-12 px-3.5' : 'min-w-9 px-3'} ${
+                armed ? 'bg-white text-black' : 'bg-white/[0.06] text-zinc-400 ring-1 ring-inset ring-white/[0.06] active:bg-white/[0.12] active:text-zinc-100'
               }`}
             >
               {key.label}

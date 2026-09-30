@@ -7,6 +7,7 @@ import { dispatch, installKeyboard } from './shortcuts'
 import { startStatusTicker, SPINNER_GLYPHS } from './status'
 import * as actions from './actions'
 import { createWebApi } from './webApi'
+import { composerFocused, rememberKeyboard } from './keyboard'
 
 function syncViewport(): void {
   const vv = window.visualViewport
@@ -22,8 +23,14 @@ function syncViewport(): void {
     const keyboard = vv ? Math.max(0, stable - vv.height - vv.offsetTop) : 0
     root.style.setProperty('--app-h', `${stable}px`)
     root.style.setProperty('--vv-h', `${visible}px`)
-    root.style.setProperty('--kb-h', `${keyboard}px`)
-    root.classList.toggle('keyboard-open', stable - visible > 120)
+    if (keyboard > 120) {
+      root.style.setProperty('--kb-h', `${keyboard}px`)
+      root.classList.add('keyboard-open')
+      rememberKeyboard(keyboard)
+    } else if (!composerFocused()) {
+      root.style.setProperty('--kb-h', '0px')
+      root.classList.remove('keyboard-open')
+    }
     if (vv && vv.offsetTop > 0) window.scrollTo(0, 0)
   }
   update()
@@ -38,6 +45,7 @@ async function connectWeb(): Promise<void> {
   window.vide = api
   useStore.setState({ isWeb: true })
   document.documentElement.classList.add('web')
+  if ('serviceWorker' in navigator && !import.meta.env.DEV) void navigator.serviceWorker.register('/sw.js').catch(() => {})
   connection.onClose(() => useStore.setState({ connection: 'reconnecting' }))
   connection.onOpen((reconnected) => {
     useStore.setState({ connection: 'online' })
@@ -45,7 +53,6 @@ async function connectWeb(): Promise<void> {
   })
   await ready
 }
-  if ('serviceWorker' in navigator && !import.meta.env.DEV) void navigator.serviceWorker.register('/sw.js').catch(() => {})
 
 async function bootstrap(): Promise<void> {
   syncViewport()
