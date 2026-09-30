@@ -28,7 +28,7 @@ import { loadSession, loadRecent, saveRecent } from './session'
 import type { RecentDir, SessionAgent } from '../shared/types'
 import { loadState, saveState, updateAgents } from './state'
 import { broadcast, DESKTOP } from './clients'
-import { regenerateToken, restartWebServer, webInfo } from './web'
+import { restartWebServer, revokeDevice, webInfo } from './web'
 
 export type Handler = (arg: any, clientId: string) => unknown
 
@@ -101,7 +101,7 @@ const MUTATIONS: Record<string, string> = {
   'workspace:delete': 'state:changed'
 }
 
-export const DESKTOP_ONLY = new Set(['config:open', 'open:ide', 'open:external', 'dialog:pickDirectory', 'clipboard:readText', 'web:info', 'web:regenerateToken'])
+export const DESKTOP_ONLY = new Set(['config:open', 'open:ide', 'open:external', 'dialog:pickDirectory', 'clipboard:readText', 'web:info', 'web:revokeDevice'])
 
 function toSessionAgent(agent: Agent, workspace?: { path: string; branch?: string; baseSha?: string }) {
   return { id: agent.id, workspaceId: agent.workspaceId, kindId: agent.kindId, cwd: agent.cwd, worktreePath: workspace?.path ?? agent.worktreePath, worktreeBranch: workspace?.branch ?? agent.worktreeBranch, baseSha: workspace ? workspace.baseSha : agent.baseSha, createdAt: agent.createdAt }
@@ -268,7 +268,7 @@ export function createHandlers(win: BrowserWindow): Record<string, Handler> {
     },
     'clipboard:readText': () => clipboard.readText(),
     'web:info': () => webInfo(),
-    'web:regenerateToken': () => regenerateToken()
+    'web:revokeDevice': (p: { id?: string }) => revokeDevice(p.id)
   }
 }
 

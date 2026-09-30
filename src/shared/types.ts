@@ -75,10 +75,20 @@ export interface Config {
   webPublicUrl?: string
 }
 
+export interface PairedDevice {
+  id: string
+  name: string
+  createdAt: number
+  lastSeenAt: number
+}
+
 export interface WebInfo {
   url: string
   publicUrl: string | null
   publicSource: 'config' | 'tailscale' | null
+  pairingCode: string
+  pairingExpiresAt: number
+  devices: (PairedDevice & { online: boolean })[]
   listening: boolean
   error: string | null
 }
@@ -237,5 +247,5 @@ export interface VideApi {
   onStateChanged(cb: () => void): () => void
   onConfigChanged(cb: () => void): () => void
   webInfo(): Promise<WebInfo>
-  webRegenerateToken(): Promise<WebInfo>
+  webRevokeDevice(id?: string): Promise<WebInfo>
 }

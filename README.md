@@ -55,10 +55,12 @@ during `npm run dev`), so you can use it from a browser or your phone. Browser
 tabs and the desktop window share the same agents: typing, spawning, and
 closing terminals stay in sync.
 
-- **Token auth**: open the link or scan the QR code from Settings → Web access
-  once, and the token is stored in a cookie. Without it you get an unlock page
-  where you can paste the token. Ten wrong attempts lock logins for a minute.
-  Regenerate signs out every browser.
+- **Device pairing**: Settings → Web access shows a QR code and a one-time
+  code (`XXXXX-XXXXX`). Scan it, or open the site and type the code. Codes work
+  once and expire after 5 minutes; they travel after `#`, so no server or
+  tunnel sees them. Each paired device gets its own secret in an HttpOnly
+  cookie. Settings lists paired devices with their connection status, and you
+  can revoke one or all. Ten wrong codes lock pairing for a minute.
 - **Remote access**: the server only accepts connections from this Mac, so
   expose it with a tunnel. `tailscale funnel --bg 7878` gives a public HTTPS
   URL that terminates TLS on your Mac, so Tailscale can't read the traffic and

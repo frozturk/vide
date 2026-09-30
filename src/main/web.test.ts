@@ -1,16 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { authCookie, createLimiter, isAuthorized, isLoopbackHost, parseCookies, sameOrigin, tailscaleUrl, tokenMatches } from './web'
+import { authCookie, createLimiter, isLoopbackHost, parseCookies, sameOrigin, tailscaleUrl } from './web'
 
 vi.mock('electron', () => ({ app: { getPath: () => '/tmp' } }))
 
 describe('web access auth', () => {
-  it('accepts only the exact token cookie', () => {
-    expect(parseCookies('a=1; vide_token=abc%3D; b=2')).toEqual({ a: '1', vide_token: 'abc=', b: '2' })
-    expect(isAuthorized('vide_token=secret', 'secret')).toBe(true)
-    expect(isAuthorized('vide_token=secreT', 'secret')).toBe(false)
-    expect(isAuthorized('vide_token=secret-extra', 'secret')).toBe(false)
-    expect(isAuthorized(undefined, 'secret')).toBe(false)
-    expect(tokenMatches('', 'secret')).toBe(false)
+  it('parses cookies', () => {
+    expect(parseCookies('a=1; vide_device=abc%3D; b=2')).toEqual({ a: '1', vide_device: 'abc=', b: '2' })
+    expect(parseCookies(undefined)).toEqual({})
   })
 
   it('matches websocket origins against host or forwarded host', () => {
@@ -22,7 +18,7 @@ describe('web access auth', () => {
   })
 
   it('marks the cookie secure only behind https', () => {
-    expect(authCookie('t', false)).toBe('vide_token=t; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000')
+    expect(authCookie('t', false)).toBe('vide_device=t; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000')
     expect(authCookie('t', true)).toContain('; Secure')
   })
 

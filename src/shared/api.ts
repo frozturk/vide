@@ -51,6 +51,6 @@ export function createApi(invoke: Invoke, send: Send, on: Subscribe): VideApi {
     onStateChanged: (cb) => on('state:changed', cb),
     onConfigChanged: (cb) => on('config:changed', cb),
     webInfo: () => invoke('web:info'),
-    webRegenerateToken: () => invoke('web:regenerateToken')
+    webRevokeDevice: (id) => invoke('web:revokeDevice', { id })
   }
 }

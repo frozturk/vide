@@ -251,19 +251,30 @@ function SettingsInner(): React.JSX.Element {
   )
 }
 
+function ago(ts: number, now: number): string {
+  const m = Math.floor((now - ts) / 60000)
+  if (m < 1) return 'just now'
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
+}
+
 function WebAccess(): React.JSX.Element {
   const [info, setInfo] = useState<WebInfo | null>(null)
   const [copied, setCopied] = useState(false)
+  const [now, setNow] = useState(Date.now())
 
   useEffect(() => {
     let cancelled = false
     const load = (): void => {
+      setNow(Date.now())
       window.vide.webInfo().then((i) => {
         if (!cancelled) setInfo(i)
       }).catch(() => {})
     }
     load()
-    const timer = setInterval(load, 2000)
+    const timer = setInterval(load, 1000)
     return () => {
       cancelled = true
       clearInterval(timer)
@@ -278,13 +289,14 @@ function WebAccess(): React.JSX.Element {
     setTimeout(() => setCopied(false), 1500)
   }
 
-  async function regenerate(): Promise<void> {
-    if (!confirm('Regenerate the access token? Every browser signed in with the old token is signed out.')) return
-    setInfo(await window.vide.webRegenerateToken())
+  async function revoke(id?: string): Promise<void> {
+    if (!id && !confirm('Sign out every paired device?')) return
+    setInfo(await window.vide.webRevokeDevice(id))
   }
 
   const port = info?.url ? new URL(info.url).port : '7878'
-  const link = info?.publicUrl ?? info?.url ?? ''
+  const left = info ? Math.max(0, Math.ceil((info.pairingExpiresAt - now) / 1000)) : 0
+  const devices = [...(info?.devices ?? [])].sort((a, b) => Number(b.online) - Number(a.online) || b.lastSeenAt - a.lastSeenAt)
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
       <div className="mb-3 flex items-center gap-2 text-sm">
@@ -302,22 +314,46 @@ function WebAccess(): React.JSX.Element {
           )}
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <div className="text-[11px] text-zinc-500">
-            {info?.publicSource === 'tailscale' ? 'Tailscale address (detected)' : info?.publicSource === 'config' ? 'Public URL' : 'Local only'}
-          </div>
-          <input readOnly value={link} onFocus={(e) => e.currentTarget.select()} className={`${inputCls} font-mono text-xs`} />
+          <div className="text-[11px] text-zinc-500">Pairing code · expires in {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}</div>
+          <div className="font-mono text-2xl tracking-[0.15em] text-zinc-100">{info?.pairingCode ?? '·····-·····'}</div>
           <div className="flex gap-2">
             <button onClick={() => void copy()} className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 transition hover:bg-zinc-800">
-              {copied ? 'Copied' : 'Copy link'}
-            </button>
-            <button onClick={() => void regenerate()} className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200">
-              Regenerate token
+              {copied ? 'Copied' : 'Copy pairing link'}
             </button>
           </div>
           <div className="mt-auto text-[11px] leading-relaxed text-zinc-600">
-            The link and QR hold the access token, so treat them like a password. To reach vide from your phone without installing anything there, run{' '}
+            {info?.publicSource === 'tailscale' ? 'Using your Tailscale address. ' : ''}
+            Codes work once and expire after 5 minutes. For your phone without installing anything there, run{' '}
             <code className="rounded bg-zinc-800/80 px-1 text-zinc-400">tailscale funnel --bg {port}</code> on this Mac.
           </div>
+        </div>
+      </div>
+
+      <div className="mt-4 border-t border-zinc-800 pt-3">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-xs font-medium text-zinc-400">Paired devices</span>
+          {devices.length > 0 && (
+            <button onClick={() => void revoke()} className="rounded-md px-2 py-0.5 text-[11px] text-red-400 transition hover:bg-red-950/50">
+              Revoke all
+            </button>
+          )}
+        </div>
+        {devices.length === 0 && <div className="text-xs text-zinc-600">No devices yet.</div>}
+        <div className="flex flex-col">
+          {devices.map((d) => (
+            <div key={d.id} className="flex items-center gap-3 rounded-lg px-1 py-1.5">
+              <span className={`h-2 w-2 shrink-0 rounded-full ${d.online ? 'bg-emerald-400 shadow-[0_0_0_3px_rgba(52,211,153,0.15)]' : 'bg-zinc-600'}`} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm text-zinc-200">{d.name}</div>
+                <div className="text-[11px] text-zinc-500">
+                  {d.online ? 'Connected now' : `Last seen ${ago(d.lastSeenAt, now)}`} · paired {new Date(d.createdAt).toLocaleDateString()}
+                </div>
+              </div>
+              <button onClick={() => void revoke(d.id)} className="shrink-0 rounded-md px-2 py-1 text-[11px] text-zinc-400 transition hover:bg-red-950/50 hover:text-red-400">
+                Revoke
+              </button>
+            </div>
+          ))}
         </div>
       </div>
     </div>
