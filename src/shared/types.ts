@@ -71,6 +71,7 @@ export interface Config {
   shell?: string
   webPort?: number
   webPublicUrl?: string
+  hideClaudeInputBox?: boolean
 }
 
 export interface PairedDevice {

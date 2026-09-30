@@ -95,7 +95,8 @@ export function createTerminal(agentId: string, kindId?: string): void {
   term.loadAddon(fit)
   const search = new SearchAddon()
   term.loadAddon(search)
-  const hidesInputBox = useStore.getState().isWeb && kindId === 'claude'
+  const s = useStore.getState()
+  const hidesInputBox = s.isWeb && kindId === 'claude' && Boolean(s.config?.hideClaudeInputBox)
   if (hidesInputBox) term.onRender(() => hideInputBox(agentId))
   term.attachCustomKeyEventHandler((e) => {
     if (e.type === 'keydown' && e.key === 'Enter' && e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) {

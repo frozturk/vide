@@ -150,6 +150,9 @@ with `⌘,`, or edit it directly — `⌘⇧R` reloads it without restarting.
 }
 ```
 
+Set `"hideClaudeInputBox": true` to hide Claude Code's input box behind the
+mobile web composer (experimental, off by default).
+
 ### Agent kinds
 
 Each kind defines how an agent is launched.
