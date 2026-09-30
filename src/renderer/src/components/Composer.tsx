@@ -23,6 +23,7 @@ export function Composer({ agentId }: { agentId: string }): React.JSX.Element {
     setTimeout(() => window.vide.ptyInput(agentId, '\r'), text ? 60 : 0)
     setText('')
     requestAnimationFrame(grow)
+    if (text) ref.current?.blur()
   }
 
   const onChange = (value: string): void => {
