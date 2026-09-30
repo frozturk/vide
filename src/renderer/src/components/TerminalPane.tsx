@@ -24,7 +24,7 @@ export function TerminalPane(): React.JSX.Element {
       </div>
       <button onClick={openAddTerminalDialog} aria-label="Add terminal" className="mr-1.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-lg text-zinc-400 transition active:scale-95 active:bg-zinc-800">+</button>
     </div>}
-    <div className={selectedWorkspaceId ? 'absolute inset-x-0 bottom-0 top-9' : 'absolute inset-0'}>
+    <div className={`overflow-hidden ${selectedWorkspaceId ? 'absolute inset-x-0 bottom-0 top-9' : 'absolute inset-0'}`}>
       {agents.map((a) => <TerminalHost key={a.id} id={a.id} visible={a.id === selectedId && a.workspaceId === selectedWorkspaceId} />)}
       <SearchBar />
       {agents.length === 0 ? <EmptyState /> : selectedWorkspaceId && workspaceAgents.length === 0 ? <WorkspaceEmpty /> : null}

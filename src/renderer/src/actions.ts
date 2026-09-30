@@ -157,7 +157,7 @@ function addAgent(agent: Agent, select = true): void {
 
 export async function spawnAgent(req: SpawnRequest): Promise<void> {
   const agent = await window.vide.terminalSpawn(req)
-  createTerminal(agent.id)
+  createTerminal(agent.id, agent.kindId)
   addAgent(agent)
   recordRecentDir(req.cwd)
 }
@@ -195,7 +195,7 @@ export async function restoreAgent(saved: SessionAgent, select = true): Promise<
     createdAt: saved.createdAt ?? Date.now()
   })
   if (!agent) return
-  createTerminal(agent.id)
+  createTerminal(agent.id, agent.kindId)
   addAgent(agent, select)
   if (saved.title) {
     useStore.setState({ titles: { ...useStore.getState().titles, [agent.id]: saved.title } })
@@ -286,7 +286,7 @@ export async function createWorkspace(projectId: string, name: string, kindId: s
   const s = useStore.getState()
   useStore.setState({ workspaces: [...s.workspaces, result.workspace], selectedWorkspaceId: result.workspace.id, dialog: null })
   if (result.agent) {
-    createTerminal(result.agent.id)
+    createTerminal(result.agent.id, result.agent.kindId)
     addAgent(result.agent)
   }
   return result.launchError ?? null
@@ -297,7 +297,7 @@ export async function adoptWorkspace(projectId: string, path: string, kindId: st
   const s = useStore.getState()
   useStore.setState({ workspaces: [...s.workspaces, result.workspace], selectedWorkspaceId: result.workspace.id, dialog: null })
   if (result.agent) {
-    createTerminal(result.agent.id)
+    createTerminal(result.agent.id, result.agent.kindId)
     addAgent(result.agent)
   }
   return result.launchError ?? null

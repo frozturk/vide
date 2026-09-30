@@ -4,6 +4,7 @@ import { WebglAddon } from '@xterm/addon-webgl'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { SearchAddon } from '@xterm/addon-search'
+import { inputBoxRows } from './inputBox'
 import '@xterm/xterm/css/xterm.css'
 import { matchChord } from '../../shared/chords'
 import { useStore } from './store'
@@ -25,6 +26,7 @@ export interface TermEntry {
   nativeSelectionHandler: ((event: MouseEvent) => void) | null
   lastOutputAt: number
   lastResizeAt: number
+  hidesInputBox: boolean
 }
 
 export const terminals = new Map<string, TermEntry>()
@@ -50,7 +52,26 @@ export function feedData(agentId: string, data: string): void {
   }
 }
 
-export function createTerminal(agentId: string): void {
+const INPUT_RESERVE_ROWS = 3
+
+function hideInputBox(agentId: string): void {
+  const e = terminals.get(agentId)
+  const rowsEl = e?.term.element?.querySelector<HTMLElement>('.xterm-rows')
+  if (!e || !e.container || !rowsEl) return
+  const rows = [...rowsEl.children] as HTMLElement[]
+  const rowHeight = rows.find((row) => row.style.display !== 'none')?.offsetHeight ?? 0
+  if (!rowHeight) return
+  const compact = useStore.getState().compact
+  const top = compact ? `${-INPUT_RESERVE_ROWS * rowHeight}px` : ''
+  if (e.container.style.top !== top) e.container.style.top = top
+  const buf = e.term.buffer.active
+  const lines = Array.from({ length: e.term.rows }, (_, i) => buf.getLine(buf.viewportY + i)?.translateToString(true) ?? '')
+  const box = compact && buf.viewportY === buf.baseY ? inputBoxRows(lines) : null
+  rows.forEach((row, i) => { row.style.display = box && i >= box[0] && i <= box[1] ? 'none' : '' })
+  rowsEl.style.paddingTop = box ? `${(box[1] - box[0] + 1) * rowHeight}px` : ''
+}
+
+export function createTerminal(agentId: string, kindId?: string): void {
   if (terminals.has(agentId)) return
   const term = new Terminal({
     allowProposedApi: true,
@@ -74,6 +95,8 @@ export function createTerminal(agentId: string): void {
   term.loadAddon(fit)
   const search = new SearchAddon()
   term.loadAddon(search)
+  const hidesInputBox = useStore.getState().isWeb && kindId === 'claude'
+  if (hidesInputBox) term.onRender(() => hideInputBox(agentId))
   term.attachCustomKeyEventHandler((e) => {
     if (e.type === 'keydown' && e.key === 'Enter' && e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault()
@@ -117,7 +140,8 @@ export function createTerminal(agentId: string): void {
     container: null,
     nativeSelectionHandler: null,
     lastOutputAt: Date.now(),
-    lastResizeAt: 0
+    lastResizeAt: 0,
+    hidesInputBox
   }
   terminals.set(agentId, entry)
   const q = pending.get(agentId)
@@ -275,7 +299,7 @@ export function activateVisual(agentId: string): void {
     if (!e) return
     fitIfVisible(agentId)
     refit(agentId)
-    if (!e.webgl) {
+    if (!e.webgl && !e.hidesInputBox) {
       try {
         const gl = new WebglAddon()
         gl.onContextLoss(() => {
