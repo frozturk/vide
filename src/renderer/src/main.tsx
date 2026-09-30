@@ -61,6 +61,10 @@ async function bootstrap(): Promise<void> {
     actions.dropAgent(agentId)
   })
 
+  window.vide.onPtyState(({ agentId, state }) => {
+    useStore.setState({ hookStates: { ...useStore.getState().hookStates, [agentId]: state } })
+  })
+
   window.vide.onStateChanged(() => void actions.syncState())
   window.vide.onConfigChanged(() => void actions.reloadConfigFromServer())
 

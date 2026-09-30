@@ -22,7 +22,7 @@ function tick(): void {
     const kind = kindOf(s, agent)
     const prev = statuses[agent.id] ?? 'idle'
     if (prev === 'exited') continue
-    const next = scanBuffer(entry.term, kind, s.titleBusy[agent.id] ?? false)
+    const next = s.hookStates[agent.id] ?? scanBuffer(entry.term, kind, s.titleBusy[agent.id] ?? false)
     if (next === prev) continue
     changed = true
     statuses[agent.id] = next

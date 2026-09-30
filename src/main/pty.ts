@@ -6,6 +6,7 @@ import { existsSync } from 'fs'
 import { homedir } from 'os'
 import { ownsTmuxSession, tmuxSessionPrefix } from './runtime'
 import { post } from './clients'
+import { AGENT_ENV, STATE_OPTION, answersPrompt, parsePaneStatus } from './agentHooks'
 
 const exec = promisify(execFile)
 
@@ -44,7 +45,7 @@ function resolveTmux(): string {
 }
 
 let tmuxBin: string | null = null
-function getTmux(): string {
+export function getTmux(): string {
   if (tmuxBin) return tmuxBin
   tmuxBin = resolveTmux()
   return tmuxBin
@@ -119,6 +120,7 @@ export async function spawnPty(
     '-f', '/dev/null',
     'new-session', '-d', '-s', name, '-x', '80', '-y', '24',
     '-c', cwd,
+    '-e', `${AGENT_ENV}=${agentId}`,
     '--', shell
   ]
   if (command) {
@@ -160,6 +162,8 @@ async function attachInternal(clientId: string, agentId: string, name: string, e
   })
   const title = lastTitles.get(agentId)
   if (title) post(clientId, 'pty:title', { agentId, title })
+  const state = lastStates.get(agentId)
+  if (state) post(clientId, 'pty:state', { agentId, state })
 }
 
 export async function attachPty(clientId: string, agentId: string, kindId?: string, cwd?: string): Promise<boolean> {
@@ -175,7 +179,13 @@ export async function attachPty(clientId: string, agentId: string, kindId?: stri
 
 export function writePty(clientId: string, agentId: string, data: string): void {
   const e = entryOf(clientId, agentId)
-  if (e && e.alive && !e.exited) e.p.write(data)
+  if (!e || !e.alive || e.exited) return
+  e.p.write(data)
+  if (lastStates.get(agentId) === 'waiting' && answersPrompt(data)) {
+    lastStates.set(agentId, 'idle')
+    void exec1(getTmux(), ['set-option', '-p', '-t', e.sessionName, STATE_OPTION, 'idle'])
+    for (const c of ptys.get(agentId)?.values() ?? []) post(c.clientId, 'pty:state', { agentId, state: 'idle' })
+  }
 }
 
 export function resizePty(clientId: string, agentId: string, cols: number, rows: number): void {
@@ -252,26 +262,30 @@ export async function reapOrphanSessions(keepNames: Set<string>): Promise<void> 
 
 let titleTimer: ReturnType<typeof setInterval> | null = null
 const lastTitles = new Map<string, string>()
+const lastStates = new Map<string, string>()
 
 export function startTitlePoller(): void {
   if (titleTimer) return
-  titleTimer = setInterval(pollTitles, 2000)
+  titleTimer = setInterval(pollTitles, 1000)
 }
 
 async function pollTitles(): Promise<void> {
   for (const [agentId, clients] of ptys) {
     const entry = [...clients.values()].find((e) => !e.exited)
     if (!entry) continue
-    let title: string
+    let line: string
     try {
-      const { stdout } = await exec(getTmux(), ['display-message', '-p', '-t', entry.sessionName, '#{pane_title}'], { timeout: 3000 })
-      title = stdout.trim()
+      const { stdout } = await exec(getTmux(), ['display-message', '-p', '-t', entry.sessionName, `#{pane_title}\t#{${STATE_OPTION}}`], { timeout: 3000 })
+      line = stdout.replace(/\n$/, '')
     } catch {
       continue
     }
-    if (!title) continue
-    const prev = lastTitles.get(agentId)
-    if (prev === title) continue
+    const { title, state } = parsePaneStatus(line)
+    if (state && lastStates.get(agentId) !== state) {
+      lastStates.set(agentId, state)
+      for (const e of clients.values()) post(e.clientId, 'pty:state', { agentId, state })
+    }
+    if (!title || lastTitles.get(agentId) === title) continue
     lastTitles.set(agentId, title)
     for (const e of clients.values()) post(e.clientId, 'pty:title', { agentId, title })
   }

@@ -48,6 +48,7 @@ export function createApi(invoke: Invoke, send: Send, on: Subscribe): VideApi {
     onPtyData: (cb) => on('pty:data', cb),
     onPtyExit: (cb) => on('pty:exit', cb),
     onPtyTitle: (cb) => on('pty:title', cb),
+    onPtyState: (cb) => on('pty:state', cb),
     onStateChanged: (cb) => on('state:changed', cb),
     onConfigChanged: (cb) => on('config:changed', cb),
     webInfo: () => invoke('web:info'),

@@ -5,7 +5,8 @@ import { join } from 'path'
 import type { MenuItemConstructorOptions } from 'electron'
 import { getConfig } from './config'
 import { DESKTOP_ONLY, runHandler, senders, wireIpc } from './ipc'
-import { liveCount, detachAll, beginShutdown, startTitlePoller, reapOrphanSessions, sessionName } from './pty'
+import { liveCount, detachAll, beginShutdown, startTitlePoller, reapOrphanSessions, sessionName, getTmux } from './pty'
+import { installAgentHooks } from './agentHooks'
 import { DESKTOP, registerClient } from './clients'
 import { startWebServer, stopWebServer } from './web'
 import { loadState } from './state'
@@ -96,6 +97,7 @@ app.whenReady().then(async () => {
   if (app.dock && existsSync(iconPath)) app.dock.setIcon(iconPath)
   Menu.setApplicationMenu(buildMenu())
   startTitlePoller()
+  installAgentHooks(getTmux())
   const saved = (await loadState()).agents
   const keep = new Set(saved.filter((s) => s.id).map((s) => sessionName(s.id, s.kindId, s.cwd)))
   await reapOrphanSessions(keep)

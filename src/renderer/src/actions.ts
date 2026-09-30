@@ -203,10 +203,12 @@ export function dropAgent(agentId: string): void {
   const unread = { ...s.unread }
   const titles = { ...s.titles }
   const titleBusy = { ...s.titleBusy }
+  const hookStates = { ...s.hookStates }
   delete statuses[agentId]
   delete unread[agentId]
   delete titles[agentId]
   delete titleBusy[agentId]
+  delete hookStates[agentId]
   const nextSelected = s.selectedId === agentId ? (agents.find((a) => a.workspaceId === agent.workspaceId) ?? null) : null
   useStore.setState({
     agents,
@@ -214,6 +216,7 @@ export function dropAgent(agentId: string): void {
     unread,
     titles,
     titleBusy,
+    hookStates,
     selectedId: s.selectedId === agentId ? (nextSelected?.id ?? null) : s.selectedId
   })
   if (nextSelected) activateVisual(nextSelected.id)

@@ -22,9 +22,12 @@ off a selected local or origin branch (defaulting to Main's current HEAD). The b
 picker lists local and fetched origin branches together by latest commit date, newest first. Orphaned Vide worktrees can be adopted. Closing a
 terminal never removes its workspace.
 
-**Live status detection** — Per-agent regexes parse terminal output to show
-`busy`, `waiting`, `idle`, or `exited` at a glance, with pulsing dots and
-unread indicators in the agent strip.
+**Live status detection**: Claude Code and Codex report `busy`, `waiting`,
+and `idle` through their own hooks. At startup vide merges guarded entries
+into `~/.claude/settings.json` and `~/.codex/hooks.json`; they only run inside
+vide terminals (`VIDE_AGENT` is set) and leave your own hooks untouched. Other
+agents fall back to per-agent regexes on terminal output. Pulsing dots and
+unread indicators in the agent strip show which terminal needs you.
 
 **Diff viewer** — A full git diff overlay (`⌘D`) with syntax-highlighted hunks,
 file status letters, Seti file icons, untracked-file support, and a commit

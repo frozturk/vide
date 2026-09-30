@@ -23,6 +23,7 @@ export interface VideStore {
   unread: Record<string, boolean>
   titles: Record<string, string>
   titleBusy: Record<string, boolean>
+  hookStates: Record<string, AgentStatus>
   panel: PanelState
   panelPinned: boolean
   panelWidth: number
@@ -55,6 +56,7 @@ export const useStore = create<VideStore>(() => ({
   unread: {},
   titles: {},
   titleBusy: {},
+  hookStates: {},
   panel: 'closed',
   panelPinned: localStorage.getItem('panelPinned') === '1',
   panelWidth: Math.min(PANEL_MAX_WIDTH, Math.max(PANEL_MIN_WIDTH, Number(localStorage.getItem('panelWidth')) || PANEL_WIDTH)),
