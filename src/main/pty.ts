@@ -276,7 +276,7 @@ async function pollTitles(): Promise<void> {
     if (!entry) continue
     let line: string
     try {
-      const { stdout } = await exec(getTmux(), ['display-message', '-p', '-t', entry.sessionName, `#{pane_title}\t#{${STATE_OPTION}}`], { timeout: 3000 })
+      const { stdout } = await exec(getTmux(), ['display-message', '-p', '-t', entry.sessionName, `#{pane_title}\t#{${STATE_OPTION}}`], { timeout: 3000, env: buildEnv() })
       line = stdout.replace(/\n$/, '')
     } catch {
       continue
