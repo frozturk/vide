@@ -45,6 +45,7 @@ async function connectWeb(): Promise<void> {
   })
   await ready
 }
+  if ('serviceWorker' in navigator && !import.meta.env.DEV) void navigator.serviceWorker.register('/sw.js').catch(() => {})
 
 async function bootstrap(): Promise<void> {
   syncViewport()

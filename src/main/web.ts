@@ -23,7 +23,7 @@ export interface Dispatch {
 }
 
 const COOKIE = 'vide_device'
-const PUBLIC_PATHS = new Set(['/manifest.webmanifest', '/icon.svg', '/icon-512.png', '/apple-touch-icon.png'])
+const PUBLIC_PATHS = new Set(['/manifest.webmanifest', '/sw.js', '/icon.svg', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/apple-touch-icon.png'])
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -32,6 +32,7 @@ const MIME: Record<string, string> = {
   '.png': 'image/png',
   '.json': 'application/json',
   '.webmanifest': 'application/manifest+json',
+  '.mjs': 'text/javascript; charset=utf-8',
   '.woff2': 'font/woff2',
   '.ttf': 'font/ttf',
   '.wasm': 'application/wasm'
