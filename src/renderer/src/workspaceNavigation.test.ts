@@ -103,11 +103,18 @@ describe('workspace keyboard navigation', () => {
     })
     const s = useStore.getState()
     expect(workspaceNavigation(s.projects, s.workspaces, s.agents).map((w) => w.id)).toEqual(['a-main', 'b-main'])
-    expect(sidebarWorkspaces(s.projects, s.workspaces, s.agents).map((w) => w.id)).toEqual(['a-main', 'a-new', 'b-main'])
+    expect(sidebarWorkspaces(s.projects, s.workspaces, s.agents).map((w) => w.id)).toEqual(['a-main', 'b-main'])
     for (const [index, id] of ['a-main', 'b-main'].entries()) {
       dispatch(`jump-${index + 1}` as 'jump-1' | 'jump-2' | 'jump-3')
       expect(useStore.getState().selectedWorkspaceId).toBe(id)
     }
+  })
+
+  it('keeps an idle Main in the sidebar but hides idle worktrees', () => {
+    const projects = [project('c')]
+    const workspaces = [{ ...workspace('c-main', 'c'), kind: 'main' as const }, workspace('c-busy', 'c'), workspace('c-idle', 'c')]
+    const agents = [agent('busy-terminal', 'c-busy')]
+    expect(sidebarWorkspaces(projects, workspaces, agents).map((w) => w.id)).toEqual(['c-main', 'c-busy'])
   })
 
   it('hides a workspace after its last terminal closes and shows it again when a terminal opens', async () => {
