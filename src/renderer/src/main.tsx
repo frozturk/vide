@@ -11,13 +11,13 @@ import { composerFocused, rememberKeyboard } from './keyboard'
 function syncViewport(): void {
   const vv = window.visualViewport
   const root = document.documentElement
-  let stable = document.body.clientHeight
+  let stable = window.innerHeight
   let width = window.innerWidth
   const update = (): void => {
     const visible = vv ? vv.height : window.innerHeight
     if (window.innerWidth !== width || visible >= stable - 120) {
       width = window.innerWidth
-      stable = document.body.clientHeight
+      stable = window.innerHeight
     }
     const keyboard = vv ? Math.max(0, stable - vv.height - vv.offsetTop) : 0
     root.style.setProperty('--vv-h', `${visible}px`)

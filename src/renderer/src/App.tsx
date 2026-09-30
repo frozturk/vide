@@ -27,7 +27,7 @@ export default function App(): React.JSX.Element {
         <TerminalPane />
       </div>
       {dock && (
-        <div className="dock absolute inset-x-0 z-30 bg-gradient-to-t from-zinc-950 from-60% to-transparent">
+        <div className="dock fixed inset-x-0 z-30 bg-gradient-to-t from-zinc-950 from-60% to-transparent">
           <Composer key={dock} agentId={dock} />
           <KeyBar />
         </div>

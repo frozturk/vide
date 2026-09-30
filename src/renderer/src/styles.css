@@ -26,13 +26,6 @@ html.web body {
   inset: 0;
 }
 
-@media (display-mode: standalone) {
-  html.web body {
-    bottom: auto;
-    height: 100lvh;
-  }
-}
-
 @media (max-width: 768px) {
   html.web {
     --toolbar-h: calc(46px + env(safe-area-inset-top));
