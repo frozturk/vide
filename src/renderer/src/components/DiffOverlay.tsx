@@ -143,10 +143,10 @@ const DiffBody = memo(function DiffBody({
 }): React.JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null)
   return (
-    <div className="flex min-w-0 flex-1">
+    <div className="flex min-h-0 min-w-0 flex-1">
       <div
         ref={scrollRef}
-        className={`hide-scrollbar min-w-0 flex-1 overflow-auto ${showNums ? '' : 'hide-diff-nums'}`}
+        className={`hide-scrollbar min-w-0 flex-1 overflow-auto overscroll-contain ${showNums ? '' : 'hide-diff-nums'}`}
       >
         {hunks ? (
           <DiffView
