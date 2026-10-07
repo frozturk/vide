@@ -14,7 +14,7 @@ const defaults: Config = {
     {
       id: 'codex',
       name: 'Codex CLI',
-      command: 'codex {prompt}',
+      command: 'codex --no-daemon {prompt}',
       color: '#4a9eff'
     },
     {
@@ -59,7 +59,14 @@ export function saveConfig(config: Config): void {
 }
 
 function mergeKinds(defaults: AgentKind[], saved: AgentKind[]): AgentKind[] {
-  const result: AgentKind[] = [...saved]
+  // A shared Codex daemon retains the environment of its first terminal,
+  // causing hooks to report status to that terminal's TMUX_PANE instead.
+  // Migrate only our old default; custom launch commands remain user-owned.
+  const result: AgentKind[] = saved.map((kind) =>
+    kind.id === 'codex' && kind.command === 'codex {prompt}'
+      ? { ...kind, command: 'codex --no-daemon {prompt}' }
+      : kind
+  )
   for (const d of defaults) {
     if (!result.some((k) => k.id === d.id)) {
       result.push(d)

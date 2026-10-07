@@ -30,6 +30,13 @@ set) and leave your own hooks untouched. Agents without hooks (shells,
 OpenCode) show as idle. Pulsing dots and unread indicators in the agent strip
 show which terminal needs you.
 
+Vide launches Codex with `--no-daemon` so each terminal's hooks inherit its
+own tmux pane instead of the shared Codex server's environment. Existing
+sessions must be restarted or resumed with `codex --no-daemon resume` to
+pick up this change. If you customize the Codex launch command, keep
+`--no-daemon`. Review and trust Vide's entries in Codex's `/hooks` menu when
+prompted; installing hooks does not automatically grant trust.
+
 **Diff viewer** — A full git diff overlay (`⌘D`) with syntax-highlighted hunks,
 file status letters, Seti file icons, untracked-file support, and a commit
 history list for per-commit diffs. Built on `@git-diff-view/react`.
@@ -141,7 +148,7 @@ with `⌘,`, or edit it directly — `⌘⇧R` reloads it without restarting.
     {
       "id": "codex",
       "name": "Codex CLI",
-      "command": "codex {prompt}",
+      "command": "codex --no-daemon {prompt}",
       "color": "#4a9eff"
     }
   ],
