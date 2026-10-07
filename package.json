@@ -20,6 +20,8 @@
     },
     "files": [
       "out/**/*",
+      "skills/vide-browser/**/*",
+      "scripts/browser.mjs",
       "package.json"
     ],
     "mac": {

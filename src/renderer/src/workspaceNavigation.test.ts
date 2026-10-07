@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Agent, Project, Workspace } from '../../shared/types'
-import { applyAgentState, createWorkspace, requestClose, selectSibling, selectWorkspace } from './actions'
+import { applyAgentState, createWorkspace, dropAgent, requestClose, selectSibling, selectWorkspace } from './actions'
 import { dispatch } from './shortcuts'
 import { useStore } from './store'
 import { activateVisual } from './terminals'
@@ -35,7 +35,41 @@ beforeEach(() => {
   }, true)
 })
 
+it.each(['click', 'keyboard'] as const)('clears only the opened terminal on workspace selection via %s', (via) => {
+  useStore.setState({
+    agents: [...useStore.getState().agents, agent('b-other', 'b-main')],
+    unread: { 'b-terminal': true, 'b-other': true }
+  })
+  selectWorkspace('b-main', via)
+  expect(useStore.getState().selectedId).toBe('b-terminal')
+  expect(useStore.getState().unread).toEqual({ 'b-other': true })
+})
+
+it('acknowledges the agent opened by keyboard workspace cycling', () => {
+  useStore.setState({ unread: { 'b-terminal': true } })
+  selectSibling(1)
+  expect(useStore.getState().selectedId).toBe('b-terminal')
+  expect(useStore.getState().unread).toEqual({})
+})
+
+it('acknowledges the fallback terminal when the selected terminal closes', () => {
+  useStore.setState({
+    agents: [...useStore.getState().agents, agent('a-other', 'a-main')],
+    unread: { 'a-other': true, 'b-terminal': true }
+  })
+  dropAgent('a-terminal')
+  expect(useStore.getState().selectedId).toBe('a-other')
+  expect(useStore.getState().unread).toEqual({ 'b-terminal': true })
+})
+
 describe('workspace keyboard navigation', () => {
+  it('keeps workspaces with browser tabs visible after their last terminal closes', () => {
+    const projects = [project('a'), project('b')]
+    const workspaces = [workspace('a-main', 'a'), workspace('b-main', 'b')]
+    expect(sidebarWorkspaces(projects, workspaces, [], ['b-main']).map((w) => w.id)).toEqual(['b-main'])
+    expect(sidebarWorkspaces(projects, workspaces, [], [])).toEqual([])
+  })
+
   it('orders the left bar by workspace, with each workspace matching its terminal tabs and Cmd+S', () => {
     useStore.setState({
       workspaces: [workspace('a-main', 'a'), workspace('b-main', 'b'), workspace('a-new', 'a')],

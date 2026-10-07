@@ -121,6 +121,7 @@ export async function spawnPty(
     'new-session', '-d', '-s', name, '-x', '80', '-y', '24',
     '-c', cwd,
     '-e', `${AGENT_ENV}=${agentId}`,
+    ...(env.VIDE_BROWSER_INFO ? ['-e', `VIDE_BROWSER_INFO=${env.VIDE_BROWSER_INFO}`] : []),
     '--', shell
   ]
   if (command) {

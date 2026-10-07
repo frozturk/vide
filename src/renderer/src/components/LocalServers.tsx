@@ -37,6 +37,11 @@ export function LocalServers(): React.JSX.Element {
   const isWeb = useStore((s) => s.isWeb)
   const compact = useStore((s) => s.compact)
 
+  useEffect(() => {
+    useStore.setState((s) => ({ browserMenus: { ...s.browserMenus, servers: open } }))
+    return () => { useStore.setState((s) => ({ browserMenus: { ...s.browserMenus, servers: false } })) }
+  }, [open])
+
   const refresh = (): void => {
     window.vide.localServers().then(setServers).catch(() => {})
   }
@@ -95,8 +100,14 @@ export function LocalServers(): React.JSX.Element {
                     {[...new Set(s.ports.map((p) => p.port))].map((port) => (
                       <button
                         key={port}
-                        disabled={isWeb}
-                        onClick={() => void window.vide.openExternal(`http://localhost:${port}`)}
+                        disabled={isWeb || !useStore.getState().selectedWorkspaceId}
+                        onClick={() => {
+                          const workspaceId = useStore.getState().selectedWorkspaceId
+                          if (!workspaceId) return
+                          void window.vide.browserOpen(workspaceId, `http://localhost:${port}`).then(() => {
+                            useStore.setState({ browserOpen: true }); setOpen(false)
+                          }).catch((err) => setError(String(err.message ?? err)))
+                        }}
                         className="rounded bg-emerald-950/50 px-1.5 py-0.5 text-[11px] leading-none text-emerald-400 transition hover:bg-emerald-900/60"
                         title={`Open http://localhost:${port}`}
                       >

@@ -10,6 +10,7 @@ import { SettingsOverlay } from './components/SettingsOverlay'
 import { CommandPalette } from './components/CommandPalette'
 import { Spinner } from './components/Spinner'
 import { KeyBar } from './components/KeyBar'
+import { BrowserPane } from './components/BrowserPane'
 import { Composer } from './components/Composer'
 
 export default function App(): React.JSX.Element {
@@ -38,6 +39,7 @@ export default function App(): React.JSX.Element {
           Reconnecting…
         </div>
       )}
+      <BrowserPane />
       <AgentStrip />
       <DiffOverlay />
       <SpawnDialog />

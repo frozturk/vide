@@ -20,6 +20,7 @@ export function AgentStrip(): React.JSX.Element | null {
   const projects = useStore((s) => s.projects)
   const workspaces = useStore((s) => s.workspaces)
   const agents = useStore((s) => s.agents)
+  const browserTabs = useStore((s) => s.browserTabs)
   const statuses = useStore((s) => s.statuses)
   const unread = useStore((s) => s.unread)
   const selectedWorkspaceId = useStore((s) => s.selectedWorkspaceId)
@@ -33,7 +34,7 @@ export function AgentStrip(): React.JSX.Element | null {
   if (!projects.length) return null
 
   const navigation = workspaceNavigation(projects, workspaces, agents)
-  const listed = sidebarWorkspaces(projects, workspaces, agents)
+  const listed = sidebarWorkspaces(projects, workspaces, agents, browserTabs.map((t) => t.workspaceId))
   const railAgents = terminalNavigation(navigation, agents)
   const projectByWorkspace = new Map(navigation.map((w) => [w.id, w.projectId]))
   const visible = projects.filter((p) => listed.some((w) => w.projectId === p.id))
@@ -61,6 +62,7 @@ export function AgentStrip(): React.JSX.Element | null {
             return <button key={workspace.id} onClick={() => selectWorkspace(workspace.id, 'click')} className={`group flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-white/[0.04] ${workspace.id === selectedWorkspaceId ? 'bg-white/[0.07]' : ''}`}>
               <span className={`h-2 w-2 shrink-0 rounded-full ${status === 'busy' ? 'animate-pulse' : ''}`} style={{ background: STATUS_COLOR[status], boxShadow: hasUnread ? '0 0 0 1.5px white' : undefined }} />
               <span className="min-w-0 flex-1 truncate text-zinc-200">{workspace.kind === 'main' ? 'Main' : workspace.name}</span>
+              <BrowserTabCount workspaceId={workspace.id} />
               {count > 0 && <span className="text-[10px] text-zinc-600">{count}</span>}
               {workspace.kind === 'worktree' && <span role="button" title="Delete workspace" onClick={(e) => { e.stopPropagation(); void requestDeleteWorkspace(workspace.id) }} className="opacity-0 text-zinc-600 hover:text-red-400 group-hover:opacity-100">×</span>}
               {index >= 0 && index < 9 && <kbd className="rounded border border-zinc-700/60 px-1 text-[10px] text-zinc-600">⌘{index + 1}</kbd>}
@@ -78,13 +80,14 @@ function CompactDrawer(): React.JSX.Element {
   const projects = useStore((s) => s.projects)
   const workspaces = useStore((s) => s.workspaces)
   const agents = useStore((s) => s.agents)
+  const browserTabs = useStore((s) => s.browserTabs)
   const statuses = useStore((s) => s.statuses)
   const unread = useStore((s) => s.unread)
   const selectedWorkspaceId = useStore((s) => s.selectedWorkspaceId)
   const open = useStore((s) => s.drawerOpen)
   const [drag, setDrag] = useState(0)
   const startX = useRef<number | null>(null)
-  const listed = sidebarWorkspaces(projects, workspaces, agents)
+  const listed = sidebarWorkspaces(projects, workspaces, agents, browserTabs.map((t) => t.workspaceId))
   const visible = projects.filter((p) => listed.some((w) => w.projectId === p.id))
   const close = (): void => useStore.setState({ drawerOpen: false })
 
@@ -116,6 +119,7 @@ function CompactDrawer(): React.JSX.Element {
             return <button key={workspace.id} onClick={() => selectWorkspace(workspace.id, 'click')} className={`flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] transition active:scale-[0.98] ${active ? 'bg-white/[0.08] text-zinc-50' : 'text-zinc-300 active:bg-white/[0.05]'}`}>
               <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${status === 'busy' ? 'animate-pulse' : ''}`} style={{ background: STATUS_COLOR[status], boxShadow: hasUnread ? '0 0 0 2px #09090b, 0 0 0 3.5px white' : undefined }} />
               <span className="min-w-0 flex-1 truncate">{workspace.kind === 'main' ? 'Main' : workspace.name}</span>
+              <BrowserTabCount workspaceId={workspace.id} />
               {count > 0 && <span className="rounded-full bg-zinc-800/80 px-2 py-0.5 text-[11px] tabular-nums text-zinc-400">{count}</span>}
             </button>
           })}
@@ -129,4 +133,14 @@ function CompactDrawer(): React.JSX.Element {
       </div>
     </aside>
   </>
+}
+
+function BrowserTabCount({ workspaceId }: { workspaceId: string }): React.JSX.Element | null {
+  const count = useStore((s) => s.browserTabs.filter((t) => t.workspaceId === workspaceId).length)
+  if (!count) return null
+  const label = `${count} browser ${count === 1 ? 'tab' : 'tabs'}`
+  return <span title={label} aria-label={label} className="flex shrink-0 items-center gap-1 rounded bg-sky-950/50 px-1.5 py-0.5 text-[10px] tabular-nums text-sky-400">
+    <svg aria-hidden="true" className="h-3 w-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3"><rect x="2" y="2.5" width="12" height="11" rx="1.5" /><path d="M2 6h12M4 4.3h.1M6 4.3h.1" /></svg>
+    {count}
+  </span>
 }

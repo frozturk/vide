@@ -6,6 +6,14 @@ export type Subscribe = (channel: string, cb: (payload: any) => void) => () => v
 
 export function createApi(invoke: Invoke, send: Send, on: Subscribe): VideApi {
   return {
+    browserSnapshot: () => invoke('browser:snapshot'),
+    browserOpen: (workspaceId, url) => invoke('browser:open', { workspaceId, url }),
+    browserSelect: (workspaceId, tabId) => invoke('browser:select', { workspaceId, tabId }),
+    browserClose: (workspaceId, tabId) => invoke('browser:close', { workspaceId, tabId }),
+    browserCommand: (workspaceId, tabId, action, value) => invoke('browser:command', { workspaceId, tabId, action, value }),
+    browserLayout: (layout) => invoke('browser:layout', layout),
+    onBrowserState: (cb) => on('browser:state', cb),
+    onBrowserShortcut: (cb) => on('browser:shortcut', cb),
     configGet: () => invoke('config:get'),
     configReload: () => invoke('config:reload'),
     configSave: (config) => invoke('config:save', config),

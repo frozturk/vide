@@ -5,6 +5,7 @@ export type ChordId =
   | 'new-workspace'
   | 'close'
   | 'diff'
+  | 'browser'
   | 'palette'
   | 'find'
   | 'next-attention'
@@ -36,6 +37,7 @@ export const CHORDS: ChordDef[] = [
   { id: 'new-workspace', key: 'n' },
   { id: 'close', key: 'w' },
   { id: 'diff', key: 'd' },
+  { id: 'browser', key: 'b' },
   { id: 'palette', key: 'k' },
   { id: 'find', key: 'f' },
   { id: 'next-attention', key: 'e' },

@@ -200,7 +200,29 @@ export interface WorktreeBranch {
   name: string
 }
 
+export interface BrowserTab {
+  id: string
+  workspaceId: string
+  url: string
+  title: string
+  loading: boolean
+  canGoBack: boolean
+  canGoForward: boolean
+  error: string | null
+}
+export interface BrowserSnapshot { tabs: BrowserTab[]; active: Record<string, string> }
+export interface BrowserLayout { workspaceId: string | null; visible: boolean; x: number; y: number; width: number; height: number }
+
 export interface VideApi {
+  browserSnapshot(): Promise<BrowserSnapshot>
+  browserOpen(workspaceId: string, url?: string): Promise<BrowserTab>
+  browserSelect(workspaceId: string, tabId: string): Promise<void>
+  browserClose(workspaceId: string, tabId: string): Promise<void>
+  browserCommand(workspaceId: string, tabId: string, action: string, value?: string): Promise<unknown>
+  browserLayout(layout: BrowserLayout): Promise<void>
+  onBrowserState(cb: (state: BrowserSnapshot) => void): () => void
+  onBrowserShortcut(cb: (chord: import('./chords').ChordId | import('./browser-shortcuts').BrowserShortcut) => void): () => void
+
   configGet(): Promise<Config>
   configReload(): Promise<Config>
   configSave(config: Config): Promise<Config>

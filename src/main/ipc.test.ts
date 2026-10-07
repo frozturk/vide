@@ -31,7 +31,7 @@ vi.mock('./pty', () => ({
 }))
 
 let root: string
-const invoke = (name: string, request: unknown) => mocks.handlers.get(name)!(null, request)
+const invoke = (name: string, request: unknown) => mocks.handlers.get(name)!({ sender: undefined }, request)
 
 beforeEach(() => {
   root = realpathSync(mkdtempSync(join(tmpdir(), 'vide-project-test-')))

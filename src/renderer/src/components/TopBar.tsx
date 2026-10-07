@@ -29,6 +29,11 @@ export function TopBar(): React.JSX.Element {
   const [branches, setBranches] = useState<string[]>([])
   const [branchError, setBranchError] = useState<string | null>(null)
 
+  useEffect(() => {
+    useStore.setState((s) => ({ browserMenus: { ...s.browserMenus, branches: branchesOpen } }))
+    return () => { useStore.setState((s) => ({ browserMenus: { ...s.browserMenus, branches: false } })) }
+  }, [branchesOpen])
+
   const cwd = workspace?.path ?? null
 
   useEffect(() => {
@@ -271,6 +276,7 @@ export function TopBar(): React.JSX.Element {
             </button>}
           </>
         )}
+        {!isWeb && workspace && <button title="Browser (⌘B)" aria-label="Toggle browser" className="rounded px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800" onClick={() => useStore.setState((s) => ({ browserOpen: !s.browserOpen }))}>Browser</button>}
         <LocalServers />
       </div>
     </div>

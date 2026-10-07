@@ -217,3 +217,92 @@ deletion.
 
 Electron · electron-vite · React 19 · TypeScript · Tailwind v4 · zustand ·
 node-pty · xterm.js · `@git-diff-view/react` · tmux.
+
+## In-app browser
+
+On desktop, click **Browser** (⌘B) to show the workspace's browser floating over the
+terminal. Opening or resizing the browser leaves the terminal's dimensions
+unchanged. The pane has tabs, an address bar, back/forward, reload, and detached
+DevTools. With focus in the page or browser toolbar, ⌘W closes the browser tab,
+⌘T opens a tab, ⌘R reloads, and ⌘L focuses the address bar. Drag its left edge to
+resize it. Local-server port buttons open in this
+pane. Web/mobile clients continue to use their own browser; the native pane is
+not streamed to them.
+
+Tabs and their last URLs survive app restarts and belong to a workspace. Cookies,
+localStorage, and IndexedDB use a persistent Electron partition per project, so
+workspaces in one project share logins and unrelated projects do not. Development
+and production partitions are separate. Login popups inherit the opener's
+session. Links and popups open as tabs in the same workspace, preserving normal
+window.opener and window.close() behavior (including rel="noopener" isolation). Navigation shows a browser icon and tab count
+for each workspace, including workspaces that have only browser tabs. Closing a
+tab does not erase site data. Inactive tabs beyond three live background views unload and restore from their saved URL; unsaved page state and
+navigation history do not survive unloading. Tabs with active automation and live
+popup/opener relationships stay alive. Opener relationships are not restored
+across app restarts. The old global `vide-browser` profile is not automatically
+imported.
+
+### Agent control
+
+At startup, Vide installs a managed `vide-browser` skill into
+`~/.agents/skills/vide-browser` and `~/.claude/skills/vide-browser`. It includes
+its own browser CLI, so agents can use it from any project without locating the
+Vide source checkout. New agent sessions discover the skill automatically;
+restart an existing agent session if its skill list is already loaded. Vide
+updates its managed skill on startup and leaves user-owned skills with the same
+name untouched. No project `AGENTS.md` changes are needed.
+
+Agents can also read the complete workflow with `node scripts/browser.mjs instructions`
+(or `--help`), even when Vide is not running. For agents working elsewhere, tell
+them to run the same command using the script's absolute path.
+
+Vide starts a separate authenticated, loopback-only browser-control server.
+New terminals receive `VIDE_BROWSER_INFO`, the path to its connection file. On
+restart the file contains the current endpoint and token; existing terminals
+using the same path can reconnect. The file lives under Electron's `userData`
+directory as `browser-control.json` (`browser-control.dev.json` in development),
+with owner-only permissions. The companion CLI can also take `--info PATH`.
+
+```sh
+node scripts/browser.mjs workspaces
+node scripts/browser.mjs --workspace WORKSPACE_ID open http://localhost:3000
+node scripts/browser.mjs --workspace WORKSPACE_ID list
+node scripts/browser.mjs --workspace WORKSPACE_ID --tab TAB_ID eval 'document.title'
+node scripts/browser.mjs --workspace WORKSPACE_ID --tab TAB_ID screenshot --out /tmp/page.png
+node scripts/browser.mjs --workspace WORKSPACE_ID --tab TAB_ID console
+node scripts/browser.mjs --workspace WORKSPACE_ID --tab TAB_ID cdp
+```
+
+Without `--workspace`, the CLI finds the workspace containing the current working
+directory. Without `--tab`, commands target the last listed tab. `help` lists all
+commands. The CLI is a repository script and can be invoked by its absolute path
+from another project; no global installation is required.
+
+The `cdp` command returns an endpoint and authentication headers. A Playwright
+client can attach to the existing page:
+
+```js
+import { chromium } from 'playwright-core'
+
+// Use the JSON returned by the cdp command; it contains a local access token.
+const connection = JSON.parse(connectionJson)
+const browser = await chromium.connectOverCDP(connection.endpoint, {
+  headers: connection.headers
+})
+try {
+  const page = browser.contexts()[0].pages()[0]
+  await page.getByRole('textbox', { name: 'Email' }).fill('me@example.com')
+  await page.screenshot({ path: '/tmp/page.png' })
+} finally {
+  await browser.close() // Disconnects; leaves the user's tab open.
+}
+```
+
+Each connection exposes the requested tab and its popup descendants. Playwright
+can use page.waitForEvent('popup'), interact with the new page, and close it with
+page.close(). Unrelated tabs are not exposed. Create unrelated tabs through the
+Vide API or CLI, not Playwright's browser/context creation APIs. Only one debugger
+client can attach to a tab at a time; close its DevTools before attaching. Automation also
+works on background tabs. Browser-wide management commands are not exposed.
+Disconnecting leaves the user's tabs open; explicitly calling page.close() closes
+that tab. The API uses the project's real signed-in session.

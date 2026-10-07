@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Agent, AgentStatus, Config, Project, RecentDir, Workspace } from '../../shared/types'
+import type { Agent, AgentStatus, BrowserTab, Config, Project, RecentDir, Workspace } from '../../shared/types'
 import { PANEL_MAX_WIDTH, PANEL_MIN_WIDTH, PANEL_WIDTH } from '../../shared/layout'
 
 export type PanelState = 'closed' | 'hover' | 'keyboard'
@@ -12,6 +12,10 @@ export type DialogState =
   | { kind: 'delete-workspace'; workspaceId: string; dirty: boolean; hasOwnCommits: boolean }
 
 export interface VideStore {
+  browserMenus: Record<string, boolean>
+  browserTabs: BrowserTab[]
+  browserOpen: boolean
+  browserFraction: number
   booting: boolean
   config: Config | null
   projects: Project[]
@@ -46,6 +50,10 @@ export interface VideStore {
 const compactQuery = window.matchMedia('(max-width: 768px)')
 
 export const useStore = create<VideStore>(() => ({
+  browserMenus: {},
+  browserTabs: [],
+  browserOpen: false,
+  browserFraction: Math.max(0.25, Math.min(0.85, Number(localStorage.getItem('browserFraction')) || 0.55)),
   booting: true,
   config: null,
   projects: [],
@@ -76,6 +84,15 @@ export const useStore = create<VideStore>(() => ({
   connection: 'online',
   ctrlArmed: false
 }))
+
+// Every selection path (workspace navigation, terminal removal, direct clicks)
+// must acknowledge the terminal it opens, while preserving other unread agents.
+useStore.subscribe((state) => {
+  if (!state.selectedId || !state.unread[state.selectedId]) return
+  const unread = { ...state.unread }
+  delete unread[state.selectedId]
+  useStore.setState({ unread })
+})
 
 compactQuery.addEventListener('change', (e) => useStore.setState({ compact: e.matches, drawerOpen: false }))
 

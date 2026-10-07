@@ -1,3 +1,4 @@
+import { matchBrowserShortcut, type BrowserShortcut } from '../../shared/browser-shortcuts'
 import { matchChord, type ChordId } from '../../shared/chords'
 import {
   closeDialog,
@@ -21,9 +22,13 @@ import {
 import { useStore } from './store'
 import { workspaceNavigation } from './workspaceNavigation'
 
-export function dispatch(chord: ChordId): void {
+export function dispatch(chord: ChordId | BrowserShortcut): void {
   const s = useStore.getState()
   if (s.dialog) return
+  if (['browser-close-tab', 'browser-new-tab', 'browser-reload', 'browser-address'].includes(chord)) {
+    window.dispatchEvent(new CustomEvent('vide:browser-shortcut', { detail: chord }))
+    return
+  }
   if (chord.startsWith('jump-')) {
     const idx = Number(chord.slice(5)) - 1
     const workspace = workspaceNavigation(s.projects, s.workspaces, s.agents)[idx]
@@ -45,6 +50,9 @@ export function dispatch(chord: ChordId): void {
       break
     case 'close':
       void requestClose()
+      break
+    case 'browser':
+      if (!s.isWeb && s.selectedWorkspaceId) useStore.setState({ browserOpen: !s.browserOpen })
       break
     case 'diff':
       toggleOverlay('diff')
@@ -96,7 +104,8 @@ export function installKeyboard(): void {
         return
       }
       if (!e.metaKey || e.altKey || e.ctrlKey) return
-      const chord = matchChord(e.key, true, e.shiftKey)
+      const inBrowser = e.target instanceof Element && !!e.target.closest('[data-browser-pane]')
+      const chord = (inBrowser ? matchBrowserShortcut(e.key, true, e.shiftKey) : null) ?? matchChord(e.key, true, e.shiftKey)
       if (!chord) return
       e.preventDefault()
       e.stopPropagation()

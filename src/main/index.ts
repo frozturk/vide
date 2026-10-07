@@ -9,6 +9,9 @@ import { liveCount, detachAll, beginShutdown, startTitlePoller, reapOrphanSessio
 import { installAgentHooks } from './agentHooks'
 import { DESKTOP, registerClient } from './clients'
 import { startWebServer, stopWebServer } from './web'
+import { initBrowser } from './browser'
+import { startBrowserControl } from './browser-control'
+import { installBrowserSkills } from './browser-skills'
 import { loadState } from './state'
 
 function probePath(shellPath: string): Promise<void> {
@@ -50,6 +53,10 @@ async function createWindow(): Promise<void> {
   registerClient(DESKTOP, (channel, payload) => {
     if (!win.webContents.isDestroyed()) win.webContents.send(channel, payload)
   })
+  const browser = initBrowser(win)
+  await browser.restore()
+  const stopBrowserControl = await startBrowserControl(browser)
+  win.once('closed', () => { stopBrowserControl(); browser.stop() })
   const handlers = wireIpc(win)
   startWebServer({
     invoke: (channel, arg, clientId) => runHandler(handlers, channel, arg, clientId),
@@ -98,6 +105,9 @@ app.whenReady().then(async () => {
   Menu.setApplicationMenu(buildMenu())
   startTitlePoller()
   installAgentHooks(getTmux())
+  try { installBrowserSkills(app.getAppPath()) } catch (error) {
+    console.error('[vide/browser] Could not load bundled skill:', error)
+  }
   const saved = (await loadState()).agents
   const keep = new Set(saved.filter((s) => s.id).map((s) => sessionName(s.id, s.kindId, s.cwd)))
   await reapOrphanSessions(keep)

@@ -28,6 +28,7 @@ import { loadSession, loadRecent, saveRecent } from './session'
 import type { RecentDir, SessionAgent } from '../shared/types'
 import { loadState, saveState, updateAgents } from './state'
 import { broadcast, DESKTOP } from './clients'
+import { getBrowser, removeBrowserWorkspace } from './browser'
 import { restartWebServer, revokeDevice, webInfo } from './web'
 
 export type Handler = (arg: any, clientId: string) => unknown
@@ -101,7 +102,7 @@ const MUTATIONS: Record<string, string> = {
   'workspace:delete': 'state:changed'
 }
 
-export const DESKTOP_ONLY = new Set(['config:open', 'open:ide', 'open:external', 'dialog:pickDirectory', 'clipboard:readText', 'web:info', 'web:revokeDevice'])
+export const DESKTOP_ONLY = new Set(['config:open', 'open:ide', 'open:external', 'dialog:pickDirectory', 'clipboard:readText', 'web:info', 'web:revokeDevice', 'browser:snapshot', 'browser:open', 'browser:select', 'browser:close', 'browser:command', 'browser:layout'])
 
 function toSessionAgent(agent: Agent, workspace?: { path: string; branch?: string; baseSha?: string }) {
   return { id: agent.id, workspaceId: agent.workspaceId, kindId: agent.kindId, cwd: agent.cwd, worktreePath: workspace?.path ?? agent.worktreePath, worktreeBranch: workspace?.branch ?? agent.worktreeBranch, baseSha: workspace ? workspace.baseSha : agent.baseSha, createdAt: agent.createdAt }
@@ -109,6 +110,15 @@ function toSessionAgent(agent: Agent, workspace?: { path: string; branch?: strin
 
 export function createHandlers(win: BrowserWindow): Record<string, Handler> {
   return {
+    'browser:snapshot': () => getBrowser().snapshot(),
+    'browser:open': (p) => getBrowser().open(p.workspaceId, p.url),
+    'browser:select': (p) => getBrowser().select(p.workspaceId, p.tabId),
+    'browser:close': (p) => getBrowser().close(p.workspaceId, p.tabId),
+    'browser:command': (p) => getBrowser().command(p.workspaceId, p.tabId, p.action, p.value),
+    'browser:layout': (p) => {
+      if (!['x', 'y', 'width', 'height'].every((key) => Number.isFinite(p[key]))) throw new Error('Invalid browser bounds')
+      getBrowser().setLayout(p)
+    },
     'config:get': () => getConfig(),
     'config:reload': () => reloadConfig(),
     'config:save': (config: Config) => {
@@ -179,6 +189,7 @@ export function createHandlers(win: BrowserWindow): Record<string, Handler> {
       const workspaceIds = new Set(state.workspaces.filter((w) => w.projectId === p.projectId).map((w) => w.id))
       if (state.workspaces.some((w) => w.projectId === p.projectId && w.kind === 'worktree')) throw new Error('Delete isolated workspaces first')
       if (state.agents.some((a) => a.workspaceId && workspaceIds.has(a.workspaceId))) throw new Error('Close project terminals first')
+      for (const id of workspaceIds) removeBrowserWorkspace(id)
       saveState({ ...state, projects: state.projects.filter((x) => x.id !== p.projectId), workspaces: state.workspaces.filter((w) => w.projectId !== p.projectId) })
     },
     'workspace:create': async (req: WorkspaceCreateRequest, clientId) => {
@@ -227,6 +238,7 @@ export function createHandlers(win: BrowserWindow): Record<string, Handler> {
       const owned = state.agents.filter((a) => a.workspaceId === workspace.id)
       for (const agent of owned) await killPty(agent.id)
       const result = await removeWorktree({ path: workspace.path, branch: workspace.branch, force: info.dirty, deleteBranch: req.deleteBranch })
+      removeBrowserWorkspace(workspace.id)
       saveState({ ...state, workspaces: state.workspaces.filter((w) => w.id !== workspace.id), agents: state.agents.filter((a) => a.workspaceId !== workspace.id) })
       return result
     },
@@ -289,10 +301,10 @@ export async function runHandler(handlers: Record<string, Handler>, channel: str
 export function wireIpc(win: BrowserWindow): Record<string, Handler> {
   const handlers = createHandlers(win)
   for (const channel of Object.keys(handlers)) {
-    ipcMain.handle(channel, (_e, arg) => runHandler(handlers, channel, arg, DESKTOP))
+    ipcMain.handle(channel, (e, arg) => { if (e.sender !== win.webContents) throw new Error('Invalid IPC sender'); return runHandler(handlers, channel, arg, DESKTOP) })
   }
   for (const [channel, sender] of Object.entries(senders)) {
-    ipcMain.on(channel, (_e, arg) => sender(arg, DESKTOP))
+    ipcMain.on(channel, (e, arg) => { if (e.sender === win.webContents) sender(arg, DESKTOP) })
   }
   return handlers
 }
