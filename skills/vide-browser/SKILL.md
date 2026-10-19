@@ -16,4 +16,6 @@ The CLI is bundled beside this skill at `scripts/browser.mjs`. Resolve that path
 
 `VIDE_BROWSER_INFO`, supplied to new Vide terminals, selects the running app instance. `--info PATH` overrides it; `--dev` selects the development instance when the environment variable is absent. Re-read connection details after Vide restarts.
 
+For a crashed page, try `reload --tab ID`. If `Object has been destroyed` or similar native-object errors persist, run `list`, then `recover --tab ID` once for the affected tab. Recovery rebuilds it at its saved URL with the same tab ID and project session, resets page state, and disconnects CDP clients. Run `cdp` again and reconnect with fresh page handles. If the tab has disappeared, reopen its URL. Check whether an interaction took effect before retrying a form submission or another action that changes data.
+
 Each CDP connection exposes the requested tab and its popup descendants. Open unrelated tabs through the CLI. `browser.close()` disconnects; `page.close()` closes a tab. Leave the user's tabs open unless asked to close them. The panel may stay hidden during automation. The browser uses the project's persistent signed-in session; perform only actions within the user's requested task.

@@ -19,7 +19,9 @@ interface Tab {
   title: string
   error: string | null
   view?: WebContentsView
+  wc?: Electron.WebContents
   presented?: boolean
+  recovering?: boolean
   logs: { level: string; message: string; timestamp: number }[]
   used: number
   busy: number
@@ -36,7 +38,17 @@ export class BrowserManager {
   constructor(private win: BrowserWindow) {
     // Background pages need a native viewport, but must never be attached over
     // the app renderer. A permanently hidden host provides that viewport.
-    this.background = new BaseWindow({ show: false, width: 1600, height: 1200, focusable: false, skipTaskbar: true })
+    this.background = this.createBackground()
+  }
+  private createBackground(): BaseWindow {
+    return new BaseWindow({ show: false, width: 1600, height: 1200, focusable: false, skipTaskbar: true })
+  }
+  private backgroundHost(): BaseWindow {
+    if (this.background.isDestroyed()) {
+      this.background = this.createBackground()
+      for (const t of this.tabs.values()) if (!t.presented) t.presented = undefined
+    }
+    return this.background
   }
 
   async restore(): Promise<void> {
@@ -68,12 +80,17 @@ export class BrowserManager {
   }
   snapshot(): BrowserSnapshot {
     return { tabs: [...this.tabs.values()].map((t): BrowserTab => {
-      const wc = t.view?.webContents
+      const wc = this.contents(t)
       return { id: t.id, workspaceId: t.workspaceId, url: t.url, title: t.title, error: t.error, loading: wc?.isLoading() ?? false, canGoBack: wc?.navigationHistory.canGoBack() ?? false, canGoForward: wc?.navigationHistory.canGoForward() ?? false }
     }), active: Object.fromEntries(this.active) }
   }
+  private contents(t: Tab): Electron.WebContents | undefined {
+    // Keep the WebContents reference separately: even reading webContents on a
+    // destroyed native view can throw before its destroyed handler has run.
+    return t.wc && !t.wc.isDestroyed() ? t.wc : undefined
+  }
   private emit(): void {
-    if (!this.stopped && !this.win.webContents.isDestroyed()) this.win.webContents.send('browser:state', this.snapshot())
+    if (!this.stopped && !this.win.isDestroyed() && !this.win.webContents.isDestroyed()) this.win.webContents.send('browser:state', this.snapshot())
     this.persist()
   }
   private tab(workspaceId: string, id: string): Tab {
@@ -89,21 +106,30 @@ export class BrowserManager {
   async open(workspaceId: string, url = 'about:blank'): Promise<BrowserTab> {
     const normalized = browserUrl(url)
     const w = await this.workspace(workspaceId)
-    if (this.stopped) throw new Error('Browser is shutting down')
+    if (this.stopped || this.win.isDestroyed()) throw new Error('Browser is shutting down')
     if (this.tabs.size >= 100) throw new Error('Close a browser tab before opening more (limit 100)')
     const t: Tab = { id: randomUUID(), workspaceId, projectId: w.projectId, url: normalized, title: '', error: null, logs: [], used: Date.now(), busy: 0 }
+    const previous = this.active.get(workspaceId)
     this.tabs.set(t.id, t)
     this.active.set(workspaceId, t.id)
-    this.materialize(t)
-    this.applyLayout()
-    this.emit()
-    return this.snapshot().tabs.find((x) => x.id === t.id)!
+    try {
+      this.materialize(t)
+      this.applyLayout()
+      this.emit()
+      return this.snapshot().tabs.find((x) => x.id === t.id)!
+    } catch (error) {
+      this.tabs.delete(t.id)
+      if (previous) this.active.set(workspaceId, previous); else this.active.delete(workspaceId)
+      this.disposeView(t)
+      this.emit()
+      throw error
+    }
   }
   private materialize(t: Tab): WebContentsView {
     t.used = Date.now()
+    if (this.stopped || this.win.isDestroyed()) throw new Error('Browser is shutting down')
     if (t.view) {
-      const wc = t.view.webContents
-      if (!wc || wc.isDestroyed()) throw new Error('Browser tab is closing')
+      if (!this.contents(t)) throw new Error('Browser tab is closing; list tabs and reopen its URL')
       return t.view
     }
     const ses = session.fromPartition(browserPartition(t.projectId, isDevelopmentRuntime()))
@@ -116,12 +142,13 @@ export class BrowserManager {
   }
   private attachView(t: Tab, view: WebContentsView): void {
     t.view = view
+    const wc = view.webContents
+    t.wc = wc
     t.presented = false
     view.setBounds({ x: 0, y: 0, width: 1200, height: 800 })
     view.setVisible(false)
-    this.background.contentView.addChildView(view)
+    this.backgroundHost().contentView.addChildView(view)
     view.setVisible(true)
-    const wc = view.webContents
     const guard = (e: Electron.Event, url: string): void => { try { browserUrl(url) } catch { e.preventDefault() } }
     wc.on('will-navigate', guard)
     wc.on('will-redirect', guard)
@@ -150,15 +177,16 @@ export class BrowserManager {
     wc.once('destroyed', () => {
       if (t.view !== view) return
       t.view = undefined
+      t.wc = undefined
       if (this.tabs.has(t.id) && !this.stopped) this.close(t.workspaceId, t.id)
     })
     wc.on('before-input-event', (event, input) => {
-      if (input.type !== 'keyDown' || input.control || input.alt) return
+      if (this.stopped || this.win.isDestroyed() || input.type !== 'keyDown' || input.control || input.alt) return
       const chord = matchBrowserShortcut(input.key, input.meta, input.shift) ?? matchChord(input.key, input.meta, input.shift)
       if (chord) { event.preventDefault(); this.win.webContents.focus(); this.win.webContents.send('browser:shortcut', chord) }
     })
     const update = (): void => {
-      if (wc.isDestroyed()) return
+      if (t.wc !== wc || wc.isDestroyed()) return
       t.url = wc.getURL() || t.url
       t.title = wc.getTitle()
       this.emit()
@@ -186,7 +214,7 @@ export class BrowserManager {
     for (const t of this.tabs.values()) {
       // Debugger detach can release its lease before the destroyed handler
       // removes a closing popup. Never recreate or lay out that native view.
-      if (t.view && (!t.view.webContents || t.view.webContents.isDestroyed())) continue
+      if (t.recovering || (t.view && !this.contents(t))) continue
       const shown = !!l?.visible && l.workspaceId === t.workspaceId && this.active.get(t.workspaceId) === t.id
       const view = shown ? this.materialize(t) : t.view
       if (!view) continue
@@ -197,9 +225,9 @@ export class BrowserManager {
       }
       // Agent leases affect eviction, never presentation. Only user panel
       // changes transfer pages between the visible and hidden hosts.
-      if (shown !== t.presented) {
+      if (shown !== t.presented || (!shown && this.background.isDestroyed())) {
         if (shown) this.win.contentView.addChildView(view)
-        else this.background.contentView.addChildView(view)
+        else this.backgroundHost().contentView.addChildView(view)
         t.presented = shown
       }
     }
@@ -211,10 +239,32 @@ export class BrowserManager {
   private disposeView(t: Tab): void {
     if (!t.view) return
     const view = t.view
+    const wc = this.contents(t)
     t.view = undefined
+    t.wc = undefined
+    t.presented = false
+    // Native teardown can precede the destroyed event (e.g. debugger detach).
+    // Do not pass a dead view back into Electron while cleaning up.
+    if (!wc) return
     if (!this.win.isDestroyed()) this.win.contentView.removeChildView(view)
     if (!this.background.isDestroyed()) this.background.contentView.removeChildView(view)
-    if (view.webContents && !view.webContents.isDestroyed()) view.webContents.close({ waitForBeforeUnload: false })
+    wc.close({ waitForBeforeUnload: false })
+  }
+  private recover(workspaceId: string, id: string): BrowserSnapshot {
+    if (this.stopped || this.win.isDestroyed()) throw new Error('Browser is shutting down')
+    const t = this.tab(workspaceId, id)
+    t.recovering = true
+    try {
+      this.disposeView(t)
+      // Existing CDP sessions belong to the old native page. Disconnect them
+      // before rebuilding, including sessions released during native teardown.
+      this.events.emit('tab-closed', { workspaceId, tabId: id })
+      t.error = null
+    } finally { t.recovering = false }
+    this.materialize(t)
+    this.applyLayout()
+    this.emit()
+    return this.snapshot()
   }
   select(workspaceId: string, id: string): void { this.tab(workspaceId, id); this.active.set(workspaceId, id); this.applyLayout(); this.emit() }
   close(workspaceId: string, id: string): void {
@@ -246,12 +296,12 @@ export class BrowserManager {
     const t = this.tab(workspaceId, id)
     t.busy++
     let wc: Electron.WebContents
-    try { wc = this.materialize(t).webContents } catch (err) { t.busy--; throw err }
-    this.applyLayout()
+    try { this.materialize(t); wc = this.contents(t)!; this.applyLayout() } catch (err) { t.busy--; throw err }
     let released = false
     return { wc, release: () => { if (!released) { released = true; t.busy--; this.applyLayout() } } }
   }
   async command(workspaceId: string, id: string, action: string, value?: string): Promise<unknown> {
+    if (action === 'recover') return this.recover(workspaceId, id)
     const url = action === 'navigate' ? browserUrl(value ?? '') : undefined
     const lease = this.acquire(workspaceId, id)
     try {

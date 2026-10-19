@@ -24,7 +24,7 @@ try {
     console.log(`Vide browser control (desktop app must be running)
 node scripts/browser.mjs [--info PATH | --dev] [--workspace ID_OR_PATH] ACTION [VALUE] [--tab ID]
 
-Actions: workspaces, list, open URL, navigate URL, back, forward, reload,
+Actions: workspaces, list, open URL, navigate URL, back, forward, reload, recover,
          close, select, eval JAVASCRIPT, screenshot --out FILE, console, cdp
 Workspace defaults to the closest workspace containing the current directory.
 Tab defaults to the last listed tab. cdp prints endpoint and authentication headers.
@@ -74,6 +74,12 @@ TROUBLESHOOTING
 - Vide's desktop app must be running for commands other than help/instructions.
 - Use --info PATH if VIDE_BROWSER_INFO is missing or points to another instance.
 - After Vide restarts, rerun cdp to obtain fresh connection details.
+- If a page crashes, try reload --tab TAB_ID. If native-object errors persist,
+  run list, then recover --tab TAB_ID once to rebuild that tab at its saved URL.
+  Recovery preserves the tab ID and project session but resets page state and
+  disconnects CDP clients; rerun cdp and reconnect with fresh page handles.
+  If the tab has disappeared, open its URL again. Do not retry interactions
+  that may already have submitted a form or changed data without checking.
 - A sandbox may block loopback access. Request the tool's network permission
   rather than disabling authentication or changing the server's bind address.`)
     process.exit(0)
