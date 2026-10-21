@@ -77,7 +77,7 @@ export function createTerminal(agentId: string, kindId?: string): void {
     allowProposedApi: true,
     fontSize: useStore.getState().compact ? 12 : 13,
     fontFamily: 'SF Mono, Menlo, monospace',
-    scrollback: 10000,
+    scrollback: 5000,
     // Keep trackpad scrolling at xterm's baseline speed.
     scrollSensitivity: 1,
     macOptionClickForcesSelection: true,
@@ -287,12 +287,17 @@ function fitIfVisible(agentId: string): void {
   }
 }
 
+function dropWebgl(e: TermEntry): void {
+  if (!e.webgl) return
+  const gl = e.webgl
+  e.webgl = null
+  e.term.element?.querySelectorAll('canvas').forEach((c) => c.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext())
+  gl.dispose()
+}
+
 export function activateVisual(agentId: string): void {
   for (const [id, e] of terminals) {
-    if (id !== agentId && e.webgl) {
-      e.webgl.dispose()
-      e.webgl = null
-    }
+    if (id !== agentId) dropWebgl(e)
   }
   requestAnimationFrame(() => {
     if (useStore.getState().selectedId !== agentId) return
@@ -364,6 +369,6 @@ export function disposeTerminal(agentId: string): void {
   if (e.container && e.nativeSelectionHandler) {
     e.container.removeEventListener('mousedown', e.nativeSelectionHandler, true)
   }
-  e.webgl?.dispose()
+  dropWebgl(e)
   e.term.dispose()
 }
