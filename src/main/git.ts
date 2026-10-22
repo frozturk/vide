@@ -1,7 +1,7 @@
 import { appendFile, copyFile, mkdir, readFile, rm, stat } from 'fs/promises'
 import { execFile } from 'child_process'
 import { createHash } from 'crypto'
-import { basename, dirname, isAbsolute, join, resolve } from 'path'
+import { basename, dirname, isAbsolute, join, resolve, sep } from 'path'
 import { promisify } from 'util'
 import type {
   DiffFile,
@@ -235,18 +235,13 @@ export async function orphanWorktrees(cwd: string, livePaths: string[]): Promise
     /* best effort */
   }
   const out = await git(root, ['worktree', 'list', '--porcelain'])
+  const videDir = join(root, '.vide', 'worktrees') + sep
   const result: OrphanWorktree[] = []
-  let path = ''
-  for (const line of out.split('\n')) {
-    if (line.startsWith('worktree ')) path = line.slice('worktree '.length)
-    if (
-      line.startsWith('branch refs/heads/vide/') &&
-      path &&
-      resolve(path) !== resolve(root) &&
-      !livePaths.includes(path)
-    ) {
-      result.push({ path, branch: line.slice('branch refs/heads/'.length) })
-    }
+  for (const block of out.split('\n\n')) {
+    const path = block.match(/^worktree (.+)$/m)?.[1]
+    const branch = block.match(/^branch refs\/heads\/(.+)$/m)?.[1] ?? ''
+    if (!path || resolve(path) === resolve(root) || livePaths.includes(path)) continue
+    if (path.startsWith(videDir) || branch.startsWith('vide/')) result.push({ path, branch })
   }
   return result
 }

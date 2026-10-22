@@ -1,9 +1,9 @@
 import { execFileSync } from 'child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { describe, expect, it } from 'vitest'
-import { createWorktree, getDiff, listBranches, listWorktreeBranches, removeWorktree, worktreeStatus } from './git'
+import { createWorktree, getDiff, listBranches, listWorktreeBranches, orphanWorktrees, removeWorktree, worktreeStatus } from './git'
 
 function git(cwd: string, ...args: string[]): void {
   execFileSync('git', args, { cwd, stdio: 'ignore' })
@@ -93,5 +93,25 @@ describe('workspace worktrees', () => {
 
     await removeWorktree({ path: second.path, branch: second.branch, force: false, deleteBranch: true })
     expect(() => execFileSync('git', ['show-ref', '--verify', `refs/heads/${second.branch}`], { cwd: root, stdio: 'ignore' })).toThrow()
+  })
+  it('lists unmanaged vide worktrees even after their branch is renamed', async () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'vide-orphan-test-')))
+    try {
+      git(root, 'init', '-b', 'main')
+      git(root, 'config', 'user.email', 'vide@example.test')
+      git(root, 'config', 'user.name', 'Vide Test')
+      git(root, 'commit', '--allow-empty', '-m', 'initial')
+      const live = await createWorktree(root, 'workspace', 'live')
+      const renamed = await createWorktree(root, 'workspace', 'renamed')
+      const detached = await createWorktree(root, 'workspace', 'detached')
+      git(renamed.path, 'branch', '-m', 'someone/feature')
+      git(detached.path, 'checkout', '--detach')
+      expect(await orphanWorktrees(root, [live.path])).toEqual([
+        { path: detached.path, branch: '' },
+        { path: renamed.path, branch: 'someone/feature' }
+      ])
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 })
