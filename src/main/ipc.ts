@@ -214,11 +214,13 @@ export function createHandlers(win: BrowserWindow): Record<string, Handler> {
       const project = state.projects.find((p) => p.id === req.projectId)
       if (!project) throw new Error('Project not found')
       if (!(await repoRoot(project.rootPath))) throw new Error('Worktrees require a Git repository')
-      const livePaths = state.workspaces.filter((w) => w.kind === 'worktree').map((w) => w.path)
+      const active = new Set(state.agents.map((a) => a.workspaceId))
+      const livePaths = state.workspaces.filter((w) => w.kind === 'worktree' && active.has(w.id)).map((w) => w.path)
       const orphan = (await orphanWorktrees(project.rootPath, livePaths)).find((w) => w.path === req.path)
       if (!orphan) throw new Error('Worktree is already managed or is not a Vide worktree')
-      const workspace = { id: randomUUID(), projectId: project.id, name: orphan.path.split('/').pop() || orphan.branch, kind: 'worktree' as const, path: orphan.path, branch: orphan.branch, createdAt: Date.now() }
-      saveState({ ...state, workspaces: [...state.workspaces, workspace] })
+      const existing = state.workspaces.find((w) => w.path === orphan.path)
+      const workspace = existing ?? { id: randomUUID(), projectId: project.id, name: orphan.path.split('/').pop() || orphan.branch, kind: 'worktree' as const, path: orphan.path, branch: orphan.branch, createdAt: Date.now() }
+      if (!existing) saveState({ ...state, workspaces: [...state.workspaces, workspace] })
       try {
         const agent = await spawnAgent({ kindId: req.kindId, cwd: workspace.path, workspaceId: workspace.id }, clientId)
         const next = await loadState()
@@ -255,6 +257,8 @@ export function createHandlers(win: BrowserWindow): Record<string, Handler> {
     'git:orphanWorktrees': (p: { cwd: string; livePaths: string[] }) => orphanWorktrees(p.cwd, p.livePaths),
     'git:deleteOrphan': async (p: { path: string }) => {
       await removeWorktree({ path: p.path, force: true, deleteBranch: false })
+      const state = await loadState()
+      saveState({ ...state, workspaces: state.workspaces.filter((w) => w.path !== p.path) })
     },
     'diff:get': (p: { cwd: string; ref?: string; full?: boolean; allChanges?: boolean }) => getDiff(p.cwd, p.ref, p.full, p.allChanges),
     'diff:statusHash': (p: { cwd: string }) => statusHash(p.cwd),

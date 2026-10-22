@@ -148,10 +148,14 @@ function NewAgentDialog(): React.JSX.Element {
     let active = true
     setOrphans([])
     if (!dir || !worktreeSupported) return
-    const livePaths = workspaces.filter((w) => w.kind === 'worktree').map((w) => w.path)
+    const activeIds = new Set(agents.map((a) => a.workspaceId))
+    const livePaths = workspaces.filter((w) => w.kind === 'worktree' && activeIds.has(w.id)).map((w) => w.path)
     window.vide.orphanWorktrees(dir, livePaths).then((found) => { if (active) setOrphans(found) }).catch(() => { if (active) setOrphans([]) })
     return () => { active = false }
-  }, [dir, workspaces, worktreeSupported])
+  }, [dir, workspaces, agents, worktreeSupported])
+
+  const dirList = useRef<HTMLDivElement>(null)
+  useEffect(() => { dirList.current?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' }) }, [dir])
 
   useEffect(() => { setWorktreeName('') }, [dir])
 
@@ -166,7 +170,7 @@ function NewAgentDialog(): React.JSX.Element {
   const [typedDir, setTypedDir] = useState('')
   function applyTypedDir(): void { const path = typedDir.trim(); if (path) { setPicked(path); setDir(path); setTypedDir('') } }
   async function pickDir(): Promise<void> { const chosen = await window.vide.pickDirectory(); if (chosen) { setPicked(chosen); setDir(chosen) } }
-  async function deleteOrphan(path: string): Promise<void> { await window.vide.deleteOrphanWorktree(path); setOrphans((all) => all.filter((x) => x.path !== path)) }
+  async function deleteOrphan(path: string): Promise<void> { await window.vide.deleteOrphanWorktree(path); setOrphans((all) => all.filter((x) => x.path !== path)); useStore.setState((st) => ({ workspaces: st.workspaces.filter((w) => w.path !== path) })) }
 
   return <DialogFrame title="New Agent" icon={selectedKind && <span style={{ color: selectedKind.color }}><AgentIcon kindId={selectedKind.id} size={18} /></span>} onKeyDown={(e) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.repeat) { e.preventDefault(); void launch(); return }
@@ -175,7 +179,7 @@ function NewAgentDialog(): React.JSX.Element {
   }} footer={<><span className={`items-center gap-3 text-xs text-zinc-600 ${compact ? 'hidden' : 'flex'}`}><span><kbd className="rounded bg-zinc-800 px-1.5 py-0.5">⏎</kbd> start</span><span><kbd className="rounded bg-zinc-800 px-1.5 py-0.5">←</kbd><kbd className="ml-1 rounded bg-zinc-800 px-1.5 py-0.5">→</kbd> type</span><span><kbd className="rounded bg-zinc-800 px-1.5 py-0.5">↑</kbd><kbd className="ml-1 rounded bg-zinc-800 px-1.5 py-0.5">↓</kbd> folder</span></span><div className={`flex gap-2 ${compact ? 'w-full justify-end' : ''}`}><button onClick={closeDialog} className="rounded-lg px-4 py-2 text-sm text-zinc-400 hover:bg-zinc-800">Cancel</button><button onClick={() => void launch()} disabled={busy || !dir || !kindId} className="rounded-lg bg-zinc-100 px-5 py-2 text-sm font-semibold text-zinc-900 disabled:opacity-40">{busy ? 'Starting…' : 'Start Agent'}</button></div></>}>
     <div className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">Agent Type</div><AgentChoices kinds={kinds} kindId={kindId} setKindId={setKindId} />
     <div className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">Directory</div>
-    {dirOptions.length > 0 && <div className="mb-2 overflow-hidden rounded-xl border border-zinc-700">{dirOptions.map((path) => <button key={path} onClick={() => setDir(path)} className={`flex w-full items-center gap-2 px-3 py-2 text-left transition ${path === dir ? 'bg-zinc-700/60' : 'bg-zinc-800/50 hover:bg-zinc-800'}`}><FolderGlyph /><span className="shrink-0 text-sm text-zinc-200">{basename(path)}</span>{path === currentProject?.rootPath && <span className="rounded bg-zinc-700 px-1 text-[10px] uppercase text-zinc-300">main</span>}<span className="min-w-0 flex-1 truncate text-right text-xs text-zinc-600">{path}</span></button>)}</div>}
+    {dirOptions.length > 0 && <div ref={dirList} className="mb-2 max-h-[180px] overflow-y-auto rounded-xl border border-zinc-700">{dirOptions.map((path) => <button key={path} aria-current={path === dir} onClick={() => setDir(path)} className={`flex w-full items-center gap-2 px-3 py-2 text-left transition ${path === dir ? 'bg-zinc-700/60' : 'bg-zinc-800/50 hover:bg-zinc-800'}`}><FolderGlyph /><span className="shrink-0 text-sm text-zinc-200">{basename(path)}</span>{path === currentProject?.rootPath && <span className="rounded bg-zinc-700 px-1 text-[10px] uppercase text-zinc-300">main</span>}<span className="min-w-0 flex-1 truncate text-right text-xs text-zinc-600">{path}</span></button>)}</div>}
     {isWeb ? <div className="mb-5 flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/50 pl-3 pr-1.5 focus-within:border-zinc-600"><FolderGlyph /><input value={typedDir} onChange={(e) => setTypedDir(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); applyTypedDir() } }} placeholder="Another folder, e.g. ~/code/app" autoCapitalize="off" autoCorrect="off" spellCheck={false} className="min-w-0 flex-1 bg-transparent py-2.5 font-mono text-[13px] text-zinc-200 placeholder:font-sans placeholder:text-zinc-600 focus:outline-none" />{typedDir.trim() && <button onClick={applyTypedDir} className="shrink-0 rounded-lg bg-zinc-700 px-3 py-1.5 text-xs text-zinc-100">Use</button>}</div>
     : <button onClick={() => void pickDir()} className="mb-5 flex w-full items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-left hover:border-zinc-600 hover:bg-zinc-800"><FolderGlyph /><span className="text-sm text-zinc-300">Choose another folder…</span></button>}
     <div className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">Worktree Name <span className="text-zinc-700">(optional — leave empty for none)</span></div>

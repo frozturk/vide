@@ -295,7 +295,7 @@ export async function createWorkspace(projectId: string, name: string, kindId: s
 export async function adoptWorkspace(projectId: string, path: string, kindId: string): Promise<string | null> {
   const result = await window.vide.workspaceAdopt({ projectId, path, kindId })
   const s = useStore.getState()
-  useStore.setState({ workspaces: [...s.workspaces, result.workspace], selectedWorkspaceId: result.workspace.id, dialog: null })
+  useStore.setState({ workspaces: [...s.workspaces.filter((w) => w.id !== result.workspace.id), result.workspace], selectedWorkspaceId: result.workspace.id, dialog: null })
   if (result.agent) {
     createTerminal(result.agent.id, result.agent.kindId)
     addAgent(result.agent)
