@@ -139,6 +139,7 @@ function NewAgentDialog(): React.JSX.Element {
   const [picked, setPicked] = useState<string | null>(null)
   const [worktreeName, setWorktreeName] = useState('')
   const [orphans, setOrphans] = useState<OrphanWorktree[]>([])
+  const [deleting, setDeleting] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const selectedKind = kinds.find((k) => k.id === kindId)
@@ -170,7 +171,12 @@ function NewAgentDialog(): React.JSX.Element {
   const [typedDir, setTypedDir] = useState('')
   function applyTypedDir(): void { const path = typedDir.trim(); if (path) { setPicked(path); setDir(path); setTypedDir('') } }
   async function pickDir(): Promise<void> { const chosen = await window.vide.pickDirectory(); if (chosen) { setPicked(chosen); setDir(chosen) } }
-  async function deleteOrphan(path: string): Promise<void> { await window.vide.deleteOrphanWorktree(path); setOrphans((all) => all.filter((x) => x.path !== path)); useStore.setState((st) => ({ workspaces: st.workspaces.filter((w) => w.path !== path) })) }
+  async function deleteOrphan(path: string): Promise<void> {
+    setDeleting((all) => [...all, path])
+    try { await window.vide.deleteOrphanWorktree(path); setOrphans((all) => all.filter((x) => x.path !== path)) }
+    catch (err) { setError(err instanceof Error ? err.message : String(err)) }
+    finally { setDeleting((all) => all.filter((x) => x !== path)) }
+  }
 
   return <DialogFrame title="New Agent" icon={selectedKind && <span style={{ color: selectedKind.color }}><AgentIcon kindId={selectedKind.id} size={18} /></span>} onKeyDown={(e) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.repeat) { e.preventDefault(); void launch(); return }
@@ -185,7 +191,7 @@ function NewAgentDialog(): React.JSX.Element {
     <div className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">Worktree Name <span className="text-zinc-700">(optional — leave empty for none)</span></div>
     <input autoFocus disabled={!worktreeSupported} value={worktreeName} onChange={(e) => setWorktreeName(e.target.value)} placeholder={worktreeSupported === null ? 'Checking Git repository…' : worktreeSupported ? 'e.g. fix-auth-bug' : 'Worktrees require a Git repository'} className="mb-4 w-full rounded-xl border border-zinc-700 bg-zinc-800/50 px-4 py-3 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-700" />
     {worktreeSupported && worktreeName.trim() && <BaseBranchSelect {...branchPicker} disabled={busy} />}
-    {worktreeSupported && orphans.length > 0 && <div className="mb-4 rounded-xl border border-zinc-800 bg-zinc-950/40 p-3"><div className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">Orphan Worktrees</div>{orphans.map((orphan) => <div key={orphan.path} className="flex items-center gap-2 py-1 text-xs"><span className="min-w-0 flex-1 truncate text-zinc-400">{orphan.branch || basename(orphan.path)}</span><button onClick={() => void launch(orphan.path)} className="rounded px-2 py-0.5 text-emerald-400 hover:bg-emerald-950/50">adopt</button><button onClick={() => void deleteOrphan(orphan.path)} className="rounded px-2 py-0.5 text-red-400 hover:bg-red-950/50">delete</button></div>)}</div>}
+    {worktreeSupported && orphans.length > 0 && <div className="mb-4 rounded-xl border border-zinc-800 bg-zinc-950/40 p-3"><div className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">Orphan Worktrees</div>{orphans.map((orphan) => <div key={orphan.path} className="flex items-center gap-2 py-1 text-xs"><span className="min-w-0 flex-1 truncate text-zinc-400">{orphan.branch || basename(orphan.path)}</span>{deleting.includes(orphan.path) ? <span className="animate-pulse px-2 py-0.5 text-red-400">deleting…</span> : <><button onClick={() => void launch(orphan.path)} className="rounded px-2 py-0.5 text-emerald-400 hover:bg-emerald-950/50">adopt</button><button onClick={() => void deleteOrphan(orphan.path)} className="rounded px-2 py-0.5 text-red-400 hover:bg-red-950/50">delete</button></>}</div>)}</div>}
     {error && <div className="rounded-lg border border-red-900/50 bg-red-950/30 px-3 py-2 text-xs text-red-400">{error}</div>}
   </DialogFrame>
 }
