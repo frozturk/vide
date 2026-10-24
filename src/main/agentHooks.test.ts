@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { describe, expect, it } from 'vitest'
-import { hookCommand, mergeHooks, parsePaneStatus, parseState, stateAfterInput } from './agentHooks'
+import { hookCommand, mergeHooks, parsePaneStatus, parseState, readReply, replyText, stateAfterInput } from './agentHooks'
 
 const events = [{ event: 'Stop', value: 'idle' as const }, { event: 'Notification', matcher: 'permission_prompt', value: 'waiting' as const }]
 
@@ -41,6 +41,29 @@ describe('agent hooks', () => {
     })
     expect(readFileSync(join(dir, 'args'), 'utf8').trim()).toBe('set-option -p -t %1 @vide_state busy:Bash')
     rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('saves the stop payload before marking the agent idle', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'vide-hook-'))
+    const fake = join(dir, 'tmux')
+    writeFileSync(fake, `#!/bin/sh\necho "$@" > ${join(dir, 'args')}\n`, { mode: 0o755 })
+    const payload = '{"session_id":"s","last_assistant_message":"Done. Tests pass."}'
+    execFileSync('/bin/sh', ['-c', hookCommand(fake, 'reply', dir)], {
+      input: payload,
+      env: { VIDE_AGENT: 'a', TMUX_PANE: '%1', PATH: process.env.PATH ?? '' }
+    })
+    expect(readFileSync(join(dir, 'a.json'), 'utf8')).toBe(payload)
+    expect(readFileSync(join(dir, 'args'), 'utf8').trim()).toBe('set-option -p -t %1 @vide_state idle')
+    expect(readReply(dir, 'a')?.text).toBe('Done. Tests pass.')
+    expect(readReply(dir, 'a', Date.now() + 1000)).toBeNull()
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('flattens the last reply into one line of plain text', () => {
+    expect(replyText(JSON.stringify({ last_assistant_message: '## Summary\n\n- Fixed **login** in `auth_flow.ts`\n```ts\ncode()\n```\nDone.' })))
+      .toBe('Summary Fixed login in auth_flow.ts Done.')
+    expect(replyText(JSON.stringify({ last_assistant_message: null }))).toBeNull()
+    expect(replyText('not json')).toBeNull()
   })
 
   it('updates the state from what the user types', () => {

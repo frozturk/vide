@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { selectedAgent, selectedProject, selectedWorkspace, useStore } from '../store'
 import { basename } from '../util'
 import { AgentIcon } from './AgentIcon'
+import { StatusMark } from './StatusMark'
 import { LocalServers } from './LocalServers'
 import { selectNextAttentionTerminal, setDiffFullFile, toggleOverlay } from '../actions'
 import { activityLabel } from '../activity'
@@ -125,13 +126,13 @@ export function TopBar(): React.JSX.Element {
             </span>
             {status === 'busy' && (
               <span className="flex shrink-0 items-center gap-1.5 text-xs leading-none text-emerald-400">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                <StatusMark status="busy" size={9} />
                 {activityLabel(activity)}
               </span>
             )}
             {status === 'waiting' && (
               <span className="flex shrink-0 items-center gap-1.5 text-xs leading-none text-amber-400">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                <StatusMark status="waiting" size={9} />
                 Needs input
               </span>
             )}

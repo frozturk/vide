@@ -266,6 +266,7 @@ export interface VideApi {
   onPtyExit(cb: (p: { agentId: string; exitCode: number }) => void): () => void
   onPtyTitle(cb: (p: { agentId: string; title: string }) => void): () => void
   onPtyState(cb: (p: { agentId: string; state: AgentStatus; activity: string | null }) => void): () => void
+  onPtyReply(cb: (p: { agentId: string; text: string; at: number }) => void): () => void
   onStateChanged(cb: () => void): () => void
   onConfigChanged(cb: () => void): () => void
   webInfo(): Promise<WebInfo>

@@ -1,12 +1,12 @@
 import * as pty from 'node-pty'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
-import { basename } from 'path'
-import { existsSync } from 'fs'
+import { basename, join } from 'path'
+import { existsSync, rmSync } from 'fs'
 import { homedir } from 'os'
 import { ownsTmuxSession, tmuxSessionPrefix } from './runtime'
 import { post } from './clients'
-import { AGENT_ENV, STATE_OPTION, parsePaneStatus, parseState, stateAfterInput } from './agentHooks'
+import { AGENT_ENV, STATE_OPTION, parsePaneStatus, parseState, readReply, stateAfterInput, type Reply } from './agentHooks'
 
 const exec = promisify(execFile)
 
@@ -165,6 +165,11 @@ async function attachInternal(clientId: string, agentId: string, name: string, e
   if (title) post(clientId, 'pty:title', { agentId, title })
   const state = parseState(lastStates.get(agentId) ?? '')
   if (state) post(clientId, 'pty:state', { agentId, ...state })
+  const reply = lastReplies.get(agentId) ?? readReply(replyDir, agentId)
+  if (reply) {
+    lastReplies.set(agentId, reply)
+    post(clientId, 'pty:reply', { agentId, ...reply })
+  }
 }
 
 export async function attachPty(clientId: string, agentId: string, kindId?: string, cwd?: string): Promise<boolean> {
@@ -205,6 +210,8 @@ export async function killPty(agentId: string): Promise<void> {
   const clients = ptys.get(agentId)
   const name = clients?.values().next().value?.sessionName ?? sessionName(agentId)
   await exec1(getTmux(), ['kill-session', '-t', name])
+  lastReplies.delete(agentId)
+  if (replyDir) rmSync(join(replyDir, `${agentId}.json`), { force: true })
   if (clients) {
     for (const e of clients.values()) detachEntry(e)
     ptys.delete(agentId)
@@ -265,8 +272,11 @@ export async function reapOrphanSessions(keepNames: Set<string>): Promise<void> 
 let titleTimer: ReturnType<typeof setInterval> | null = null
 const lastTitles = new Map<string, string>()
 const lastStates = new Map<string, string>()
+const lastReplies = new Map<string, Reply>()
+let replyDir = ''
 
-export function startTitlePoller(): void {
+export function startTitlePoller(dir: string): void {
+  replyDir = dir
   if (titleTimer) return
   titleTimer = setInterval(pollTitles, 1000)
 }
@@ -281,6 +291,11 @@ async function pollTitles(): Promise<void> {
       line = stdout.replace(/\n$/, '')
     } catch {
       continue
+    }
+    const reply = readReply(replyDir, agentId, lastReplies.get(agentId)?.at)
+    if (reply) {
+      lastReplies.set(agentId, reply)
+      for (const e of clients.values()) post(e.clientId, 'pty:reply', { agentId, ...reply })
     }
     const { title, raw } = parsePaneStatus(line)
     const state = parseState(raw)

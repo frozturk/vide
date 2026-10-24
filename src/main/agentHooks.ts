@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
 import { dirname, join } from 'path'
 import type { AgentStatus } from '../shared/types'
@@ -6,7 +6,7 @@ import type { AgentStatus } from '../shared/types'
 export const STATE_OPTION = '@vide_state'
 export const AGENT_ENV = 'VIDE_AGENT'
 
-type HookValue = 'idle' | 'busy' | 'waiting' | 'tool'
+type HookValue = 'idle' | 'busy' | 'waiting' | 'tool' | 'reply'
 type HookEvent = { event: string; matcher?: string; value: HookValue }
 
 const COMMON_EVENTS: HookEvent[] = [
@@ -15,7 +15,7 @@ const COMMON_EVENTS: HookEvent[] = [
   { event: 'PreToolUse', value: 'tool' },
   { event: 'PostToolUse', value: 'busy' },
   { event: 'PermissionRequest', value: 'waiting' },
-  { event: 'Stop', value: 'idle' }
+  { event: 'Stop', value: 'reply' }
 ]
 
 const CODEX_EVENTS: HookEvent[] = [...COMMON_EVENTS, { event: 'Interrupt', value: 'idle' }]
@@ -46,9 +46,37 @@ export function shellQuote(s: string): string {
   return `'${s.replace(/'/g, `'\\''`)}'`
 }
 
-export function hookCommand(tmux: string, value: HookValue): string {
-  const state = value === 'tool' ? TOOL_NAME : value
-  return `[ -n "$${AGENT_ENV}" ] && [ -n "$TMUX_PANE" ] && ${shellQuote(tmux)} set-option -p -t "$TMUX_PANE" ${STATE_OPTION} ${state} >/dev/null 2>&1; true`
+export function hookCommand(tmux: string, value: HookValue, replyDir = ''): string {
+  const state = value === 'tool' ? TOOL_NAME : value === 'reply' ? 'idle' : value
+  const setState = `${shellQuote(tmux)} set-option -p -t "$TMUX_PANE" ${STATE_OPTION} ${state}`
+  const action = value === 'reply' && replyDir ? `{ cat > ${shellQuote(replyDir)}/"$${AGENT_ENV}".json; ${setState}; }` : setState
+  return `[ -n "$${AGENT_ENV}" ] && [ -n "$TMUX_PANE" ] && ${action} >/dev/null 2>&1; true`
+}
+
+export type Reply = { text: string; at: number }
+
+export function replyText(raw: string): string | null {
+  let message: unknown
+  try {
+    message = JSON.parse(raw).last_assistant_message
+  } catch {
+    return null
+  }
+  if (typeof message !== 'string') return null
+  const text = message.replace(/```[\s\S]*?```/g, ' ').replace(/^\s*(#+|>|[-*] )\s*/gm, '').replace(/\*\*|__|`/g, '').replace(/\s+/g, ' ').trim()
+  return text ? text.slice(0, 280) : null
+}
+
+export function readReply(replyDir: string, agentId: string, since = 0): Reply | null {
+  const file = join(replyDir, `${agentId}.json`)
+  try {
+    const at = statSync(file).mtimeMs
+    if (at <= since) return null
+    const text = replyText(readFileSync(file, 'utf8'))
+    return text ? { text, at } : null
+  } catch {
+    return null
+  }
 }
 
 type HookGroup = { matcher?: string; hooks?: { command?: string }[] }
@@ -58,20 +86,20 @@ function isVideGroup(group: HookGroup): boolean {
   return Boolean(group.hooks?.some((h) => h.command?.includes(`$${AGENT_ENV}`)))
 }
 
-export function mergeHooks(config: HookConfig, events: HookEvent[], tmux: string): HookConfig {
+export function mergeHooks(config: HookConfig, events: HookEvent[], tmux: string, replyDir = ''): HookConfig {
   const hooks: Record<string, HookGroup[]> = {}
   for (const [event, groups] of Object.entries(config.hooks ?? {})) {
     const kept = (Array.isArray(groups) ? groups : []).filter((g) => !isVideGroup(g))
     if (kept.length) hooks[event] = kept
   }
   for (const { event, matcher, value } of events) {
-    const group = { ...(matcher ? { matcher } : {}), hooks: [{ type: 'command', command: hookCommand(tmux, value) }] }
+    const group = { ...(matcher ? { matcher } : {}), hooks: [{ type: 'command', command: hookCommand(tmux, value, replyDir) }] }
     hooks[event] = [...(hooks[event] ?? []), group]
   }
   return { ...config, hooks }
 }
 
-function installInto(file: string, events: HookEvent[], tmux: string): void {
+function installInto(file: string, events: HookEvent[], tmux: string, replyDir: string): void {
   if (!existsSync(dirname(file))) return
   let config: HookConfig = {}
   let before = ''
@@ -84,21 +112,22 @@ function installInto(file: string, events: HookEvent[], tmux: string): void {
       return
     }
   }
-  const after = JSON.stringify(mergeHooks(config, events, tmux), null, 2) + '\n'
+  const after = JSON.stringify(mergeHooks(config, events, tmux, replyDir), null, 2) + '\n'
   if (after === before) return
   const tmp = `${file}.vide-tmp`
   writeFileSync(tmp, after, 'utf8')
   renameSync(tmp, file)
 }
 
-export function installAgentHooks(tmux: string): void {
+export function installAgentHooks(tmux: string, replyDir: string): void {
   const home = homedir()
+  mkdirSync(replyDir, { recursive: true })
   for (const [file, events] of [
     [join(home, '.claude', 'settings.json'), CLAUDE_EVENTS],
     [join(home, '.codex', 'hooks.json'), CODEX_EVENTS]
   ] as const) {
     try {
-      installInto(file, events, tmux)
+      installInto(file, events, tmux, replyDir)
     } catch (err) {
       console.error('[vide/hooks] install failed:', file, err)
     }

@@ -1,4 +1,4 @@
-import type { Agent, Project, Workspace } from '../../shared/types'
+import type { Agent, AgentStatus, Project, Workspace } from '../../shared/types'
 
 export function sidebarWorkspaces(projects: Project[], workspaces: Workspace[], agents: Agent[], browserWorkspaceIds: string[] = []): Workspace[] {
   const activeWorkspaceIds = new Set([...agents.map((agent) => agent.workspaceId), ...browserWorkspaceIds])
@@ -28,4 +28,12 @@ export function switchQueue(queue: string[], agents: Agent[]): string[] {
   const ids = agents.map((agent) => agent.id)
   const kept = queue.filter((id) => ids.includes(id))
   return [...kept, ...ids.filter((id) => !kept.includes(id))]
+}
+
+export function workspaceStatus(agents: Agent[], statuses: Record<string, AgentStatus>): AgentStatus {
+  const values = agents.map((agent) => statuses[agent.id] ?? 'idle')
+  if (values.includes('waiting')) return 'waiting'
+  if (values.includes('busy')) return 'busy'
+  if (values.length && values.every((value) => value === 'exited')) return 'exited'
+  return 'idle'
 }

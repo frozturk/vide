@@ -103,8 +103,9 @@ app.whenReady().then(async () => {
   const iconPath = join(app.getAppPath(), 'build/icon.png')
   if (app.dock && existsSync(iconPath)) app.dock.setIcon(iconPath)
   Menu.setApplicationMenu(buildMenu())
-  startTitlePoller()
-  installAgentHooks(getTmux())
+  const replyDir = join(app.getPath('userData'), 'replies')
+  startTitlePoller(replyDir)
+  installAgentHooks(getTmux(), replyDir)
   try { installBrowserSkills(app.getAppPath()) } catch (error) {
     console.error('[vide/browser] Could not load bundled skill:', error)
   }

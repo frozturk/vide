@@ -4,7 +4,7 @@ import { applyAgentState, createWorkspace, dropAgent, requestClose, selectSiblin
 import { dispatch } from './shortcuts'
 import { useStore } from './store'
 import { activateVisual } from './terminals'
-import { sidebarWorkspaces, terminalNavigation, workspaceNavigation, workspaceTerminals } from './workspaceNavigation'
+import { sidebarWorkspaces, terminalNavigation, workspaceNavigation, workspaceStatus, workspaceTerminals } from './workspaceNavigation'
 
 vi.hoisted(() => {
   vi.stubGlobal('localStorage', { getItem: () => null })
@@ -186,5 +186,16 @@ describe('workspace keyboard navigation', () => {
     useStore.setState({ agents: [], selectedWorkspaceId: null })
     selectSibling(1)
     expect(useStore.getState().selectedWorkspaceId).toBeNull()
+  })
+})
+
+describe('workspace status', () => {
+  const agents = [agent('one', 'w'), agent('two', 'w')]
+
+  it('shows the most urgent agent status for a workspace', () => {
+    expect(workspaceStatus(agents, { one: 'busy', two: 'waiting' })).toBe('waiting')
+    expect(workspaceStatus(agents, { one: 'busy' })).toBe('busy')
+    expect(workspaceStatus(agents, { one: 'exited', two: 'exited' })).toBe('exited')
+    expect(workspaceStatus([], {})).toBe('idle')
   })
 })

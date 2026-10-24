@@ -18,7 +18,7 @@ import {
 } from '../actions'
 import { basename } from '../util'
 import { AgentIcon } from './AgentIcon'
-import { STATUS_COLOR } from './AgentStrip'
+import { StatusMark } from './StatusMark'
 import type { AgentStatus } from '../../../shared/types'
 
 interface PaletteItem {
@@ -184,12 +184,7 @@ function CommandPaletteInner(): React.JSX.Element {
                 {item.id === `agent:${selectedId}` && <span className="ml-1.5 text-zinc-600">current</span>}
                 {item.id === `workspace:${selectedWorkspaceId}` && <span className="ml-1.5 text-zinc-600">current</span>}
               </span>
-              {item.status && (
-                <span
-                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${item.status === 'busy' ? 'animate-pulse' : ''}`}
-                  style={{ background: STATUS_COLOR[item.status] }}
-                />
-              )}
+              {item.status && <StatusMark status={item.status} size={9} />}
               <span className="max-w-40 shrink-0 truncate text-xs text-zinc-600">{item.hint}</span>
               {item.kbd && (
                 <kbd className="shrink-0 rounded border border-zinc-700/60 bg-zinc-800/50 px-1 font-sans text-[10px] text-zinc-500">

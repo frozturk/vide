@@ -75,6 +75,7 @@ async function bootstrap(): Promise<void> {
   })
 
   window.vide.onPtyState(({ agentId, state, activity }) => actions.applyAgentState(agentId, state, activity))
+  window.vide.onPtyReply(({ agentId, text, at }) => useStore.setState((s) => ({ replies: { ...s.replies, [agentId]: { text, at } } })))
 
   window.vide.onStateChanged(() => void actions.syncState())
   window.vide.onConfigChanged(() => void actions.reloadConfigFromServer())

@@ -25,6 +25,7 @@ export interface VideStore {
   selectedId: string | null
   statuses: Record<string, AgentStatus>
   activities: Record<string, string | null>
+  replies: Record<string, { text: string; at: number }>
   diffFullFile: boolean
   unread: Record<string, boolean>
   switchQueue: string[]
@@ -63,6 +64,7 @@ export const useStore = create<VideStore>(() => ({
   selectedId: null,
   statuses: {},
   activities: {},
+  replies: {},
   diffFullFile: localStorage.getItem('diffFullFile') !== '0',
   unread: {},
   switchQueue: [],
