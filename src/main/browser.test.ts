@@ -60,7 +60,7 @@ vi.mock('electron', async () => {
     app: { getPath: () => '/tmp/vide-browser-test' },
     BaseWindow: Host,
     WebContentsView: View,
-    session: { fromPartition: (partition: string) => ({ partition, setPermissionRequestHandler: vi.fn(), setPermissionCheckHandler: vi.fn() }) }
+    session: { fromPartition: (partition: string) => ({ partition, setPermissionRequestHandler: vi.fn(), setPermissionCheckHandler: vi.fn(), webRequest: { onCompleted: vi.fn(), onErrorOccurred: vi.fn() } }) }
   }
 })
 

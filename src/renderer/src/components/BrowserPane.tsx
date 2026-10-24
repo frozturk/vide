@@ -87,6 +87,9 @@ export function BrowserPane(): React.JSX.Element | null {
         <button type="button" aria-label="Reload" onClick={() => command('reload')}>↻</button>
         <input ref={addressInput} aria-label="Browser address" className="min-w-0 flex-1 rounded bg-zinc-800 px-2 py-1 outline-none focus:ring-1 focus:ring-zinc-500" placeholder="Enter a URL" value={address ?? (active?.url === 'about:blank' ? '' : active?.url) ?? ''} onChange={(e) => setAddress(e.target.value)} onFocus={(e) => e.target.select()} onBlur={() => setAddress(null)} />
         {active?.loading && <span aria-label="Loading" className="animate-pulse">…</span>}
+        <button type="button" title={active?.viewport ? `Phone view ${active.viewport.width}×${active.viewport.height}` : 'Phone view'} aria-pressed={Boolean(active?.viewport)} disabled={!active} className={`rounded px-1 disabled:opacity-30 ${active?.viewport ? 'bg-zinc-700 text-zinc-100' : ''}`} onClick={() => command('viewport', active?.viewport ? 'off' : '390x844')}>
+          <svg aria-hidden="true" className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4"><rect x="4.5" y="1.5" width="7" height="13" rx="1.5" /><path d="M7 12.5h2" strokeLinecap="round" /></svg>
+        </button>
         <button type="button" title="Developer tools" onClick={() => command('devtools')}>⌥</button>
       </form>
       {error && !active?.error && <div role="alert" className="bg-red-950 px-3 py-2 text-xs text-red-300">{error}</div>}

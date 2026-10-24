@@ -90,7 +90,7 @@ export function createTerminal(agentId: string, kindId?: string): void {
   })
   term.loadAddon(new Unicode11Addon())
   term.unicode.activeVersion = '11'
-  term.loadAddon(new WebLinksAddon((_e, uri) => void window.vide.openExternal(uri)))
+  term.loadAddon(new WebLinksAddon((event, uri) => openLink(agentId, uri, event)))
   const fit = new FitAddon()
   term.loadAddon(fit)
   const search = new SearchAddon()
@@ -371,4 +371,16 @@ export function disposeTerminal(agentId: string): void {
   }
   dropWebgl(e)
   e.term.dispose()
+}
+
+function openLink(agentId: string, uri: string, event: MouseEvent): void {
+  const s = useStore.getState()
+  const workspaceId = s.agents.find((a) => a.id === agentId)?.workspaceId
+  if (s.isWeb || !workspaceId || (event.metaKey && event.shiftKey) || !/^https?:\/\//i.test(uri)) {
+    void window.vide.openExternal(uri)
+    return
+  }
+  const existing = s.browserTabs.find((t) => t.workspaceId === workspaceId && t.url === new URL(uri).href)
+  const opened = existing ? window.vide.browserSelect(workspaceId, existing.id) : window.vide.browserOpen(workspaceId, uri)
+  void opened.then(() => useStore.setState({ browserOpen: true }))
 }

@@ -209,6 +209,7 @@ export interface BrowserTab {
   canGoBack: boolean
   canGoForward: boolean
   error: string | null
+  viewport: { width: number; height: number } | null
 }
 export interface BrowserSnapshot { tabs: BrowserTab[]; active: Record<string, string> }
 export interface BrowserLayout { workspaceId: string | null; visible: boolean; x: number; y: number; width: number; height: number }
