@@ -78,9 +78,13 @@ export async function listSessions(info: string): Promise<LitemuxSession[]> {
 
 export async function ensureServer(bin: string, info: string): Promise<void> {
   if (await listSessions(info).then(() => true, () => false)) return
-  spawn(bin, ['-S', info, 'server'], { detached: true, stdio: 'ignore' }).unref()
-  for (let i = 0; i < 100; i++) {
+  const child = spawn(bin, ['-S', info, 'server'], { detached: true, stdio: 'ignore', windowsHide: true })
+  let failure: Error | undefined
+  child.on('error', (error) => { failure = error })
+  child.unref()
+  for (let i = 0; i < 500; i++) {
     await new Promise((r) => setTimeout(r, 20))
+    if (failure) throw new Error(`Could not start litemux (${bin}): ${failure.message}`)
     if (await listSessions(info).then(() => true, () => false)) return
   }
   throw new Error(`litemux server did not start (${bin})`)

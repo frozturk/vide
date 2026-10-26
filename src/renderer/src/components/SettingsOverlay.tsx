@@ -111,7 +111,7 @@ function SettingsInner(): React.JSX.Element {
               <Field label="Terminal Backend" hint="Keeps agents running when vide quits. Running agents stay on their backend">
                 <select
                   value={draft.terminalBackend ?? 'tmux'}
-                  onChange={(e) => setField('terminalBackend', e.target.value === 'litemux' ? 'litemux' : undefined)}
+                  onChange={(e) => setField('terminalBackend', e.target.value === 'litemux' ? 'litemux' : 'tmux')}
                   className={inputCls}
                 >
                   <option value="tmux">tmux</option>

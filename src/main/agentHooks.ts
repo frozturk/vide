@@ -46,7 +46,23 @@ export function shellQuote(s: string): string {
   return `'${s.replace(/'/g, `'\\''`)}'`
 }
 
-export function hookCommand(tmux: string, value: HookValue, replyDir = ''): string {
+export function hookCommand(tmux: string, value: HookValue, replyDir = '', platform = process.platform): string {
+  if (platform === 'win32') {
+    const dir = `'${replyDir.replace(/'/g, "''")}'`
+    const script = `# vide-agent-hook
+$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+try {
+  if (!$env:VIDE_AGENT -or !$env:LITEMUX_SESSION -or !$env:LITEMUX_BIN) { exit 0 }
+  $state = '${value === 'reply' ? 'idle' : value === 'tool' ? 'busy' : value}'
+  ${value === 'tool' || value === 'reply' ? '$payload = [Console]::In.ReadToEnd()' : ''}
+  ${value === 'tool' ? 'try { $tool = ($payload | ConvertFrom-Json).tool_name; if ($tool) { $state = "busy:$tool" } } catch {}' : ''}
+  ${value === 'reply' && replyDir ? `if ($env:VIDE_AGENT -match '^[a-zA-Z0-9_-]+$') { [IO.File]::WriteAllText((Join-Path ${dir} ($env:VIDE_AGENT + '.json')), $payload, (New-Object Text.UTF8Encoding($false))) }` : ''}
+  & $env:LITEMUX_BIN state $state *> $null
+} catch {}
+exit 0`
+    return `powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand ${Buffer.from(script, 'utf16le').toString('base64')}`
+  }
   const state = value === 'tool' ? TOOL_NAME : value === 'reply' ? 'idle' : value
   const setState = `if [ -n "$LITEMUX_SESSION" ]; then "$LITEMUX_BIN" state ${state}; else ${shellQuote(tmux)} set-option -p -t "$TMUX_PANE" ${STATE_OPTION} ${state}; fi`
   const action = value === 'reply' && replyDir ? `{ cat > ${shellQuote(replyDir)}/"$${AGENT_ENV}".json; ${setState}; }` : setState
@@ -83,7 +99,11 @@ type HookGroup = { matcher?: string; hooks?: { command?: string }[] }
 type HookConfig = { hooks?: Record<string, HookGroup[]> } & Record<string, unknown>
 
 function isVideGroup(group: HookGroup): boolean {
-  return Boolean(group.hooks?.some((h) => h.command?.includes(`$${AGENT_ENV}`)))
+  return Boolean(group.hooks?.some((h) => {
+    if (h.command?.includes(`$${AGENT_ENV}`)) return true
+    const encoded = h.command?.match(/^powershell\.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand ([A-Za-z0-9+/=]+)$/)?.[1]
+    return encoded ? Buffer.from(encoded, 'base64').toString('utf16le').startsWith('# vide-agent-hook\n') : false
+  }))
 }
 
 export function mergeHooks(config: HookConfig, events: HookEvent[], tmux: string, replyDir = ''): HookConfig {

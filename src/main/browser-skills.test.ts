@@ -34,7 +34,7 @@ it('preserves user-owned skill directories and linked skills', () => {
   mkdirSync(personal, { recursive: true })
   writeFileSync(join(personal, 'SKILL.md'), 'user instructions')
   mkdirSync(join(dir, '.claude/skills'), { recursive: true })
-  symlinkSync(personal, join(dir, '.claude/skills/vide-browser'))
+  symlinkSync(personal, join(dir, '.claude/skills/vide-browser'), process.platform === 'win32' ? 'junction' : 'dir')
   installBrowserSkills(resolve('.'), dir)
   expect(readFileSync(join(personal, 'SKILL.md'), 'utf8')).toBe('user instructions')
 })

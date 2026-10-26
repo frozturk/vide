@@ -1,7 +1,7 @@
 import { appendFile, copyFile, mkdir, readFile, rm, stat } from 'fs/promises'
 import { execFile } from 'child_process'
 import { createHash } from 'crypto'
-import { basename, dirname, isAbsolute, join, resolve, sep } from 'path'
+import { basename, dirname, join, resolve, sep } from 'path'
 import { promisify } from 'util'
 import type {
   DiffFile,
@@ -30,7 +30,7 @@ async function git(cwd: string, args: string[]): Promise<string> {
 
 export async function repoRoot(cwd: string): Promise<string | null> {
   try {
-    return (await git(cwd, ['rev-parse', '--show-toplevel'])).trim()
+    return resolve((await git(cwd, ['rev-parse', '--show-toplevel'])).trim())
   } catch {
     return null
   }
@@ -38,7 +38,7 @@ export async function repoRoot(cwd: string): Promise<string | null> {
 
 async function mainRepoRoot(cwd: string): Promise<string> {
   const common = (await git(cwd, ['rev-parse', '--git-common-dir'])).trim()
-  return dirname(isAbsolute(common) ? common : resolve(cwd, common))
+  return dirname(resolve(cwd, common))
 }
 
 export async function projectRootOf(cwd: string): Promise<string> {
@@ -236,11 +236,13 @@ export async function orphanWorktrees(cwd: string, livePaths: string[]): Promise
   }
   const out = await git(root, ['worktree', 'list', '--porcelain'])
   const videDir = join(root, '.vide', 'worktrees') + sep
+  const live = new Set(livePaths.map((path) => resolve(path)))
   const result: OrphanWorktree[] = []
   for (const block of out.split('\n\n')) {
-    const path = block.match(/^worktree (.+)$/m)?.[1]
+    const rawPath = block.match(/^worktree (.+)$/m)?.[1]
+    const path = rawPath ? resolve(rawPath) : null
     const branch = block.match(/^branch refs\/heads\/(.+)$/m)?.[1] ?? ''
-    if (!path || resolve(path) === resolve(root) || livePaths.includes(path)) continue
+    if (!path || path === resolve(root) || live.has(path)) continue
     if (path.startsWith(videDir) || branch.startsWith('vide/')) result.push({ path, branch })
   }
   return result

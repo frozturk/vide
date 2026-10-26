@@ -1,5 +1,6 @@
 import { matchBrowserShortcut, type BrowserShortcut } from '../../shared/browser-shortcuts'
 import { matchChord, type ChordId } from '../../shared/chords'
+import { shortcutModifiers } from '../../shared/platform-shortcuts'
 import {
   closeDialog,
   closeOverlay,
@@ -103,9 +104,10 @@ export function installKeyboard(): void {
         }
         return
       }
-      if (!e.metaKey || e.altKey || e.ctrlKey) return
+      const mods = shortcutModifiers(e.key, e.metaKey, e.ctrlKey, e.shiftKey, e.altKey, /mac/i.test(navigator.platform))
+      if (!mods.active) return
       const inBrowser = e.target instanceof Element && !!e.target.closest('[data-browser-pane]')
-      const chord = (inBrowser ? matchBrowserShortcut(e.key, true, e.shiftKey) : null) ?? matchChord(e.key, true, e.shiftKey)
+      const chord = (inBrowser ? matchBrowserShortcut(e.key, true, mods.shift) : null) ?? matchChord(e.key, true, mods.shift)
       if (!chord) return
       e.preventDefault()
       e.stopPropagation()
@@ -114,7 +116,7 @@ export function installKeyboard(): void {
     { capture: true }
   )
   window.addEventListener('keyup', (e) => {
-    if (e.key === 'Meta') panelKeyboardRelease()
+    if (e.key === 'Meta' || e.key === 'Control') panelKeyboardRelease()
   })
   window.addEventListener('blur', () => panelKeyboardRelease())
 }

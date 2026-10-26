@@ -6,6 +6,7 @@ import { existsSync, rmSync } from 'fs'
 import { homedir } from 'os'
 import { app } from 'electron'
 import { getConfig } from './config'
+import { shellArgv } from './platform'
 import { attach, ensureServer, listSessions, request, type Attached, type LitemuxSession } from './litemux'
 import { ownsTmuxSession, runtimeStateFile, tmuxSessionPrefix } from './runtime'
 import { post } from './clients'
@@ -55,7 +56,8 @@ export function getTmux(): string {
 }
 
 function litemuxBin(): string {
-  return app.isPackaged ? join(process.resourcesPath, 'litemux') : join(app.getAppPath(), 'litemux', 'target', 'release', 'litemux')
+  const name = process.platform === 'win32' ? 'litemux.exe' : 'litemux'
+  return app.isPackaged ? join(process.resourcesPath, name) : join(app.getAppPath(), 'litemux', 'target', 'release', name)
 }
 
 function litemuxInfo(): string {
@@ -136,7 +138,7 @@ export async function spawnPty(
 ): Promise<void> {
   const name = sessionName(agentId, kindId, cwd)
   const env = buildEnv()
-  const argv = command ? [shell, '-ilc', command] : [shell, '-il']
+  const argv = shellArgv(shell, command)
   if (getConfig().terminalBackend === 'litemux') {
     await ensureServer(litemuxBin(), litemuxInfo())
     await request(litemuxInfo(), { op: 'spawn', name, cwd, argv, env: sessionEnv(env, agentId), cols: 80, rows: 24 })
