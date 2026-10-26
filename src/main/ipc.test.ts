@@ -34,7 +34,7 @@ let root: string
 const invoke = (name: string, request: unknown) => mocks.handlers.get(name)!({ sender: undefined }, request)
 
 beforeEach(() => {
-  root = realpathSync(mkdtempSync(join(tmpdir(), 'vide-project-test-')))
+  root = realpathSync.native(mkdtempSync(join(tmpdir(), 'vide-project-test-')))
   mocks.state = { version: 2, projects: [], workspaces: [], agents: [] }
   vi.clearAllMocks()
   wireIpc({} as BrowserWindow)

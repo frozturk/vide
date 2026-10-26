@@ -95,7 +95,7 @@ describe('workspace worktrees', () => {
     expect(() => execFileSync('git', ['show-ref', '--verify', `refs/heads/${second.branch}`], { cwd: root, stdio: 'ignore' })).toThrow()
   })
   it('lists unmanaged vide worktrees even after their branch is renamed', async () => {
-    const root = realpathSync(mkdtempSync(join(tmpdir(), 'vide-orphan-test-')))
+    const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'vide-orphan-test-')))
     try {
       git(root, 'init', '-b', 'main')
       git(root, 'config', 'user.email', 'vide@example.test')
