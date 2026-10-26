@@ -9,8 +9,8 @@ export function defaultShell(platform = process.platform): string {
 export function shellArgv(shell: string, command: string): string[] {
   const name = basename(shell).toLowerCase().replace(/\.exe$/, '')
   if (name === 'powershell' || name === 'pwsh') {
-    return [shell, '-NoLogo', ...(command ? ['-NoExit', '-Command', command] : [])]
+    return [shell, '-NoLogo', ...(command ? ['-Command', command] : [])]
   }
-  if (name === 'cmd') return [shell, '/d', ...(command ? ['/k', command] : [])]
+  if (name === 'cmd') return [shell, '/d', ...(command ? ['/c', command] : [])]
   return [shell, ...(command ? ['-ilc', command] : ['-il'])]
 }

@@ -14,7 +14,6 @@ it.runIf(process.platform === 'win32' && existsSync(binary))('runs a real ConPTY
   let output = ''
   const receive = (data: string) => {
     output += data
-    // ConPTY asks the attached terminal for its cursor position at startup.
     if (data.includes('\x1b[6n')) terminal?.write('\x1b[1;1R')
   }
   const waitFor = async (text: string) => {
@@ -48,7 +47,6 @@ it.runIf(process.platform === 'win32' && existsSync(binary))('runs a real ConPTY
   } finally {
     terminal?.kill()
     await request(info, { op: 'kill', name: 'smoke' }).catch(() => {})
-    // The server exits and removes its info file after its last shell exits.
     const until = Date.now() + 5000
     while (existsSync(info) && Date.now() < until) await new Promise((r) => setTimeout(r, 50))
     rmSync(dir, { recursive: true, force: true })

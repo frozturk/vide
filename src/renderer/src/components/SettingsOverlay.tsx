@@ -91,12 +91,12 @@ function SettingsInner(): React.JSX.Element {
           <div className="mb-6">
             <div className="mb-3 text-xs font-medium uppercase tracking-wider text-zinc-500">General</div>
             <div className="flex flex-col gap-4">
-              <Field label="Shell" hint="Path to shell binary (default: /bin/zsh)">
+              <Field label="Shell" hint="Path to shell binary. Leave empty for the default shell">
                 <input
                   type="text"
                   value={draft.shell ?? ''}
                   onChange={(e) => setField('shell', e.target.value || undefined)}
-                  placeholder="/bin/zsh"
+                  placeholder={/win/i.test(navigator.platform) ? 'powershell.exe' : '/bin/zsh'}
                   className={inputCls}
                 />
               </Field>
@@ -107,16 +107,6 @@ function SettingsInner(): React.JSX.Element {
                   onChange={(e) => setField('worktreeBase', e.target.value)}
                   className={inputCls}
                 />
-              </Field>
-              <Field label="Terminal Backend" hint="Keeps agents running when vide quits. Running agents stay on their backend">
-                <select
-                  value={draft.terminalBackend ?? 'tmux'}
-                  onChange={(e) => setField('terminalBackend', e.target.value === 'litemux' ? 'litemux' : 'tmux')}
-                  className={inputCls}
-                >
-                  <option value="tmux">tmux</option>
-                  <option value="litemux">litemux</option>
-                </select>
               </Field>
             </div>
           </div>

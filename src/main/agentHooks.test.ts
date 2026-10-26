@@ -3,79 +3,54 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { describe, expect, it } from 'vitest'
-import { hookCommand, mergeHooks, parsePaneStatus, parseState, readReply, replyText, stateAfterInput } from './agentHooks'
+import { hookEntry, mergeHooks, parseState, replyText, stateAfterInput } from './agentHooks'
 
 const events = [{ event: 'Stop', value: 'idle' as const }, { event: 'Notification', matcher: 'permission_prompt', value: 'waiting' as const }]
 
 describe('agent hooks', () => {
   it('adds vide hooks next to user hooks and keeps other settings', () => {
     const user = { type: 'command', command: 'say done' }
-    const merged = mergeHooks({ model: 'opus', hooks: { Stop: [{ hooks: [user] }] } }, events, '/bin/tmux')
+    const merged = mergeHooks({ model: 'opus', hooks: { Stop: [{ hooks: [user] }] } }, events, '/bin/litemux', 'claude')
     expect(merged.model).toBe('opus')
-    expect(merged.hooks!.Stop).toEqual([{ hooks: [user] }, { hooks: [{ type: 'command', command: hookCommand('/bin/tmux', 'idle') }] }])
+    expect(merged.hooks!.Stop).toEqual([{ hooks: [user] }, { hooks: [hookEntry('/bin/litemux', 'idle', 'claude')] }])
     expect(merged.hooks!.Notification[0].matcher).toBe('permission_prompt')
   })
 
   it('replaces its own previous entries instead of duplicating them', () => {
-    const once = mergeHooks({}, events, '/old/tmux')
-    const twice = mergeHooks(once, events, '/new/tmux')
+    const once = mergeHooks({}, events, '/old/litemux', 'codex')
+    const twice = mergeHooks(once, events, '/new/litemux', 'codex')
     expect(twice.hooks!.Stop).toHaveLength(1)
-    expect(JSON.stringify(twice)).not.toContain('/old/tmux')
-    expect(mergeHooks(twice, events, '/new/tmux')).toEqual(twice)
+    expect(JSON.stringify(twice)).not.toContain('/old/litemux')
+    expect(mergeHooks(twice, events, '/new/litemux', 'codex')).toEqual(twice)
+    expect(mergeHooks(mergeHooks({}, events, '/old/litemux', 'claude'), events, '/new/litemux', 'claude').hooks!.Stop).toHaveLength(1)
   })
 
-  it('only acts inside vide sessions and never fails the agent', () => {
-    const command = hookCommand('/opt/homebrew/bin/tmux', 'waiting', '', 'darwin')
-    expect(command).toMatch(/^\[ -n "\$VIDE_AGENT" \] && \[ -n "\$TMUX_PANE\$LITEMUX_SESSION" \] && /)
-    expect(command).toContain("'/opt/homebrew/bin/tmux' set-option -p -t \"$TMUX_PANE\" @vide_state waiting")
-    expect(command.endsWith('; true')).toBe(true)
+  it('removes the older tmux hooks it installed', () => {
+    const legacy = { hooks: [{ type: 'command', command: `[ -n "$VIDE_AGENT" ] && '/opt/homebrew/bin/tmux' set-option -p -t "$TMUX_PANE" @vide_state idle >/dev/null 2>&1; true` }] }
+    expect(mergeHooks({ hooks: { Stop: [legacy] } }, events, '/bin/litemux', 'claude').hooks!.Stop).toEqual([{ hooks: [hookEntry('/bin/litemux', 'idle', 'claude')] }])
   })
 
-  it.skipIf(process.platform === 'win32')('reports the tool name from the hook payload', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'vide-hook-'))
-    const fake = join(dir, 'tmux')
-    writeFileSync(fake, `#!/bin/sh\necho "$@" > ${join(dir, 'args')}\n`, { mode: 0o755 })
-    execFileSync('/bin/sh', ['-c', hookCommand(fake, 'tool')], {
-      input: '{"session_id":"s","tool_name":"Bash","tool_input":{"command":"ls"}}',
-      env: { VIDE_AGENT: 'a', TMUX_PANE: '%1', PATH: process.env.PATH ?? '' }
+  it('runs litemux without a shell for Claude and through PowerShell on Windows for Codex', () => {
+    expect(hookEntry('C:\\Program Files\\Vide\\litemux.exe', 'tool', 'claude')).toEqual({ type: 'command', command: 'C:\\Program Files\\Vide\\litemux.exe', args: ['hook', 'tool'] })
+    expect(hookEntry("/Apps/Fr's Vide/litemux", 'reply', 'codex')).toEqual({
+      type: 'command',
+      command: "'/Apps/Fr'\\''s Vide/litemux' hook reply",
+      commandWindows: "& '/Apps/Fr''s Vide/litemux' hook reply"
     })
-    expect(readFileSync(join(dir, 'args'), 'utf8').trim()).toBe('set-option -p -t %1 @vide_state busy:Bash')
-    rmSync(dir, { recursive: true, force: true })
   })
 
-  it.skipIf(process.platform === 'win32')('reports state through litemux inside litemux sessions', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'vide-hook-'))
+  it.skipIf(process.platform === 'win32')('passes the event payload to litemux on stdin', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'vide hook-'))
     const fake = join(dir, 'litemux')
-    writeFileSync(fake, `#!/bin/sh\necho "$@" > ${join(dir, 'args')}\n`, { mode: 0o755 })
-    execFileSync('/bin/sh', ['-c', hookCommand('/no/tmux', 'tool')], {
-      input: '{"session_id":"s","tool_name":"Edit"}',
-      env: { VIDE_AGENT: 'a', LITEMUX_SESSION: 'vide-a', LITEMUX_BIN: fake, PATH: process.env.PATH ?? '' }
-    })
-    expect(readFileSync(join(dir, 'args'), 'utf8').trim()).toBe('state busy:Edit')
-    rmSync(dir, { recursive: true, force: true })
-  })
-
-  it.skipIf(process.platform === 'win32')('saves the stop payload before marking the agent idle', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'vide-hook-'))
-    const fake = join(dir, 'tmux')
-    writeFileSync(fake, `#!/bin/sh\necho "$@" > ${join(dir, 'args')}\n`, { mode: 0o755 })
-    const payload = '{"session_id":"s","last_assistant_message":"Done. Tests pass."}'
-    execFileSync('/bin/sh', ['-c', hookCommand(fake, 'reply', dir)], {
-      input: payload,
-      env: { VIDE_AGENT: 'a', TMUX_PANE: '%1', PATH: process.env.PATH ?? '' }
-    })
-    expect(readFileSync(join(dir, 'a.json'), 'utf8')).toBe(payload)
-    expect(readFileSync(join(dir, 'args'), 'utf8').trim()).toBe('set-option -p -t %1 @vide_state idle')
-    expect(readReply(dir, 'a')?.text).toBe('Done. Tests pass.')
-    expect(readReply(dir, 'a', Date.now() + 1000)).toBeNull()
+    writeFileSync(fake, `#!/bin/sh\n{ echo "$@"; cat; } > '${join(dir, 'args')}'\n`, { mode: 0o755 })
+    execFileSync('/bin/sh', ['-c', hookEntry(fake, 'tool', 'codex').command], { input: '{"tool_name":"Edit"}' })
+    expect(readFileSync(join(dir, 'args'), 'utf8')).toBe('hook tool\n{"tool_name":"Edit"}')
     rmSync(dir, { recursive: true, force: true })
   })
 
   it('flattens the last reply into one line of plain text', () => {
-    expect(replyText(JSON.stringify({ last_assistant_message: '## Summary\n\n- Fixed **login** in `auth_flow.ts`\n```ts\ncode()\n```\nDone.' })))
-      .toBe('Summary Fixed login in auth_flow.ts Done.')
-    expect(replyText(JSON.stringify({ last_assistant_message: null }))).toBeNull()
-    expect(replyText('not json')).toBeNull()
+    expect(replyText('## Summary\n\n- Fixed **login** in `auth_flow.ts`\n```ts\ncode()\n```\nDone.')).toBe('Summary Fixed login in auth_flow.ts Done.')
+    expect(replyText('  ')).toBeNull()
   })
 
   it('updates the state from what the user types', () => {
@@ -87,8 +62,7 @@ describe('agent hooks', () => {
     expect(stateAfterInput('busy', 'x')).toBeNull()
   })
 
-  it('reads the pane title, state and activity', () => {
-    expect(parsePaneStatus('✳ Fix bug\tbusy:Edit')).toEqual({ title: '✳ Fix bug', raw: 'busy:Edit' })
+  it('reads the state and activity', () => {
     expect(parseState('busy:Edit')).toEqual({ state: 'busy', activity: 'Edit' })
     expect(parseState('busy')).toEqual({ state: 'busy', activity: 'Thinking' })
     expect(parseState('waiting')).toEqual({ state: 'waiting', activity: null })

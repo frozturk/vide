@@ -1,25 +1,10 @@
-import * as pty from 'node-pty'
-import { execFile } from 'child_process'
-import { promisify } from 'util'
 import { basename, join } from 'path'
-import { existsSync, rmSync } from 'fs'
-import { homedir } from 'os'
 import { app } from 'electron'
-import { getConfig } from './config'
 import { shellArgv } from './platform'
 import { attach, ensureServer, listSessions, request, type Attached, type LitemuxSession } from './litemux'
-import { ownsTmuxSession, runtimeStateFile, tmuxSessionPrefix } from './runtime'
+import { runtimeStateFile, sessionPrefix } from './runtime'
 import { post } from './clients'
-import { AGENT_ENV, STATE_OPTION, parsePaneStatus, parseState, readReply, stateAfterInput, type Reply } from './agentHooks'
-
-const exec = promisify(execFile)
-
-const exec1 = (cmd: string, args: string[], env?: Record<string, string>): Promise<{ stdout: string; stderr: string; code: number | null; message: string }> =>
-  new Promise((resolve) => {
-    execFile(cmd, args, { timeout: 5000, env }, (err, stdout, stderr) => {
-      resolve({ stdout: stdout ?? '', stderr: stderr ?? '', code: err ? (typeof err.code === 'number' ? err.code : -1) : 0, message: err ? err.message : '' })
-    })
-  })
+import { AGENT_ENV, parseState, replyText, stateAfterInput, type Reply } from './agentHooks'
 
 function buildEnv(): Record<string, string> {
   const env = { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' } as Record<string, string>
@@ -32,30 +17,7 @@ function buildEnv(): Record<string, string> {
   return env
 }
 
-function resolveTmux(): string {
-  if (process.env.VIDE_TMUX) return process.env.VIDE_TMUX
-  const candidates = [
-    '/opt/homebrew/bin/tmux',
-    '/usr/local/bin/tmux',
-    '/usr/bin/tmux',
-    '/bin/tmux',
-    `${homedir()}/.nix-profile/bin/tmux`,
-    '/run/current-system/sw/bin/tmux'
-  ]
-  for (const c of candidates) {
-    if (existsSync(c)) return c
-  }
-  return 'tmux'
-}
-
-let tmuxBin: string | null = null
-export function getTmux(): string {
-  if (tmuxBin) return tmuxBin
-  tmuxBin = resolveTmux()
-  return tmuxBin
-}
-
-function litemuxBin(): string {
+export function litemuxBin(): string {
   const name = process.platform === 'win32' ? 'litemux.exe' : 'litemux'
   return app.isPackaged ? join(process.resourcesPath, name) : join(app.getAppPath(), 'litemux', 'target', 'release', name)
 }
@@ -63,8 +25,6 @@ function litemuxBin(): string {
 function litemuxInfo(): string {
   return runtimeStateFile(join(app.getPath('userData'), 'litemux'))
 }
-
-type Backend = 'tmux' | 'litemux'
 
 const INHERITED_SESSION_VAR = /^(TMUX|TMUX_PANE|CLAUDECODE|CLAUDE_PID|CLAUDE_EFFORT|CLAUDE_CODE_(ENTRYPOINT|EXECPATH|CHILD_SESSION|SESSION_\w+|MESSAGING_\w+))$/
 
@@ -75,7 +35,6 @@ function sessionEnv(env: Record<string, string>, agentId: string): Record<string
 
 interface Entry {
   p: Attached
-  backend: Backend
   agentId: string
   clientId: string
   sessionName: string
@@ -99,33 +58,13 @@ function sanitize(s: string): string {
 }
 
 export function sessionName(agentId: string, kindId?: string, cwd?: string): string {
-  const prefix = tmuxSessionPrefix()
+  const prefix = sessionPrefix()
   if (!agentId) return `${prefix}session`
   const short = agentId.slice(0, 6)
   if (kindId && cwd) {
     return `${prefix}${sanitize(kindId)}-${sanitize(basename(cwd))}-${short}`
   }
   return `${prefix}${short}`
-}
-
-async function tmux(args: string[]): Promise<string> {
-  const { stdout } = await exec(getTmux(), args, { timeout: 5000 })
-  return stdout
-}
-
-async function sessionExists(name: string): Promise<boolean> {
-  try {
-    await tmux(['has-session', '-t', name])
-    return true
-  } catch {
-    return false
-  }
-}
-
-async function configureSession(name: string): Promise<void> {
-  await exec1(getTmux(), ['set-option', '-t', name, 'status', 'off'])
-  await exec1(getTmux(), ['set-option', '-t', name, 'focus-events', 'on'])
-  await exec1(getTmux(), ['set-option', '-t', name, 'mouse', 'on'])
 }
 
 export async function spawnPty(
@@ -137,46 +76,14 @@ export async function spawnPty(
   kindId?: string
 ): Promise<void> {
   const name = sessionName(agentId, kindId, cwd)
-  const env = buildEnv()
-  const argv = shellArgv(shell, command)
-  if (getConfig().terminalBackend === 'litemux') {
-    await ensureServer(litemuxBin(), litemuxInfo())
-    await request(litemuxInfo(), { op: 'spawn', name, cwd, argv, env: sessionEnv(env, agentId), cols: 80, rows: 24 })
-    await attachInternal(clientId, agentId, name, env, 'litemux')
-    return
-  }
-  await exec1(getTmux(), ['kill-session', '-t', name])
-  const newArgs = [
-    '-f', '/dev/null',
-    'new-session', '-d', '-s', name, '-x', '80', '-y', '24',
-    '-c', cwd,
-    '-e', `${AGENT_ENV}=${agentId}`,
-    ...(env.VIDE_BROWSER_INFO ? ['-e', `VIDE_BROWSER_INFO=${env.VIDE_BROWSER_INFO}`] : []),
-    '--', ...argv
-  ]
-  console.log('[vide/spawnPty] tmux:', getTmux(), 'args:', newArgs.join(' '))
-  const result = await exec1(getTmux(), newArgs, env)
-  console.log('[vide/spawnPty] tmux result code:', result.code, 'stderr:', JSON.stringify(result.stderr), 'stdout:', JSON.stringify(result.stdout), 'message:', result.message)
-  if (result.code !== 0) {
-    throw new Error(`tmux new-session failed (code ${result.code}): ${result.stderr || result.message}`)
-  }
-  await configureSession(name)
-  const exists = await sessionExists(name)
-  console.log('[vide/spawnPty] session created:', name, 'exists:', exists)
-  await attachInternal(clientId, agentId, name, env, 'tmux')
+  await ensureServer(litemuxBin(), litemuxInfo())
+  await request(litemuxInfo(), { op: 'spawn', name, cwd, argv: shellArgv(shell, command), env: sessionEnv(buildEnv(), agentId), cols: 80, rows: 24 })
+  await attachInternal(clientId, agentId, name)
 }
 
-async function attachInternal(clientId: string, agentId: string, name: string, env: Record<string, string>, backend: Backend): Promise<void> {
-  const p: Attached = backend === 'litemux'
-    ? await attach(litemuxInfo(), name)
-    : pty.spawn(getTmux(), ['attach', '-t', name], {
-      name: 'xterm-256color',
-      cols: 80,
-      rows: 24,
-      cwd: env.PWD ?? process.env.HOME ?? '/',
-      env
-    })
-  const entry: Entry = { p, backend, agentId, clientId, sessionName: name, alive: true, exited: false }
+async function attachInternal(clientId: string, agentId: string, name: string): Promise<void> {
+  const p = await attach(litemuxInfo(), name)
+  const entry: Entry = { p, agentId, clientId, sessionName: name, alive: true, exited: false }
   const clients = ptys.get(agentId) ?? new Map<string, Entry>()
   clients.set(clientId, entry)
   ptys.set(agentId, clients)
@@ -192,28 +99,17 @@ async function attachInternal(clientId: string, agentId: string, name: string, e
   if (title) post(clientId, 'pty:title', { agentId, title })
   const state = parseState(lastStates.get(agentId) ?? '')
   if (state) post(clientId, 'pty:state', { agentId, ...state })
-  const reply = lastReplies.get(agentId) ?? readReply(replyDir, agentId)
-  if (reply) {
-    lastReplies.set(agentId, reply)
-    post(clientId, 'pty:reply', { agentId, ...reply })
-  }
+  const reply = lastReplies.get(agentId)
+  if (reply) post(clientId, 'pty:reply', { agentId, ...reply })
 }
 
 export async function attachPty(clientId: string, agentId: string, kindId?: string, cwd?: string): Promise<boolean> {
   const name = sessionName(agentId, kindId, cwd)
-  const backend = await backendOf(name)
-  if (!backend) return false
-  if (backend === 'tmux') await configureSession(name)
+  if (!(await litemuxSessions()).some((s) => s.name === name)) return false
   const existing = entryOf(clientId, agentId)
   if (existing && !existing.exited) return true
-  const env = buildEnv()
-  await attachInternal(clientId, agentId, name, env, backend)
+  await attachInternal(clientId, agentId, name)
   return true
-}
-
-async function backendOf(name: string): Promise<Backend | null> {
-  if ((await litemuxSessions()).some((s) => s.name === name)) return 'litemux'
-  return (await sessionExists(name)) ? 'tmux' : null
 }
 
 function litemuxSessions(): Promise<LitemuxSession[]> {
@@ -227,8 +123,7 @@ export function writePty(clientId: string, agentId: string, data: string): void 
   const next = stateAfterInput(lastStates.get(agentId), data)
   if (next) {
     lastStates.set(agentId, next)
-    if (e.backend === 'litemux') void request(litemuxInfo(), { op: 'state', name: e.sessionName, value: next }).catch(() => {})
-    else void exec1(getTmux(), ['set-option', '-p', '-t', e.sessionName, STATE_OPTION, next])
+    void request(litemuxInfo(), { op: 'state', name: e.sessionName, value: next }).catch(() => {})
     for (const c of ptys.get(agentId)?.values() ?? []) post(c.clientId, 'pty:state', { agentId, ...parseState(next)! })
   }
 }
@@ -236,22 +131,14 @@ export function writePty(clientId: string, agentId: string, data: string): void 
 export function resizePty(clientId: string, agentId: string, cols: number, rows: number): void {
   const e = entryOf(clientId, agentId)
   if (!e || !e.alive || e.exited || cols < 2 || rows < 2) return
-  if (e.backend === 'tmux') void exec1(getTmux(), ['resize-window', '-t', e.sessionName, '-x', String(cols), '-y', String(rows)])
-  try {
-    e.p.resize(cols, rows)
-  } catch {
-    /* race with exit */
-  }
+  e.p.resize(cols, rows)
 }
 
 export async function killPty(agentId: string): Promise<void> {
   const clients = ptys.get(agentId)
-  const entry = clients?.values().next().value
-  const name = entry?.sessionName ?? sessionName(agentId)
-  if (entry?.backend !== 'tmux') await request(litemuxInfo(), { op: 'kill', name }).catch(() => {})
-  if (entry?.backend !== 'litemux') await exec1(getTmux(), ['kill-session', '-t', name])
+  const name = clients?.values().next().value?.sessionName ?? sessionName(agentId)
+  await request(litemuxInfo(), { op: 'kill', name }).catch(() => {})
   lastReplies.delete(agentId)
-  if (replyDir) rmSync(join(replyDir, `${agentId}.json`), { force: true })
   if (clients) {
     for (const e of clients.values()) detachEntry(e)
     ptys.delete(agentId)
@@ -277,13 +164,7 @@ export function detachAll(): void {
 
 function detachEntry(e: Entry): void {
   e.alive = false
-  if (!e.exited) {
-    try {
-      e.p.kill()
-    } catch {
-      /* ignore */
-    }
-  }
+  if (!e.exited) e.p.kill()
 }
 
 export function liveCount(): number {
@@ -296,21 +177,7 @@ export async function reapOrphanSessions(keepNames: Set<string>): Promise<void> 
   for (const { name } of await litemuxSessions()) {
     if (keepNames.has(name)) continue
     await request(litemuxInfo(), { op: 'kill', name }).catch(() => {})
-    console.log('[vide/reap] killed orphan litemux session:', name)
-  }
-  let list: string
-  try {
-    const { stdout } = await exec(getTmux(), ['list-sessions', '-F', '#{session_name}'], { timeout: 5000 })
-    list = stdout
-  } catch {
-    return
-  }
-  for (const line of list.split('\n')) {
-    const name = line.trim()
-    if (!ownsTmuxSession(name)) continue
-    if (keepNames.has(name)) continue
-    await exec1(getTmux(), ['kill-session', '-t', name])
-    console.log('[vide/reap] killed orphan tmux session:', name)
+    console.log('[vide/reap] killed orphan session:', name)
   }
 }
 
@@ -318,44 +185,31 @@ let titleTimer: ReturnType<typeof setInterval> | null = null
 const lastTitles = new Map<string, string>()
 const lastStates = new Map<string, string>()
 const lastReplies = new Map<string, Reply>()
-let replyDir = ''
 
-export function startTitlePoller(dir: string): void {
-  replyDir = dir
+export function startTitlePoller(): void {
   if (titleTimer) return
   titleTimer = setInterval(pollTitles, 1000)
 }
 
 async function pollTitles(): Promise<void> {
-  let litemux: Map<string, LitemuxSession> | null = null
+  if (!ptys.size) return
+  const sessions = new Map((await litemuxSessions()).map((s) => [s.name, s]))
   for (const [agentId, clients] of ptys) {
     const entry = [...clients.values()].find((e) => !e.exited)
-    if (!entry) continue
-    let line: string
-    if (entry.backend === 'litemux') {
-      litemux ??= new Map((await litemuxSessions()).map((s) => [s.name, s]))
-      const session = litemux.get(entry.sessionName)
-      if (!session) continue
-      line = `${session.title}\t${session.state}`
-    } else {
-      try {
-        const { stdout } = await exec(getTmux(), ['display-message', '-p', '-t', entry.sessionName, `#{pane_title}\t#{${STATE_OPTION}}`], { timeout: 3000, env: buildEnv() })
-        line = stdout.replace(/\n$/, '')
-      } catch {
-        continue
-      }
-    }
-    const reply = readReply(replyDir, agentId, lastReplies.get(agentId)?.at)
-    if (reply) {
+    const session = entry && sessions.get(entry.sessionName)
+    if (!session) continue
+    const text = session.replyAt > (lastReplies.get(agentId)?.at ?? 0) ? replyText(session.reply) : null
+    if (text) {
+      const reply = { text, at: session.replyAt }
       lastReplies.set(agentId, reply)
       for (const e of clients.values()) post(e.clientId, 'pty:reply', { agentId, ...reply })
     }
-    const { title, raw } = parsePaneStatus(line)
-    const state = parseState(raw)
-    if (state && lastStates.get(agentId) !== raw) {
-      lastStates.set(agentId, raw)
+    const state = parseState(session.state)
+    if (state && lastStates.get(agentId) !== session.state) {
+      lastStates.set(agentId, session.state)
       for (const e of clients.values()) post(e.clientId, 'pty:state', { agentId, ...state })
     }
+    const title = session.title.trim()
     if (!title || lastTitles.get(agentId) === title) continue
     lastTitles.set(agentId, title)
     for (const e of clients.values()) post(e.clientId, 'pty:title', { agentId, title })

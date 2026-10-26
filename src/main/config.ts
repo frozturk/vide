@@ -32,7 +32,7 @@ const defaults: Config = {
     }
   ],
   worktreeBase: join('.vide', 'worktrees'),
-  ...(process.platform === 'win32' ? { shell: defaultShell(), terminalBackend: 'litemux' as const } : {})
+  ...(process.platform === 'win32' ? { shell: defaultShell() } : {})
 }
 
 let current: Config | null = null

@@ -1,4 +1,4 @@
-import { spawn } from 'child_process'
+import { execFile, spawn } from 'child_process'
 import { existsSync } from 'fs'
 import { delimiter, join, resolve } from 'path'
 
@@ -20,8 +20,13 @@ function windowsCode(): string {
 
 export function openInIde(path: string): Promise<void> {
   const folder = resolve(path)
-  const command = process.platform === 'darwin' ? '/usr/bin/open' : process.platform === 'win32' ? windowsCode() : 'code'
-  const args = process.platform === 'darwin' ? ['-b', 'com.microsoft.VSCode', folder] : ['--new-window', folder]
+  if (process.platform === 'darwin') {
+    return new Promise((resolve, reject) => {
+      execFile('/usr/bin/open', ['-b', 'com.microsoft.VSCode', folder], (error) => (error ? reject(error) : resolve()))
+    })
+  }
+  const command = process.platform === 'win32' ? windowsCode() : 'code'
+  const args = ['--new-window', folder]
   const env = { ...process.env }
   delete env.ELECTRON_RUN_AS_NODE
   return new Promise((resolve, reject) => {

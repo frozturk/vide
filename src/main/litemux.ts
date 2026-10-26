@@ -3,7 +3,7 @@ import { readFileSync } from 'fs'
 import { connect, type Socket } from 'net'
 import { StringDecoder } from 'string_decoder'
 
-export type LitemuxSession = { name: string; pid: number; title: string; state: string }
+export type LitemuxSession = { name: string; pid: number; title: string; state: string; reply: string; replyAt: number }
 
 export function encodeFrame(kind: 'I' | 'R', payload: Buffer): Buffer {
   const head = Buffer.alloc(5)
