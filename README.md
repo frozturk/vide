@@ -7,6 +7,14 @@ Vide organizes folders into projects, gives each project a permanent Main
 workspace, offers isolated git-worktree workspaces for Git repositories, and runs one or more
 agent terminals in each workspace.
 
+## Download
+
+Get the Windows installer or the macOS (Apple Silicon) `.dmg` from the
+[latest release](https://github.com/frozturk/vide/releases/latest). The builds
+are not code-signed yet: on Windows choose **More info → Run anyway**. On
+macOS, after the first blocked launch choose **Open Anyway** in System Settings →
+Privacy & Security, or run `xattr -dr com.apple.quarantine /Applications/Vide.app`.
+
 ## Features
 
 **Multi-agent terminals** — One window, many agents. Each agent runs in a real
@@ -223,6 +231,17 @@ deletion.
 | `Esc`   | Close overlay / dialog        |
 
 On Windows, use Ctrl+Shift in place of `⌘`.
+
+## Releasing
+
+Set `version` in `package.json`, commit, then push a matching tag:
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+CI builds both installers and publishes them as a GitHub release.
 
 ## Tech
 
