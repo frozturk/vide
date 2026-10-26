@@ -48,9 +48,9 @@ export function shellQuote(s: string): string {
 
 export function hookCommand(tmux: string, value: HookValue, replyDir = ''): string {
   const state = value === 'tool' ? TOOL_NAME : value === 'reply' ? 'idle' : value
-  const setState = `${shellQuote(tmux)} set-option -p -t "$TMUX_PANE" ${STATE_OPTION} ${state}`
+  const setState = `if [ -n "$LITEMUX_SESSION" ]; then "$LITEMUX_BIN" state ${state}; else ${shellQuote(tmux)} set-option -p -t "$TMUX_PANE" ${STATE_OPTION} ${state}; fi`
   const action = value === 'reply' && replyDir ? `{ cat > ${shellQuote(replyDir)}/"$${AGENT_ENV}".json; ${setState}; }` : setState
-  return `[ -n "$${AGENT_ENV}" ] && [ -n "$TMUX_PANE" ] && ${action} >/dev/null 2>&1; true`
+  return `[ -n "$${AGENT_ENV}" ] && [ -n "$TMUX_PANE$LITEMUX_SESSION" ] && ${action} >/dev/null 2>&1; true`
 }
 
 export type Reply = { text: string; at: number }

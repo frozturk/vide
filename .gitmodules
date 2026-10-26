@@ -1,0 +1,3 @@
+[submodule "litemux"]
+	path = litemux
+	url = git@fr.github.com:frozturk/litemux.git

@@ -5,10 +5,11 @@
   "main": "out/main/index.js",
   "scripts": {
     "postinstall": "chmod +x node_modules/node-pty/prebuilds/*/spawn-helper || true",
-    "dev": "electron-vite dev",
+    "dev": "npm run build:litemux && electron-vite dev",
     "start": "electron-vite preview",
     "build": "electron-vite build",
-    "package": "electron-vite build && electron-builder",
+    "package": "npm run build:litemux && electron-vite build && electron-builder",
+    "build:litemux": "cargo build --release --manifest-path litemux/Cargo.toml",
     "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.json",
     "test": "vitest run"
   },
@@ -23,6 +24,12 @@
       "skills/vide-browser/**/*",
       "scripts/browser.mjs",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "litemux/target/release/litemux",
+        "to": "litemux"
+      }
     ],
     "mac": {
       "icon": "build/icon.icns",

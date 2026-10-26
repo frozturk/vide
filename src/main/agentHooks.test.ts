@@ -26,7 +26,7 @@ describe('agent hooks', () => {
 
   it('only acts inside vide sessions and never fails the agent', () => {
     const command = hookCommand('/opt/homebrew/bin/tmux', 'waiting')
-    expect(command).toMatch(/^\[ -n "\$VIDE_AGENT" \] && \[ -n "\$TMUX_PANE" \] && /)
+    expect(command).toMatch(/^\[ -n "\$VIDE_AGENT" \] && \[ -n "\$TMUX_PANE\$LITEMUX_SESSION" \] && /)
     expect(command).toContain("'/opt/homebrew/bin/tmux' set-option -p -t \"$TMUX_PANE\" @vide_state waiting")
     expect(command.endsWith('; true')).toBe(true)
   })
@@ -40,6 +40,18 @@ describe('agent hooks', () => {
       env: { VIDE_AGENT: 'a', TMUX_PANE: '%1', PATH: process.env.PATH ?? '' }
     })
     expect(readFileSync(join(dir, 'args'), 'utf8').trim()).toBe('set-option -p -t %1 @vide_state busy:Bash')
+    rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('reports state through litemux inside litemux sessions', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'vide-hook-'))
+    const fake = join(dir, 'litemux')
+    writeFileSync(fake, `#!/bin/sh\necho "$@" > ${join(dir, 'args')}\n`, { mode: 0o755 })
+    execFileSync('/bin/sh', ['-c', hookCommand('/no/tmux', 'tool')], {
+      input: '{"session_id":"s","tool_name":"Edit"}',
+      env: { VIDE_AGENT: 'a', LITEMUX_SESSION: 'vide-a', LITEMUX_BIN: fake, PATH: process.env.PATH ?? '' }
+    })
+    expect(readFileSync(join(dir, 'args'), 'utf8').trim()).toBe('state busy:Edit')
     rmSync(dir, { recursive: true, force: true })
   })
 
