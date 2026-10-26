@@ -1,10 +1,23 @@
 import { expect, it } from 'vitest'
-import { shortcutModifiers } from './platform-shortcuts'
+import { matchAppBrowserShortcut, matchAppChord, shortcutKey, type KeyInput } from './platform-shortcuts'
+
+const key = (k: string, code: string, mods: Partial<KeyInput> = {}): KeyInput => ({ key: k, code, meta: false, ctrl: false, shift: false, alt: false, ...mods })
 
 it('keeps Windows terminal control keys available and uses Ctrl+Shift for app actions', () => {
-  expect(shortcutModifiers('c', false, true, false, false, false).active).toBe(false)
-  expect(shortcutModifiers('d', false, true, false, false, false).active).toBe(false)
-  expect(shortcutModifiers('T', false, true, true, false, false)).toEqual({ active: true, shift: false })
-  expect(shortcutModifiers('R', false, true, true, false, false)).toEqual({ active: true, shift: true })
-  expect(shortcutModifiers('t', true, false, false, false, true)).toEqual({ active: true, shift: false })
+  expect(shortcutKey(key('c', 'KeyC', { ctrl: true }), false)).toBeNull()
+  expect(shortcutKey(key('d', 'KeyD', { ctrl: true }), false)).toBeNull()
+  expect(matchAppChord(key('T', 'KeyT', { ctrl: true, shift: true }), false)).toBe('spawn')
+  expect(matchAppChord(key('t', 'KeyT', { meta: true }), true)).toBe('spawn')
+})
+
+it('reads digits and comma by key position while Shift is held', () => {
+  expect(matchAppChord(key('!', 'Digit1', { ctrl: true, shift: true }), false)).toBe('jump-1')
+  expect(matchAppChord(key('<', 'Comma', { ctrl: true, shift: true }), false)).toBe('open-config')
+})
+
+it('falls back to the shifted macOS chord when no plain chord uses the key', () => {
+  expect(matchAppChord(key('R', 'KeyR', { ctrl: true, shift: true }), false)).toBe('reload-config')
+  expect(matchAppChord(key('r', 'KeyR', { meta: true, shift: true }), true)).toBe('reload-config')
+  expect(matchAppChord(key('r', 'KeyR', { meta: true }), true)).toBeNull()
+  expect(matchAppBrowserShortcut(key('R', 'KeyR', { ctrl: true, shift: true }), false)).toBe('browser-reload')
 })

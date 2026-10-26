@@ -1,6 +1,6 @@
 import { app, BrowserWindow, BaseWindow, WebContentsView, session } from 'electron'
 import { EventEmitter } from 'events'
-import { shortcutModifiers } from '../shared/platform-shortcuts'
+import { isMacPlatform, matchAppBrowserShortcut, matchAppChord } from '../shared/platform-shortcuts'
 import { randomUUID } from 'crypto'
 import { readFileSync, writeFileSync, renameSync } from 'fs'
 import { join } from 'path'
@@ -9,8 +9,6 @@ import { loadState } from './state'
 import { browserPartition, browserUrl, deadline } from './browser-policy'
 import { click, fill, hover, isRef, parseViewport, press, refOf, scroll, scrollTo, snapshot, upload, type Cdp, type Frames, type Ref } from './browser-agent'
 import { isDevelopmentRuntime, runtimeStateFile } from './runtime'
-import { matchBrowserShortcut } from '../shared/browser-shortcuts'
-import { matchChord } from '../shared/chords'
 
 interface Tab {
   id: string
@@ -189,8 +187,9 @@ export class BrowserManager {
     })
     wc.on('before-input-event', (event, input) => {
       if (this.stopped || this.win.isDestroyed() || input.type !== 'keyDown') return
-      const mods = shortcutModifiers(input.key, input.meta, input.control, input.shift, input.alt, process.platform === 'darwin')
-      const chord = matchBrowserShortcut(input.key, mods.active, mods.shift) ?? matchChord(input.key, mods.active, mods.shift)
+      const key = { key: input.key, code: input.code, meta: input.meta, ctrl: input.control, shift: input.shift, alt: input.alt }
+      const isMac = isMacPlatform(process.platform)
+      const chord = matchAppBrowserShortcut(key, isMac) ?? matchAppChord(key, isMac)
       if (chord) { event.preventDefault(); this.win.webContents.focus(); this.win.webContents.send('browser:shortcut', chord) }
     })
     const update = (): void => {

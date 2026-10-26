@@ -1,6 +1,6 @@
-import { matchBrowserShortcut, type BrowserShortcut } from '../../shared/browser-shortcuts'
-import { matchChord, type ChordId } from '../../shared/chords'
-import { shortcutModifiers } from '../../shared/platform-shortcuts'
+import type { BrowserShortcut } from '../../shared/browser-shortcuts'
+import type { ChordId } from '../../shared/chords'
+import { isMacPlatform, keyInput, matchAppBrowserShortcut, matchAppChord } from '../../shared/platform-shortcuts'
 import {
   closeDialog,
   closeOverlay,
@@ -104,10 +104,10 @@ export function installKeyboard(): void {
         }
         return
       }
-      const mods = shortcutModifiers(e.key, e.metaKey, e.ctrlKey, e.shiftKey, e.altKey, /mac/i.test(navigator.platform))
-      if (!mods.active) return
+      const input = keyInput(e)
+      const isMac = isMacPlatform(navigator.platform)
       const inBrowser = e.target instanceof Element && !!e.target.closest('[data-browser-pane]')
-      const chord = (inBrowser ? matchBrowserShortcut(e.key, true, mods.shift) : null) ?? matchChord(e.key, true, mods.shift)
+      const chord = (inBrowser ? matchAppBrowserShortcut(input, isMac) : null) ?? matchAppChord(input, isMac)
       if (!chord) return
       e.preventDefault()
       e.stopPropagation()

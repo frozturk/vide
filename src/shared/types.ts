@@ -72,7 +72,6 @@ export interface Config {
   webPort?: number
   webPublicUrl?: string
   hideClaudeInputBox?: boolean
-  terminalBackend?: 'tmux' | 'litemux'
 }
 
 export interface PairedDevice {

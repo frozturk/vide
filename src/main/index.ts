@@ -5,7 +5,7 @@ import { join } from 'path'
 import type { MenuItemConstructorOptions } from 'electron'
 import { getConfig } from './config'
 import { DESKTOP_ONLY, runHandler, senders, wireIpc } from './ipc'
-import { liveCount, detachAll, beginShutdown, startTitlePoller, reapOrphanSessions, sessionName, getTmux } from './pty'
+import { liveCount, detachAll, beginShutdown, startTitlePoller, reapOrphanSessions, sessionName, litemuxBin } from './pty'
 import { installAgentHooks } from './agentHooks'
 import { DESKTOP, registerClient } from './clients'
 import { startWebServer, stopWebServer } from './web'
@@ -111,9 +111,8 @@ app.whenReady().then(async () => {
   const iconPath = join(app.getAppPath(), 'build/icon.png')
   if (app.dock && existsSync(iconPath)) app.dock.setIcon(iconPath)
   Menu.setApplicationMenu(process.platform === 'win32' ? null : buildMenu())
-  const replyDir = join(app.getPath('userData'), 'replies')
-  startTitlePoller(replyDir)
-  installAgentHooks(getTmux(), replyDir)
+  startTitlePoller()
+  installAgentHooks(litemuxBin())
   try { installBrowserSkills(app.getAppPath()) } catch (error) {
     console.error('[vide/browser] Could not load bundled skill:', error)
   }

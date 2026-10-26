@@ -4,13 +4,12 @@
   "private": true,
   "main": "out/main/index.js",
   "scripts": {
-    "postinstall": "node scripts/postinstall.cjs",
     "dev": "npm run build:litemux && electron-vite dev",
     "start": "electron-vite preview",
     "build": "npm run build:litemux && electron-vite build",
     "package": "npm run build:litemux && electron-vite build && electron-builder",
-    "build:litemux": "node scripts/build-litemux.cjs",
-    "test:litemux": "node scripts/build-litemux.cjs --test",
+    "build:litemux": "cargo build --release --locked --manifest-path litemux/Cargo.toml",
+    "test:litemux": "cargo test --release --locked --manifest-path litemux/Cargo.toml",
     "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.json",
     "test": "vitest run"
   },
@@ -31,7 +30,10 @@
       {
         "from": "litemux/target/release",
         "to": ".",
-        "filter": ["litemux", "litemux.exe"]
+        "filter": [
+          "litemux",
+          "litemux.exe"
+        ]
       }
     ],
     "mac": {
@@ -44,10 +46,18 @@
     },
     "dmg": {
       "artifactName": "${productName}-${version}.${ext}"
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     }
   },
   "dependencies": {
-    "node-pty": "^1.1.0",
     "seti-icons": "^0.0.4",
     "ws": "^8.22.0"
   },

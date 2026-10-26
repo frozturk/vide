@@ -5,13 +5,14 @@ parallel.
 
 Vide organizes folders into projects, gives each project a permanent Main
 workspace, offers isolated git-worktree workspaces for Git repositories, and runs one or more
-tmux-backed agent terminals in each workspace.
+agent terminals in each workspace.
 
 ## Features
 
 **Multi-agent terminals** — One window, many agents. Each agent runs in a real
-PTY backed by a tmux session, so it survives app restarts. Reopen vide and
-your agents are right where you left them.
+terminal held by [litemux](https://github.com/frozturk/litemux), a small
+background server, so it survives app restarts. Reopen vide and your agents
+are right where you left them.
 
 **Projects and workspaces** — Open any folder and work directly in
 its permanent Main workspace. Git repositories also support isolated workspaces for parallel work.
@@ -24,14 +25,14 @@ terminal never removes its workspace.
 
 **Live status detection**: Claude Code and Codex report `busy`, `waiting`,
 and `idle` through their own hooks, the same way on every screen. At startup
-vide merges guarded entries into `~/.claude/settings.json` and
-`~/.codex/hooks.json`; they only run inside vide terminals (`VIDE_AGENT` is
-set) and leave your own hooks untouched. Agents without hooks (shells,
+vide merges entries into `~/.claude/settings.json` and
+`~/.codex/hooks.json` that run `litemux hook <event>`. They do nothing outside
+vide terminals and leave your own hooks untouched. Agents without hooks (shells,
 OpenCode) show as idle. Pulsing dots and unread indicators in the agent strip
 show which terminal needs you.
 
 Vide launches Codex with `--no-daemon` so each terminal's hooks inherit its
-own tmux pane instead of the shared Codex server's environment. Existing
+own terminal session instead of the shared Codex server's environment. Existing
 sessions must be restarted or resumed with `codex --no-daemon resume` to
 pick up this change. If you customize the Codex launch command, keep
 `--no-daemon`. Review and trust Vide's entries in Codex's `/hooks` menu when
@@ -87,49 +88,23 @@ closing terminals stay in sync.
 
 ## Requirements
 
-### Windows with litemux
-
-This checkout supports native Windows terminals through litemux/ConPTY. New
-Windows configurations default to `terminalBackend: "litemux"` and Windows
-PowerShell. Select **litemux** in Settings if you already have a config file.
-PowerShell 7 (`pwsh.exe`) and Git Bash are also supported as configured shells.
-
-The local build is ready to launch from this directory:
-
-```powershell
-npm start
-```
-
-To rebuild after editing, run `npm run build`. For development, run `npm run dev`.
-The build script uses the workspace's `.tools` Rust/GNU toolchain when present,
-or Cargo on `PATH` otherwise. `.tools` is local and gitignored; no system PATH
-change is needed. Fresh checkouts need Node.js, a working Rust toolchain, and
-`git submodule update --init --recursive` followed by `npm ci`.
-
-Windows app shortcuts use **Ctrl+Shift** instead of Command: Ctrl+Shift+T adds
-a terminal, Ctrl+Shift+K opens the palette, and Ctrl+Shift+V pastes. Ctrl+C and
-Ctrl+D remain available to terminal programs. Some existing UI shortcut labels
-still show the macOS Command symbol. The IDE button opens the current workspace
-in a new VS Code window, including installations in the standard Windows user
-and system locations or on PATH. The localhost process list still uses macOS
-utilities and is not yet ported.
-
-Validation: `npm run typecheck`, `npm test`, and `npm run test:litemux`.
-The desktop smoke check (`node scripts/smoke-desktop.cjs`) expects a local Vide
-instance launched with `--remote-debugging-port=9337`; it adds this project and
-leaves a shell terminal open. Normal launches do not enable remote debugging.
-
-### macOS
-
-- macOS (Apple Silicon or Intel)
-- [tmux](https://github.com/tmux/tmux) on your `PATH` (or at a standard location)
-- A shell (`zsh` by default; configurable)
+- macOS or Windows 10/11
+- [Node.js](https://nodejs.org) and a [Rust](https://rustup.rs) toolchain to
+  build litemux
 - At least one agent CLI installed — e.g. `claude`, `codex`, or `opencode`
+
+The shell is `$SHELL` (zsh by default) on macOS and Windows PowerShell on
+Windows; set another one in Settings (`pwsh.exe`, `cmd.exe` or Git Bash work).
+
+On Windows, app shortcuts use **Ctrl+Shift** in place of `⌘` (Ctrl+Shift+T adds
+a terminal, Ctrl+Shift+C/V copy and paste), so Ctrl+C and Ctrl+D still reach
+terminal programs. Some labels in the UI still show `⌘`, and the local servers
+panel is macOS only.
 
 ## Install
 
 ```bash
-git clone <repo> vide
+git clone --recurse-submodules <repo> vide
 cd vide
 npm install
 ```
@@ -202,7 +177,7 @@ Each kind defines how an agent is launched.
 | -------------- | --------------------------------------------------------------------- |
 | `id`           | Stable identifier used in session names and the store.                |
 | `name`         | Display label in buttons and the agent strip.                         |
-| `command`      | Shell command template. `{prompt}` is shell-quoted and substituted in. |
+| `command`      | Shell command. A `{prompt}` placeholder is removed.                    |
 | `color`        | Accent color for the agent's icon and active states.                  |
 
 Leave `command` empty for a plain shell. The `shell` kind is included by
@@ -210,14 +185,14 @@ default for ad hoc terminals.
 
 ## How sessions work
 
-Each terminal creates a detached tmux session named
-`vide-<kind>-<dir>-<shortid>` (`vide-dev-*` during `npm run dev`). Development
-also uses `state.dev.json`, so it cannot attach to or overwrite production
-terminal metadata. vide attaches a node-pty to the session and streams
-output to the renderer. When you quit vide with agents still running, the tmux
-sessions are left alive in the background; on next launch, vide reattaches
-automatically. Orphaned sessions are reaped only within the current runtime's
-production or development namespace.
+Each terminal is a litemux session named `vide-<kind>-<dir>-<shortid>`
+(`vide-dev-*` during `npm run dev`). vide starts the litemux server on demand
+and connects to it over `127.0.0.1` with a token from `litemux.json` in its
+data folder; development uses `litemux.dev.json` and `state.dev.json`, so it
+cannot attach to or overwrite production terminals. When you quit vide with
+agents still running, the sessions keep running in the background; on next
+launch, vide reattaches and restores each screen with its scrollback.
+Orphaned sessions are reaped on startup.
 
 ## How projects and workspaces work
 
@@ -247,10 +222,12 @@ deletion.
 | `⌘⇧R`   | Reload config                 |
 | `Esc`   | Close overlay / dialog        |
 
+On Windows, use Ctrl+Shift in place of `⌘`.
+
 ## Tech
 
 Electron · electron-vite · React 19 · TypeScript · Tailwind v4 · zustand ·
-node-pty · xterm.js · `@git-diff-view/react` · tmux.
+xterm.js · `@git-diff-view/react` · [litemux](https://github.com/frozturk/litemux) (Rust).
 
 ## In-app browser
 

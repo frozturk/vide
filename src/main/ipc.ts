@@ -34,18 +34,8 @@ import { restartWebServer, revokeDevice, webInfo } from './web'
 
 export type Handler = (arg: any, clientId: string) => unknown
 
-function shellQuote(s: string): string {
-  return `'${s.replace(/'/g, `'\\''`)}'`
-}
-
-export function buildCommand(template: string, prompt?: string): string {
-  const t = template.trim()
-  if (!t) return ''
-  const p = prompt?.trim()
-  if (t.includes('{prompt}')) {
-    return t.replace('{prompt}', () => (p ? shellQuote(p) : '')).trim()
-  }
-  return p ? `${t} ${shellQuote(p)}` : t
+export function buildCommand(template: string): string {
+  return template.replace('{prompt}', '').trim()
 }
 
 async function spawnAgent(req: SpawnRequest, clientId: string): Promise<Agent> {
