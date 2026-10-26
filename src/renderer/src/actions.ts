@@ -252,12 +252,12 @@ export function syncState(): Promise<void> {
 }
 
 export async function reattachAll(): Promise<void> {
-  for (const agent of useStore.getState().agents) {
+  await Promise.all(useStore.getState().agents.map(async (agent) => {
     terminals.get(agent.id)?.term.reset()
     const attached = await window.vide.terminalAttach({ id: agent.id, workspaceId: agent.workspaceId, kindId: agent.kindId, cwd: agent.cwd, worktreePath: agent.worktreePath, worktreeBranch: agent.worktreeBranch, baseSha: agent.baseSha, createdAt: agent.createdAt }).catch(() => null)
     if (attached) refit(agent.id)
     else dropAgent(agent.id)
-  }
+  }))
   await syncState()
   const selected = useStore.getState().selectedId
   if (selected) activateVisual(selected)

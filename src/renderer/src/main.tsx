@@ -55,9 +55,7 @@ async function connectWeb(): Promise<void> {
 async function bootstrap(): Promise<void> {
   syncViewport()
   await connectWeb()
-  const config = await window.vide.configGet()
-  const recentDirs = await window.vide.recentDirsLoad()
-  const persisted = await window.vide.stateLoad()
+  const [config, recentDirs, persisted] = await Promise.all([window.vide.configGet(), window.vide.recentDirsLoad(), window.vide.stateLoad()])
   useStore.setState({ config, recentDirs, projects: persisted.projects, workspaces: persisted.workspaces })
 
   window.vide.onPtyData(({ agentId, data }) => feedData(agentId, data))
@@ -103,19 +101,15 @@ async function bootstrap(): Promise<void> {
   }
   createRoot(document.getElementById('root')!).render(<App />)
 
-  const saved = persisted.agents
+  const saved = persisted.agents.filter((s) => s.id)
   const lastSelectedId = localStorage.getItem('lastSelectedId')
   const lastWorkspaceId = localStorage.getItem('lastWorkspaceId')
   useStore.setState({ suppressUnread: true })
-  for (const s of saved) {
-    if (!s.id) continue
-    try {
-      await actions.restoreAgent(s)
-    } catch (err) {
-      console.error('agent restore failed', s, err)
-    }
-  }
-  void window.vide.sessionSave(useStore.getState().agents.map((a) => ({ id: a.id, workspaceId: a.workspaceId, kindId: a.kindId, cwd: a.cwd, createdAt: a.createdAt })))
+  const restore = (s: (typeof saved)[number], select: boolean): Promise<void> =>
+    actions.restoreAgent(s, select).catch((err) => console.error('agent restore failed', s, err))
+  const first = saved.find((s) => s.id === lastSelectedId)
+  const restoring = Promise.all(saved.filter((s) => s !== first).map((s) => restore(s, false)))
+  await (first ? restore(first, true) : restoring)
   if (lastSelectedId && useStore.getState().agents.some((a) => a.id === lastSelectedId)) {
     actions.selectAgent(lastSelectedId, 'click')
   } else if (lastWorkspaceId && persisted.workspaces.some((w) => w.id === lastWorkspaceId)) {
@@ -124,6 +118,8 @@ async function bootstrap(): Promise<void> {
     actions.selectWorkspace(persisted.workspaces[0].id, 'click')
   }
   requestAnimationFrame(() => useStore.setState({ booting: false }))
+  await restoring
+  void window.vide.sessionSave(useStore.getState().agents.map((a) => ({ id: a.id, workspaceId: a.workspaceId, kindId: a.kindId, cwd: a.cwd, createdAt: a.createdAt })))
   setTimeout(() => useStore.setState({ suppressUnread: false }), 3000)
   useStore.subscribe((state, prev) => {
     if (state.selectedId !== prev.selectedId && state.selectedId) {

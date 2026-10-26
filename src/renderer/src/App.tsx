@@ -1,9 +1,9 @@
+import { lazy, Suspense } from 'react'
 import { useStore } from './store'
 import { TopBar } from './components/TopBar'
 import { RAIL_WIDTH } from '../../shared/layout'
 import { TerminalPane } from './components/TerminalPane'
 import { AgentStrip } from './components/AgentStrip'
-import { DiffOverlay } from './components/DiffOverlay'
 import { SpawnDialog } from './components/SpawnDialog'
 import { CloseDialog } from './components/CloseDialog'
 import { SettingsOverlay } from './components/SettingsOverlay'
@@ -13,8 +13,11 @@ import { KeyBar } from './components/KeyBar'
 import { BrowserPane } from './components/BrowserPane'
 import { Composer } from './components/Composer'
 
+const DiffOverlay = lazy(() => import('./components/DiffOverlay').then((m) => ({ default: m.DiffOverlay })))
+
 export default function App(): React.JSX.Element {
   const booting = useStore((s) => s.booting)
+  const diffOpen = useStore((s) => s.overlay === 'diff')
   const pinned = useStore((s) => s.panelPinned)
   const panelWidth = useStore((s) => s.panelWidth)
   const compact = useStore((s) => s.compact)
@@ -41,7 +44,7 @@ export default function App(): React.JSX.Element {
       )}
       <BrowserPane />
       <AgentStrip />
-      <DiffOverlay />
+      {diffOpen && <Suspense fallback={null}><DiffOverlay /></Suspense>}
       <SpawnDialog />
       <CloseDialog />
       <SettingsOverlay />
