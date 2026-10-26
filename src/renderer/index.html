@@ -17,13 +17,19 @@
     <meta name="format-detection" content="telephone=no" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>vide</title>
+    <style>@keyframes boot-spin { to { transform: rotate(360deg) } }</style>
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' ws: wss: http://localhost:*"
     />
   </head>
   <body style="background: #09090b">
-    <div id="root"></div>
+    <div id="root">
+      <div style="position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: #09090b">
+        <span style="width: 22px; height: 22px; box-sizing: border-box; border: 2px solid #3f3f46; border-top-color: #d4d4d8; border-radius: 9999px; animation: boot-spin 1s linear infinite"></span>
+        <span style="font: 12px system-ui, -apple-system, sans-serif; color: #71717a">restoring agents…</span>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

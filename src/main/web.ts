@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto'
 import { existsSync, readFileSync, statSync, writeFileSync, createReadStream } from 'fs'
 import { createServer, request, type IncomingMessage, type Server, type ServerResponse } from 'http'
 import { connect } from 'net'
+import { gzipSync } from 'zlib'
 import { extname, join, resolve, sep } from 'path'
 import type { Duplex } from 'stream'
 import { WebSocketServer, WebSocket } from 'ws'
@@ -37,6 +38,9 @@ const MIME: Record<string, string> = {
   '.ttf': 'font/ttf',
   '.wasm': 'application/wasm'
 }
+
+const COMPRESSIBLE = new Set(['.html', '.js', '.mjs', '.css', '.svg', '.json', '.webmanifest'])
+const gzipped = new Map<string, Buffer>()
 
 export function parseCookies(header: string | undefined): Record<string, string> {
   const out: Record<string, string> = {}
@@ -219,18 +223,27 @@ function rendererRoot(): string {
   return resolve(__dirname, '../renderer')
 }
 
-function serveStatic(pathname: string, res: ServerResponse): void {
+function serveStatic(pathname: string, req: IncomingMessage, res: ServerResponse): void {
   const root = rendererRoot()
   let file = resolve(root, `.${decodeURIComponent(pathname)}`)
   if (file !== root && !file.startsWith(root + sep)) file = join(root, 'index.html')
   if (!existsSync(file) || statSync(file).isDirectory()) file = join(root, 'index.html')
   const immutable = file.includes(`${sep}assets${sep}`)
+  const gzip = COMPRESSIBLE.has(extname(file)) && /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''))
   res.writeHead(200, {
     ...SECURITY_HEADERS,
     'Content-Type': MIME[extname(file)] ?? 'application/octet-stream',
-    'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache'
+    'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
+    Vary: 'Accept-Encoding',
+    ...(gzip ? { 'Content-Encoding': 'gzip' } : {})
   })
-  createReadStream(file).pipe(res)
+  if (!gzip) {
+    createReadStream(file).pipe(res)
+    return
+  }
+  const body = gzipped.get(file) ?? gzipSync(readFileSync(file))
+  gzipped.set(file, body)
+  res.end(body)
 }
 
 function proxyHttp(devUrl: URL, req: IncomingMessage, res: ServerResponse): void {
@@ -288,7 +301,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
   if (!authorized && !PUBLIC_PATHS.has(url.pathname)) return loginPage(res, false)
   const devUrl = process.env.ELECTRON_RENDERER_URL
   if (devUrl) return proxyHttp(new URL(devUrl), req, res)
-  serveStatic(url.pathname, res)
+  serveStatic(url.pathname, req, res)
 }
 
 function attachSocket(ws: WebSocket, deviceId: string): void {
