@@ -7,6 +7,10 @@ export function isMacPlatform(platform: string): boolean {
   return /mac|darwin/i.test(platform)
 }
 
+export function shortcutLabel(key: string, shift = false, platform = globalThis.navigator?.platform ?? ''): string {
+  return isMacPlatform(platform) ? `⌘${shift ? '⇧' : ''}${key}` : `Ctrl+Shift+${key}`
+}
+
 export function keyInput(e: { key: string; code: string; metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean }): KeyInput {
   return { key: e.key, code: e.code, meta: e.metaKey, ctrl: e.ctrlKey, shift: e.shiftKey, alt: e.altKey }
 }

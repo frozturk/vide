@@ -8,6 +8,7 @@ import { PANEL_MAX_WIDTH, PANEL_MIN_WIDTH, RAIL_WIDTH } from '../../../shared/la
 import { AgentIcon } from './AgentIcon'
 import { Resizer } from './Resizer'
 import { StatusMark, age } from './StatusMark'
+import { shortcutLabel } from '../../../shared/platform-shortcuts'
 
 export function AgentStrip(): React.JSX.Element | null {
   const projects = useStore((s) => s.projects)
@@ -125,7 +126,7 @@ function WorkspaceRow({ workspace, index, touch }: { workspace: Workspace; index
       <span className="min-w-0 flex-1 truncate">{workspace.kind === 'main' ? 'Main' : workspace.name}</span>
       <BrowserTabCount workspaceId={workspace.id} />
       {!touch && workspace.kind === 'worktree' && <span role="button" title="Delete workspace" onClick={(e) => { e.stopPropagation(); void requestDeleteWorkspace(workspace.id) }} className="opacity-0 text-zinc-600 hover:text-red-400 group-hover:opacity-100">×</span>}
-      {!touch && index >= 0 && index < 9 && <kbd className="rounded border border-zinc-700/60 px-1 text-[10px] text-zinc-600">⌘{index + 1}</kbd>}
+      {!touch && index >= 0 && index < 9 && <kbd className="rounded border border-zinc-700/60 px-1 text-[10px] text-zinc-600">{shortcutLabel(String(index + 1))}</kbd>}
     </span>
     {terminals.map((agent) => <AgentLine key={agent.id} agent={agent} touch={touch} />)}
   </button>

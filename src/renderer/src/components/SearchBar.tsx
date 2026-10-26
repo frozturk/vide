@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { closeSearch } from '../actions'
 import { findInTerminal, onSearchResults } from '../terminals'
+import { isMacPlatform } from '../../../shared/platform-shortcuts'
 
 export function SearchBar(): React.JSX.Element | null {
   const open = useStore((s) => s.searchOpen)
@@ -51,7 +52,7 @@ function SearchBarInner({ agentId }: { agentId: string }): React.JSX.Element {
       <button
         onClick={() => findInTerminal(agentId, query, 'prev')}
         className="rounded px-1 text-xs text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
-        title="Previous (⇧⏎)"
+        title={`Previous (${isMacPlatform(navigator.platform) ? '⇧⏎' : 'Shift+Enter'})`}
       >
         ↑
       </button>

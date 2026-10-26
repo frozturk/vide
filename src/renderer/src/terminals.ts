@@ -166,7 +166,7 @@ export function attachTerminal(agentId: string, container: HTMLElement): void {
   // tmux mouse mode is enabled for wheel scrolling, but its default drag action
   // enters copy mode (yellow selection and a position counter). Force ordinary
   // left drags through xterm's native selection path instead.
-  const isMac = navigator.platform.toLowerCase().includes('mac')
+  const isMac = isMacPlatform(navigator.platform)
   const nativeSelectionHandler = (event: MouseEvent): void => {
     if (event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
     event.preventDefault()

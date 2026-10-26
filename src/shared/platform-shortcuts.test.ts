@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { matchAppBrowserShortcut, matchAppChord, shortcutKey, type KeyInput } from './platform-shortcuts'
+import { matchAppBrowserShortcut, matchAppChord, shortcutKey, shortcutLabel, type KeyInput } from './platform-shortcuts'
 
 const key = (k: string, code: string, mods: Partial<KeyInput> = {}): KeyInput => ({ key: k, code, meta: false, ctrl: false, shift: false, alt: false, ...mods })
 
@@ -20,4 +20,11 @@ it('falls back to the shifted macOS chord when no plain chord uses the key', () 
   expect(matchAppChord(key('r', 'KeyR', { meta: true, shift: true }), true)).toBe('reload-config')
   expect(matchAppChord(key('r', 'KeyR', { meta: true }), true)).toBeNull()
   expect(matchAppBrowserShortcut(key('R', 'KeyR', { ctrl: true, shift: true }), false)).toBe('browser-reload')
+})
+
+it('labels shortcuts for the platform', () => {
+  expect(shortcutLabel('T', false, 'MacIntel')).toBe('⌘T')
+  expect(shortcutLabel('R', true, 'MacIntel')).toBe('⌘⇧R')
+  expect(shortcutLabel('R', true, 'Win32')).toBe('Ctrl+Shift+R')
+  expect(shortcutLabel('1', false, 'Linux x86_64')).toBe('Ctrl+Shift+1')
 })

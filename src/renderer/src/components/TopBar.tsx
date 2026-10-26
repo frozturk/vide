@@ -9,6 +9,7 @@ import { activityLabel } from '../activity'
 import logoWhite from '../assets/v-white.svg'
 import type { GitSummary } from '../../../shared/types'
 import { TOOLBAR_HEIGHT } from '../../../shared/layout'
+import { shortcutLabel } from '../../../shared/platform-shortcuts'
 
 export function TopBar(): React.JSX.Element {
   const agent = useStore(selectedAgent)
@@ -263,7 +264,7 @@ export function TopBar(): React.JSX.Element {
               className={`flex items-center justify-center text-xs transition ${compact ? 'h-10 w-10 rounded-xl active:scale-95' : 'h-6 w-7 rounded-md'} ${
                 overlay === 'diff' ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
               }`}
-              title="Diff (⌘D)"
+              title={`Diff (${shortcutLabel('D')})`}
             >
               <svg className={compact ? 'h-4 w-4' : 'h-3.5 w-3.5'} viewBox="0 0 16 16" fill="currentColor">
                 <path d="M1 1h6v6H1zm8 0h6v6H9zM1 9h6v6H1zm8 0h6v6H9z" opacity="0.3" />
@@ -282,7 +283,7 @@ export function TopBar(): React.JSX.Element {
             </button>}
           </>
         )}
-        {!isWeb && workspace && <button title="Browser (⌘B)" aria-label="Toggle browser" className="rounded px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800" onClick={() => useStore.setState((s) => ({ browserOpen: !s.browserOpen }))}>Browser</button>}
+        {!isWeb && workspace && <button title={`Browser (${shortcutLabel('B')})`} aria-label="Toggle browser" className="rounded px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800" onClick={() => useStore.setState((s) => ({ browserOpen: !s.browserOpen }))}>Browser</button>}
         <LocalServers />
       </div>
     </div>
