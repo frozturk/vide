@@ -6,6 +6,7 @@ import { workspaceTerminals } from '../workspaceNavigation'
 import { AgentIcon } from './AgentIcon'
 import { SearchBar } from './SearchBar'
 import { basename } from '../util'
+import { shortcutLabel } from '../../../shared/platform-shortcuts'
 
 export function TerminalPane(): React.JSX.Element {
   const agents = useStore((s) => s.agents)
@@ -32,8 +33,8 @@ export function TerminalPane(): React.JSX.Element {
   </div>
   return <div className="relative h-full w-full">
     {selectedWorkspaceId && <div className="absolute inset-x-0 top-0 flex h-8 items-center gap-1 border-b border-zinc-800 bg-zinc-900 px-2">
-      {workspaceAgents.map((agent) => { const kind = config?.agentKinds.find((k) => k.id === agent.kindId); const title = titles[agent.id] || agent.title; return <button key={agent.id} title={title} onClick={() => selectAgent(agent.id, 'click')} className={`flex h-6 max-w-48 items-center gap-1.5 rounded px-2 text-xs ${agent.id === selectedId ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-500 hover:bg-zinc-800'}`}><span style={{ color: kind?.color }}><AgentIcon kindId={agent.kindId} size={12} /></span><span className="truncate">{title}</span></button> })}
-      <button onClick={openAddTerminalDialog} title="Add terminal (⌘T)" className="flex h-6 w-6 items-center justify-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200">+</button>
+      {workspaceAgents.map((agent) => { const kind = config?.agentKinds.find((k) => k.id === agent.kindId); const title = titles[agent.id] || agent.title; return <button key={agent.id} title={title} onClick={() => selectAgent(agent.id, 'click')} className={`group relative flex h-6 max-w-48 items-center gap-1.5 rounded px-2 text-xs ${agent.id === selectedId ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-500 hover:bg-zinc-800'}`}><span style={{ color: kind?.color }}><AgentIcon kindId={agent.kindId} size={12} /></span><span className="truncate">{title}</span><span role="button" aria-label="Close terminal" title="Close terminal" onClick={(e) => { e.stopPropagation(); selectAgent(agent.id, 'click'); void requestClose() }} className={`invisible absolute right-1 top-1/2 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded text-zinc-400 hover:bg-zinc-600 hover:text-zinc-100 group-hover:visible ${agent.id === selectedId ? 'bg-zinc-700' : 'bg-zinc-800'}`}>×</span></button> })}
+      <button onClick={openAddTerminalDialog} title={`Add terminal (${shortcutLabel('T')})`} className="flex h-6 w-6 items-center justify-center rounded text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200">+</button>
     </div>}
     <div className={selectedWorkspaceId ? 'absolute inset-x-0 bottom-0 top-8' : 'absolute inset-0'}>
       {agents.map((a) => <TerminalHost key={a.id} id={a.id} visible={a.id === selectedId && a.workspaceId === selectedWorkspaceId} />)}
@@ -60,7 +61,7 @@ function EmptyState(): React.JSX.Element {
     void window.vide.pickDirectory().then((dir) => { if (dir) void spawnInDir(dir, kindId) })
   }
   return <div className="flex h-full overflow-y-auto"><div className={`m-auto w-full max-w-2xl ${compact ? 'px-5 py-10' : 'px-8 py-12'}`}>
-    <div className="mb-8 text-center"><div className="mb-3 text-2xl font-bold text-zinc-200">No agents running</div><div className="flex items-center justify-center gap-3 text-sm text-zinc-500">{compact ? 'Pick an agent to start' : <>Press <kbd className="rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-300">⌘T</kbd> to start an agent</>}<span className="text-zinc-700">·</span><button onClick={() => useStore.setState({ settingsOpen: true })} className="text-zinc-400 hover:text-zinc-200">Settings</button></div></div>
+    <div className="mb-8 text-center"><div className="mb-3 text-2xl font-bold text-zinc-200">No agents running</div><div className="flex items-center justify-center gap-3 text-sm text-zinc-500">{compact ? 'Pick an agent to start' : <>Press <kbd className="rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-300">{shortcutLabel('T')}</kbd> to start an agent</>}<span className="text-zinc-700">·</span><button onClick={() => useStore.setState({ settingsOpen: true })} className="text-zinc-400 hover:text-zinc-200">Settings</button></div></div>
     <div className="mb-8 flex flex-wrap justify-center gap-2">{kinds.map((kind) => <button key={kind.id} onClick={() => launch(kind.id)} className="flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-800/50 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:border-zinc-600 hover:bg-zinc-800 hover:text-zinc-100"><span style={{ color: kind.color }}><AgentIcon kindId={kind.id} size={16} /></span>{kind.name}</button>)}</div>
     {recentDirs.length > 0 && <div><div className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-zinc-600">Recent</div><div className="flex flex-col gap-1">{recentDirs.map((d) => <RecentDirRow key={d.path} path={d.path} kinds={kinds} compact={compact} />)}</div></div>}
   </div></div>
