@@ -20,6 +20,7 @@ import { basename } from '../util'
 import { AgentIcon } from './AgentIcon'
 import { StatusMark } from './StatusMark'
 import type { AgentStatus } from '../../../shared/types'
+import { shortcutLabel } from '../../../shared/platform-shortcuts'
 
 interface PaletteItem {
   id: string
@@ -86,17 +87,17 @@ function CommandPaletteInner(): React.JSX.Element {
       }
     }))
     all.push(
-      { id: 'cmd:workspace', label: 'New Workspace', hint: 'command', kbd: '⌘N', action: openNewWorkspaceDialog },
-      { id: 'cmd:spawn', label: 'New Agent', hint: 'choose directory or worktree', kbd: '⌘T', action: openSpawnDialog },
+      { id: 'cmd:workspace', label: 'New Workspace', hint: 'command', kbd: shortcutLabel('N'), action: openNewWorkspaceDialog },
+      { id: 'cmd:spawn', label: 'New Agent', hint: 'choose directory or worktree', kbd: shortcutLabel('T'), action: openSpawnDialog },
       { id: 'cmd:add-terminal', label: 'Add Terminal to Current Workspace', hint: 'command', action: openAddTerminalDialog },
       { id: 'cmd:delete-workspace', label: 'Delete Current Workspace', hint: 'command', action: () => void requestDeleteWorkspace() },
       { id: 'cmd:remove-project', label: 'Remove Current Project', hint: 'files stay on disk', action: () => void removeCurrentProject() },
-      { id: 'cmd:diff', label: 'Toggle Diff', hint: 'command', kbd: '⌘D', action: () => toggleOverlay('diff') },
-      { id: 'cmd:find', label: 'Find in Terminal', hint: 'command', kbd: '⌘F', action: openSearch },
-      { id: 'cmd:next-terminal', label: 'Next Terminal Tab', hint: 'current workspace', kbd: '⌘S', action: () => selectTerminalSibling(1) },
-      { id: 'cmd:next-attention', label: 'Next Terminal in Queue', hint: 'most recently updated first, then loops', kbd: '⌘E', action: selectNextAttentionTerminal },
+      { id: 'cmd:diff', label: 'Toggle Diff', hint: 'command', kbd: shortcutLabel('D'), action: () => toggleOverlay('diff') },
+      { id: 'cmd:find', label: 'Find in Terminal', hint: 'command', kbd: shortcutLabel('F'), action: openSearch },
+      { id: 'cmd:next-terminal', label: 'Next Terminal Tab', hint: 'current workspace', kbd: shortcutLabel('S'), action: () => selectTerminalSibling(1) },
+      { id: 'cmd:next-attention', label: 'Next Terminal in Queue', hint: 'most recently updated first, then loops', kbd: shortcutLabel('E'), action: selectNextAttentionTerminal },
       { id: 'cmd:settings', label: 'Settings', hint: 'command', action: () => useStore.setState({ settingsOpen: true }) },
-      { id: 'cmd:reload', label: 'Reload Config', hint: 'command', kbd: '⌘⇧R', action: () => void reloadConfig() }
+      { id: 'cmd:reload', label: 'Reload Config', hint: 'command', kbd: shortcutLabel('R', true), action: () => void reloadConfig() }
     )
     for (const d of recentDirs) {
       all.push({
