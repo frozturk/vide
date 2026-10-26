@@ -109,7 +109,7 @@ async function createWindow(): Promise<void> {
 app.whenReady().then(async () => {
   if (process.platform === 'win32') app.setAppUserModelId('com.vide.app')
   const iconPath = join(app.getAppPath(), 'build/icon.png')
-  if (app.dock && existsSync(iconPath)) app.dock.setIcon(iconPath)
+  if (!app.isPackaged && app.dock && existsSync(iconPath)) app.dock.setIcon(iconPath)
   Menu.setApplicationMenu(process.platform === 'win32' ? null : buildMenu())
   startTitlePoller()
   installAgentHooks(litemuxBin())
