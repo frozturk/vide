@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import type { AgentKind, Config } from '../shared/types'
+import { defaultShell } from './platform'
 
 const defaults: Config = {
   agentKinds: [
@@ -30,7 +31,8 @@ const defaults: Config = {
       color: '#8b8b8b'
     }
   ],
-  worktreeBase: join('.vide', 'worktrees')
+  worktreeBase: join('.vide', 'worktrees'),
+  ...(process.platform === 'win32' ? { shell: defaultShell(), terminalBackend: 'litemux' as const } : {})
 }
 
 let current: Config | null = null

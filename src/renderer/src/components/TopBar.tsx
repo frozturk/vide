@@ -95,7 +95,12 @@ export function TopBar(): React.JSX.Element {
   return (
     <div
       className="fixed left-0 right-0 top-0 z-20 flex items-center border-b border-zinc-800 bg-zinc-900 select-none"
-      style={{ height: 'var(--toolbar-h)', paddingTop: compact ? 'env(safe-area-inset-top)' : 3, WebkitAppRegion: isWeb ? undefined : 'drag' } as React.CSSProperties}
+      style={{
+        height: 'var(--toolbar-h)',
+        paddingTop: compact ? 'env(safe-area-inset-top)' : 3,
+        WebkitAppRegion: isWeb ? undefined : 'drag',
+        ...(!isWeb ? { left: 'env(titlebar-area-x, 0px)', right: 'auto', width: 'env(titlebar-area-width, 100%)' } : {})
+      } as React.CSSProperties}
     >
       {compact ? (
         <button
@@ -107,7 +112,7 @@ export function TopBar(): React.JSX.Element {
           {attention && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-zinc-900" />}
         </button>
       ) : (
-        <div style={{ width: isWeb ? 14 : 88, flexShrink: 0 }} />
+        <div style={{ width: !isWeb && /mac/i.test(navigator.platform) ? 88 : 14, flexShrink: 0 }} />
       )}
 
       <div className="flex min-w-0 flex-1 items-center gap-3 h-full">
@@ -266,7 +271,7 @@ export function TopBar(): React.JSX.Element {
               </svg>
             </button>
             {!isWeb && <button
-              onClick={() => void window.vide.openInIde(workspace.path)}
+              onClick={() => void window.vide.openInIde(workspace.path).catch((error) => alert(`Could not open VS Code: ${error instanceof Error ? error.message : String(error)}`))}
               className="flex items-center gap-1.5 rounded-md h-6 px-2 text-xs text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200"
               title="Open in IDE"
             >

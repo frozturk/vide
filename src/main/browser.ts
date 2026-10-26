@@ -1,5 +1,6 @@
 import { app, BrowserWindow, BaseWindow, WebContentsView, session } from 'electron'
 import { EventEmitter } from 'events'
+import { shortcutModifiers } from '../shared/platform-shortcuts'
 import { randomUUID } from 'crypto'
 import { readFileSync, writeFileSync, renameSync } from 'fs'
 import { join } from 'path'
@@ -187,8 +188,9 @@ export class BrowserManager {
       if (this.tabs.has(t.id) && !this.stopped) this.close(t.workspaceId, t.id)
     })
     wc.on('before-input-event', (event, input) => {
-      if (this.stopped || this.win.isDestroyed() || input.type !== 'keyDown' || input.control || input.alt) return
-      const chord = matchBrowserShortcut(input.key, input.meta, input.shift) ?? matchChord(input.key, input.meta, input.shift)
+      if (this.stopped || this.win.isDestroyed() || input.type !== 'keyDown') return
+      const mods = shortcutModifiers(input.key, input.meta, input.control, input.shift, input.alt, process.platform === 'darwin')
+      const chord = matchBrowserShortcut(input.key, mods.active, mods.shift) ?? matchChord(input.key, mods.active, mods.shift)
       if (chord) { event.preventDefault(); this.win.webContents.focus(); this.win.webContents.send('browser:shortcut', chord) }
     })
     const update = (): void => {

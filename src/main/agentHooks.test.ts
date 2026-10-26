@@ -25,13 +25,13 @@ describe('agent hooks', () => {
   })
 
   it('only acts inside vide sessions and never fails the agent', () => {
-    const command = hookCommand('/opt/homebrew/bin/tmux', 'waiting')
+    const command = hookCommand('/opt/homebrew/bin/tmux', 'waiting', '', 'darwin')
     expect(command).toMatch(/^\[ -n "\$VIDE_AGENT" \] && \[ -n "\$TMUX_PANE\$LITEMUX_SESSION" \] && /)
     expect(command).toContain("'/opt/homebrew/bin/tmux' set-option -p -t \"$TMUX_PANE\" @vide_state waiting")
     expect(command.endsWith('; true')).toBe(true)
   })
 
-  it('reports the tool name from the hook payload', () => {
+  it.skipIf(process.platform === 'win32')('reports the tool name from the hook payload', () => {
     const dir = mkdtempSync(join(tmpdir(), 'vide-hook-'))
     const fake = join(dir, 'tmux')
     writeFileSync(fake, `#!/bin/sh\necho "$@" > ${join(dir, 'args')}\n`, { mode: 0o755 })
@@ -43,7 +43,7 @@ describe('agent hooks', () => {
     rmSync(dir, { recursive: true, force: true })
   })
 
-  it('reports state through litemux inside litemux sessions', () => {
+  it.skipIf(process.platform === 'win32')('reports state through litemux inside litemux sessions', () => {
     const dir = mkdtempSync(join(tmpdir(), 'vide-hook-'))
     const fake = join(dir, 'litemux')
     writeFileSync(fake, `#!/bin/sh\necho "$@" > ${join(dir, 'args')}\n`, { mode: 0o755 })
@@ -55,7 +55,7 @@ describe('agent hooks', () => {
     rmSync(dir, { recursive: true, force: true })
   })
 
-  it('saves the stop payload before marking the agent idle', () => {
+  it.skipIf(process.platform === 'win32')('saves the stop payload before marking the agent idle', () => {
     const dir = mkdtempSync(join(tmpdir(), 'vide-hook-'))
     const fake = join(dir, 'tmux')
     writeFileSync(fake, `#!/bin/sh\necho "$@" > ${join(dir, 'args')}\n`, { mode: 0o755 })

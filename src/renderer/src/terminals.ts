@@ -7,6 +7,7 @@ import { SearchAddon } from '@xterm/addon-search'
 import { inputBoxRows } from './inputBox'
 import '@xterm/xterm/css/xterm.css'
 import { matchChord } from '../../shared/chords'
+import { shortcutModifiers } from '../../shared/platform-shortcuts'
 import { useStore } from './store'
 
 const MAC_LINE_EDIT: Record<string, string> = {
@@ -99,12 +100,13 @@ export function createTerminal(agentId: string, kindId?: string): void {
   const hidesInputBox = s.isWeb && kindId === 'claude' && Boolean(s.config?.hideClaudeInputBox)
   if (hidesInputBox) term.onRender(() => hideInputBox(agentId))
   term.attachCustomKeyEventHandler((e) => {
+    const mods = shortcutModifiers(e.key, e.metaKey, e.ctrlKey, e.shiftKey, e.altKey, /mac/i.test(navigator.platform))
     if (e.type === 'keydown' && e.key === 'Enter' && e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault()
       window.vide.ptyInput(agentId, '\x1b\r')
       return false
     }
-    if (e.type === 'keydown' && e.key.toLowerCase() === 'v' && e.metaKey && !e.ctrlKey && !e.altKey && !useStore.getState().isWeb) {
+    if (e.type === 'keydown' && e.key.toLowerCase() === 'v' && mods.active && !useStore.getState().isWeb) {
       e.preventDefault()
       void window.vide.clipboardReadText().then((text) => {
         if (text && terminals.get(agentId)?.term === term) term.paste(text)
@@ -119,7 +121,7 @@ export function createTerminal(agentId: string, kindId?: string): void {
         return false
       }
     }
-    if (e.type === 'keydown' && !e.ctrlKey && !e.altKey && matchChord(e.key, e.metaKey, e.shiftKey)) {
+    if (e.type === 'keydown' && matchChord(e.key, mods.active, mods.shift)) {
       return false
     }
     return true

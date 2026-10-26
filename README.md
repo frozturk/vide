@@ -87,6 +87,40 @@ closing terminals stay in sync.
 
 ## Requirements
 
+### Windows with litemux
+
+This checkout supports native Windows terminals through litemux/ConPTY. New
+Windows configurations default to `terminalBackend: "litemux"` and Windows
+PowerShell. Select **litemux** in Settings if you already have a config file.
+PowerShell 7 (`pwsh.exe`) and Git Bash are also supported as configured shells.
+
+The local build is ready to launch from this directory:
+
+```powershell
+npm start
+```
+
+To rebuild after editing, run `npm run build`. For development, run `npm run dev`.
+The build script uses the workspace's `.tools` Rust/GNU toolchain when present,
+or Cargo on `PATH` otherwise. `.tools` is local and gitignored; no system PATH
+change is needed. Fresh checkouts need Node.js, a working Rust toolchain, and
+`git submodule update --init --recursive` followed by `npm ci`.
+
+Windows app shortcuts use **Ctrl+Shift** instead of Command: Ctrl+Shift+T adds
+a terminal, Ctrl+Shift+K opens the palette, and Ctrl+Shift+V pastes. Ctrl+C and
+Ctrl+D remain available to terminal programs. Some existing UI shortcut labels
+still show the macOS Command symbol. The IDE button opens the current workspace
+in a new VS Code window, including installations in the standard Windows user
+and system locations or on PATH. The localhost process list still uses macOS
+utilities and is not yet ported.
+
+Validation: `npm run typecheck`, `npm test`, and `npm run test:litemux`.
+The desktop smoke check (`node scripts/smoke-desktop.cjs`) expects a local Vide
+instance launched with `--remote-debugging-port=9337`; it adds this project and
+leaves a shell terminal open. Normal launches do not enable remote debugging.
+
+### macOS
+
 - macOS (Apple Silicon or Intel)
 - [tmux](https://github.com/tmux/tmux) on your `PATH` (or at a standard location)
 - A shell (`zsh` by default; configurable)

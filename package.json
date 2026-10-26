@@ -4,12 +4,13 @@
   "private": true,
   "main": "out/main/index.js",
   "scripts": {
-    "postinstall": "chmod +x node_modules/node-pty/prebuilds/*/spawn-helper || true",
+    "postinstall": "node scripts/postinstall.cjs",
     "dev": "npm run build:litemux && electron-vite dev",
     "start": "electron-vite preview",
-    "build": "electron-vite build",
+    "build": "npm run build:litemux && electron-vite build",
     "package": "npm run build:litemux && electron-vite build && electron-builder",
-    "build:litemux": "cargo build --release --manifest-path litemux/Cargo.toml",
+    "build:litemux": "node scripts/build-litemux.cjs",
+    "test:litemux": "node scripts/build-litemux.cjs --test",
     "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.json",
     "test": "vitest run"
   },
@@ -21,14 +22,16 @@
     },
     "files": [
       "out/**/*",
+      "build/icon.png",
       "skills/vide-browser/**/*",
       "scripts/browser.mjs",
       "package.json"
     ],
     "extraResources": [
       {
-        "from": "litemux/target/release/litemux",
-        "to": "litemux"
+        "from": "litemux/target/release",
+        "to": ".",
+        "filter": ["litemux", "litemux.exe"]
       }
     ],
     "mac": {

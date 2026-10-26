@@ -1,11 +1,12 @@
 import { BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron'
-import { execFile } from 'child_process'
+import { openInIde } from './ide'
 import { randomUUID } from 'crypto'
 import { stat } from 'fs/promises'
 import { homedir } from 'os'
-import { resolve } from 'path'
+import { basename, resolve } from 'path'
 import type { Agent, AttachRequest, Config, KillRequest, ProjectAddRequest, SpawnRequest, WorkspaceAdoptRequest, WorkspaceCreateRequest, WorkspaceDeleteRequest } from '../shared/types'
 import { configPath, getConfig, reloadConfig, saveConfig } from './config'
+import { defaultShell } from './platform'
 import {
   checkoutBranch,
   createWorktree,
@@ -72,7 +73,7 @@ async function spawnAgent(req: SpawnRequest, clientId: string): Promise<Agent> {
   const root = await repoRoot(cwd)
   const projectRoot = await projectRootOf(cwd)
   const id = randomUUID()
-  const sh = cfg.shell ?? process.env.SHELL ?? '/bin/zsh'
+  const sh = cfg.shell ?? defaultShell()
   const sName = sessionName(id, kind.id, cwd)
   await spawnPty(clientId, id, sh, buildCommand(kind.command), cwd, kind.id)
   return {
@@ -179,7 +180,7 @@ export function createHandlers(win: BrowserWindow): Record<string, Handler> {
         return { project: existing, workspace }
       }
       const now = Date.now()
-      const project = { id: randomUUID(), name: rootPath.split('/').pop() || rootPath, rootPath, createdAt: now, lastOpenedAt: now }
+      const project = { id: randomUUID(), name: basename(rootPath) || rootPath, rootPath, createdAt: now, lastOpenedAt: now }
       const workspace = { id: randomUUID(), projectId: project.id, name: 'Main', kind: 'main' as const, path: rootPath, createdAt: now }
       saveState({ ...state, projects: [...state.projects, project], workspaces: [...state.workspaces, workspace] })
       return { project, workspace }
@@ -270,13 +271,7 @@ export function createHandlers(win: BrowserWindow): Record<string, Handler> {
     'git:checkout': (p: { cwd: string; branch: string }) => checkoutBranch(p.cwd, p.branch),
     'ports:list': () => listLocalServers(),
     'ports:kill': (p: { pid: number; force: boolean }) => killLocalServer(p.pid, p.force),
-    'open:ide': (p: { path: string }) =>
-      new Promise<void>((resolve, reject) => {
-        execFile('/usr/bin/open', ['-b', 'com.microsoft.VSCode', p.path], (error) => {
-          if (error) reject(error)
-          else resolve()
-        })
-      }),
+    'open:ide': (p: { path: string }) => openInIde(p.path),
     'open:external': (p: { url: string }) => shell.openExternal(p.url),
     'dialog:pickDirectory': async () => {
       const r = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'] })

@@ -13,8 +13,11 @@ import { initBrowser } from './browser'
 import { startBrowserControl } from './browser-control'
 import { installBrowserSkills } from './browser-skills'
 import { loadState } from './state'
+import { defaultShell } from './platform'
+import { TOOLBAR_HEIGHT } from '../shared/layout'
 
 function probePath(shellPath: string): Promise<void> {
+  if (process.platform === 'win32') return Promise.resolve()
   return new Promise((resolve) => {
     execFile(shellPath, ['-ilc', 'printf %s "$PATH"'], { timeout: 5000 }, (err, stdout) => {
       if (!err && stdout.trim()) process.env.PATH = stdout.trim()
@@ -37,13 +40,17 @@ let confirmedQuit = false
 
 async function createWindow(): Promise<void> {
   const cfg = getConfig()
-  await probePath(cfg.shell ?? process.env.SHELL ?? '/bin/zsh')
+  await probePath(cfg.shell ?? defaultShell())
   const win = new BrowserWindow({
     width: 1400,
     height: 900,
     backgroundColor: '#09090b',
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 12, y: 12 },
+    icon: join(app.getAppPath(), 'build', 'icon.png'),
+    ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 12, y: 12 } } : {}),
+    ...(process.platform === 'win32' ? {
+      titleBarStyle: 'hidden' as const,
+      titleBarOverlay: { color: '#18181b', symbolColor: '#a1a1aa', height: TOOLBAR_HEIGHT }
+    } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
@@ -100,9 +107,10 @@ async function createWindow(): Promise<void> {
 }
 
 app.whenReady().then(async () => {
+  if (process.platform === 'win32') app.setAppUserModelId('com.vide.app')
   const iconPath = join(app.getAppPath(), 'build/icon.png')
   if (app.dock && existsSync(iconPath)) app.dock.setIcon(iconPath)
-  Menu.setApplicationMenu(buildMenu())
+  Menu.setApplicationMenu(process.platform === 'win32' ? null : buildMenu())
   const replyDir = join(app.getPath('userData'), 'replies')
   startTitlePoller(replyDir)
   installAgentHooks(getTmux(), replyDir)
