@@ -159,7 +159,9 @@ export async function spawnAgent(req: SpawnRequest): Promise<void> {
   const agent = await window.vide.terminalSpawn(req)
   createTerminal(agent.id, agent.kindId)
   addAgent(agent)
-  recordRecentDir(req.cwd)
+  const s = useStore.getState()
+  const workspace = s.workspaces.find((w) => w.id === req.workspaceId)
+  recordRecentDir(workspace?.kind === 'worktree' ? s.projects.find((p) => p.id === workspace.projectId)?.rootPath ?? req.cwd : req.cwd)
 }
 
 function recordRecentDir(cwd: string): void {

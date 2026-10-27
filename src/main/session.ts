@@ -36,7 +36,7 @@ export function loadRecent(): RecentDir[] {
   if (!existsSync(file)) return []
   try {
     const parsed = JSON.parse(readFileSync(file, 'utf8'))
-    return Array.isArray(parsed) ? parsed : []
+    return Array.isArray(parsed) ? parsed.filter((d: RecentDir) => !/[\\/]\.vide[\\/]worktrees[\\/]/.test(d.path)) : []
   } catch {
     return []
   }
