@@ -2,8 +2,9 @@
   "name": "vide-relay",
   "private": true,
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "build": "cd .. && npx electron-vite build && rm -rf relay/public/app && cp -R out/renderer relay/public/app && node -p \"require('./package.json').version\" > relay/public/app/version.txt",
+    "dev": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy",
     "typecheck": "tsc"
   },
   "devDependencies": {

@@ -303,7 +303,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
   }
   const authorized = deviceOf(req) !== null
   if (url.pathname === '/ping') {
-    res.writeHead(authorized ? 204 : 401, { 'Cache-Control': 'no-store' })
+    res.writeHead(authorized ? 204 : 401, { 'Cache-Control': 'no-store', 'X-Vide-Version': app.getVersion() })
     res.end()
     return
   }

@@ -4,3 +4,4 @@ dist/
 .DS_Store
 .vide/
 relay/.wrangler/
+relay/public/app/

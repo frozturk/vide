@@ -3,7 +3,7 @@
   "name": "vide-relay",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
-  "assets": { "directory": "./public" },
+  "assets": { "directory": "./public", "binding": "ASSETS", "html_handling": "none" },
   "durable_objects": {
     "bindings": [{ "name": "INSTANCE", "class_name": "Instance" }]
   },

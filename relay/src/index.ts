@@ -2,6 +2,7 @@ import { DurableObject } from 'cloudflare:workers'
 
 interface Env {
   INSTANCE: DurableObjectNamespace<Instance>
+  ASSETS: Fetcher
 }
 
 type HostMessage =
@@ -45,17 +46,20 @@ function forwardHeaders(req: Request): [string, string][] {
   return headers
 }
 
-function offline(req: Request): Response {
-  if (!req.headers.get('accept')?.includes('text/html')) return new Response('vide is offline', { status: 503 })
+function notice(status: number, text: string): Response {
   return new Response(
-    '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#09090b;color:#71717a;font:15px -apple-system,system-ui,sans-serif">vide is offline. Check that your Mac is awake.</body>',
-    { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } }
+    `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;background:#09090b;color:#71717a;font:15px -apple-system,system-ui,sans-serif">${text}</body>`,
+    { status, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } }
   )
 }
 
 function withRegister(res: Response): Response {
-  if (res.status !== 200 || !res.headers.get('content-type')?.startsWith('text/html')) return res
   return new HTMLRewriter().on('head', { element: (e) => void e.append('<script src="/register.js"></script>', { html: true }) }).transform(res)
+}
+
+export function deviceCookie(setCookie: string | null, prefix: string, secure: boolean): string | null {
+  const value = setCookie?.match(/^vide_device=([A-Za-z0-9%._~-]+);/)?.[1]
+  return value ? `vide_device=${value}; Path=${prefix}/; HttpOnly; SameSite=Lax; Max-Age=31536000${secure ? '; Secure' : ''}` : null
 }
 
 export class Instance extends DurableObject<Env> {
@@ -84,7 +88,7 @@ export class Instance extends DurableObject<Env> {
     if (url.pathname === '/host') return this.attachHost(req, url)
     if (url.pathname === '/proxy/.relay') return Response.json({ online: !!this.host(), name: (await this.ctx.storage.get<string>('name')) ?? null })
     const host = this.host()
-    if (!host) return offline(req)
+    if (!host) return new Response('vide is offline', { status: 503 })
     const id = crypto.randomUUID()
     const path = url.pathname.slice('/proxy'.length) + url.search
     const headers = forwardHeaders(req)
@@ -150,7 +154,7 @@ export class Instance extends DurableObject<Env> {
       if (empty) this.pending.delete(msg.id)
       const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>()
       if (!empty) p.writer = writable.getWriter()
-      p.resolve(withRegister(new Response(empty ? null : readable, { status: msg.status, headers: msg.headers })))
+      p.resolve(new Response(empty ? null : readable, { status: msg.status, headers: msg.headers }))
     } else if (msg.t === 'body') {
       void p.writer?.write(fromBase64(msg.data)).catch(() => {})
     } else if (msg.t === 'end') {
@@ -173,17 +177,60 @@ export class Instance extends DurableObject<Env> {
   }
 }
 
+let appVersion: Promise<string> | null = null
+
+function asset(env: Env, req: Request, path: string): Promise<Response> {
+  return env.ASSETS.fetch(new URL(path, req.url))
+}
+
+function version(env: Env, req: Request): Promise<string> {
+  appVersion ??= asset(env, req, '/app/version.txt').then((r) => r.text()).then((t) => t.trim())
+  return appVersion
+}
+
+async function page(env: Env, req: Request, instance: (path: string, init?: Request) => Promise<Response>): Promise<Response> {
+  const ping = await instance('ping', new Request(req.url, { headers: req.headers }))
+  if (ping.status === 503) return notice(503, 'vide is offline. Check that your Mac is awake.')
+  if (ping.status === 401) return asset(env, req, '/login.html')
+  if (ping.status !== 204) return notice(502, 'vide did not answer.')
+  const header = ping.headers.get('x-vide-version') ?? ''
+  const running = /^[\w.+-]{1,32}$/.test(header) ? header : null
+  const expected = await version(env, req)
+  if (running !== expected) return notice(409, `This Mac runs ${running ? `vide ${running}` : 'an older vide'}, but the relay serves vide ${expected}. Update both to the same version.`)
+  return withRegister(await asset(env, req, '/app/index.html'))
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url)
+    if (url.pathname === '/') return asset(env, req, '/index.html')
     const [, kind, id = '', ...rest] = url.pathname.split('/')
     if ((kind !== 'i' && kind !== 'host') || !ID.test(id)) return new Response('Not found', { status: 404 })
     if (kind === 'i' && rest.length === 0) return Response.redirect(`${url.origin}/i/${id}/${url.search}`, 301)
-    const target = new URL(kind === 'host' ? '/host' : `/proxy/${rest.join('/')}`, 'https://instance')
-    target.search = url.search
-    const forwarded = new Request(target, req)
-    forwarded.headers.set('x-relay-origin', url.origin)
-    forwarded.headers.set('x-relay-prefix', `/i/${id}`)
-    return env.INSTANCE.get(env.INSTANCE.idFromName(id)).fetch(forwarded)
+    const prefix = `/i/${id}`
+    const stub = env.INSTANCE.get(env.INSTANCE.idFromName(id))
+    const instance = (path: string, init: Request = req): Promise<Response> => {
+      const forwarded = new Request(new URL(path.startsWith('/') ? path : `/proxy/${path}`, 'https://instance'), init)
+      forwarded.headers.set('x-relay-origin', url.origin)
+      forwarded.headers.set('x-relay-prefix', prefix)
+      return stub.fetch(forwarded)
+    }
+    if (kind === 'host') return instance(`/host${url.search}`)
+    const path = rest.join('/')
+    if (path === '.relay') return instance('.relay')
+    if (path === 'ws') return req.headers.get('upgrade')?.toLowerCase() === 'websocket' ? instance('ws') : new Response('Expected WebSocket', { status: 426 })
+    if (path === 'ping') {
+      const ping = await instance('ping', new Request(req.url, { headers: req.headers }))
+      return new Response(null, { status: [204, 401].includes(ping.status) ? ping.status : 503, headers: { 'Cache-Control': 'no-store' } })
+    }
+    if (path === 'pair' && req.method === 'POST') {
+      const res = await instance('pair')
+      const cookie = res.status === 303 ? deviceCookie(res.headers.get('set-cookie'), prefix, url.protocol === 'https:') : null
+      if (cookie) return new Response(null, { status: 303, headers: { Location: './', 'Set-Cookie': cookie, 'Cache-Control': 'no-store' } })
+      return new Response(res.status === 429 ? 'Too many attempts' : 'Wrong code', { status: res.status === 429 ? 429 : 401 })
+    }
+    if (req.method !== 'GET') return new Response('Method not allowed', { status: 405 })
+    if (path === '') return page(env, req, instance)
+    return asset(env, req, `/app/${path}`)
   }
 }
