@@ -5,7 +5,7 @@ import { join } from 'path'
 import type { BrowserWindow } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PersistedState } from '../shared/types'
-import { wireIpc } from './ipc'
+import { configFor, wireIpc } from './ipc'
 import { spawnPty } from './pty'
 
 const mocks = vi.hoisted(() => ({
@@ -103,5 +103,15 @@ describe('folder projects', () => {
     await expect(invoke('project:add', { path: file })).rejects.toThrow('Choose a project folder')
     await expect(invoke('project:add', { path: join(root, 'missing') })).rejects.toThrow()
     expect(mocks.state.projects).toHaveLength(0)
+  })
+})
+
+describe('config for clients', () => {
+  it('keeps the relay token on the desktop only', () => {
+    const config = { agentKinds: [], worktreeBase: '.vide', relayUrl: 'https://relay.example', relayToken: 'secret' }
+    expect(configFor(config, 'desktop').relayToken).toBe('secret')
+    expect(configFor(config, 'web-1').relayToken).toBeUndefined()
+    expect(JSON.stringify(configFor(config, 'web-1'))).not.toContain('secret')
+    expect(configFor(config, 'web-1').relayUrl).toBe('https://relay.example')
   })
 })

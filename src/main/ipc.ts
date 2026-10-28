@@ -82,6 +82,10 @@ async function spawnAgent(req: SpawnRequest, clientId: string): Promise<Agent> {
   }
 }
 
+export function configFor(config: Config, clientId: string): Config {
+  return clientId === DESKTOP ? config : { ...config, relayToken: undefined }
+}
+
 const MUTATIONS: Record<string, string> = {
   'config:save': 'config:changed',
   'agent:spawn': 'state:changed',
@@ -110,13 +114,13 @@ export function createHandlers(win: BrowserWindow): Record<string, Handler> {
       if (!['x', 'y', 'width', 'height'].every((key) => Number.isFinite(p[key]))) throw new Error('Invalid browser bounds')
       getBrowser().setLayout(p)
     },
-    'config:get': () => getConfig(),
-    'config:reload': () => reloadConfig(),
-    'config:save': (config: Config) => {
-      saveConfig(config)
+    'config:get': (_, clientId) => configFor(getConfig(), clientId),
+    'config:reload': (_, clientId) => configFor(reloadConfig(), clientId),
+    'config:save': (config: Config, clientId) => {
+      saveConfig(clientId === DESKTOP ? config : { ...config, relayToken: getConfig().relayToken })
       const next = reloadConfig()
       restartWebServer()
-      return next
+      return configFor(next, clientId)
     },
     'config:open': () => {
       shell.openPath(configPath())

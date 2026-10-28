@@ -206,8 +206,15 @@ async function page(env: Env, req: Request, instance: (path: string, init?: Requ
   return withRegister(await asset(env, req, '/app/index.html'))
 }
 
-export default {
-  async fetch(req: Request, env: Env): Promise<Response> {
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Content-Security-Policy': "frame-ancestors 'none'",
+  'Referrer-Policy': 'no-referrer',
+  'X-Robots-Tag': 'noindex, nofollow'
+}
+
+async function route(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url)
     if (url.pathname === '/') return asset(env, req, '/index.html')
     const [, kind, id = '', ...rest] = url.pathname.split('/')
@@ -241,5 +248,14 @@ export default {
     if (req.method !== 'GET') return new Response('Method not allowed', { status: 405 })
     if (path === '') return page(env, req, instance)
     return asset(env, req, `/app/${path}`)
+}
+
+export default {
+  async fetch(req: Request, env: Env): Promise<Response> {
+    const res = await route(req, env)
+    if (res.status === 101) return res
+    const secured = new Response(res.body, res)
+    for (const [k, v] of Object.entries(SECURITY_HEADERS)) secured.headers.set(k, v)
+    return secured
   }
 }
