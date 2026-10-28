@@ -37,6 +37,8 @@ function syncViewport(): void {
   window.addEventListener('resize', update)
 }
 
+const scope = location.pathname.match(/^\/i\/[\w-]+\//)?.[0] ?? ''
+
 let viewed: string | null | undefined
 
 function reportView(): void {
@@ -116,8 +118,8 @@ async function bootstrap(): Promise<void> {
   createRoot(document.getElementById('root')!).render(<App />)
 
   const saved = persisted.agents.filter((s) => s.id)
-  const lastSelectedId = localStorage.getItem('lastSelectedId')
-  const lastWorkspaceId = localStorage.getItem('lastWorkspaceId')
+  const lastSelectedId = localStorage.getItem(`${scope}lastSelectedId`)
+  const lastWorkspaceId = localStorage.getItem(`${scope}lastWorkspaceId`)
   useStore.setState({ suppressUnread: true })
   const restore = (s: (typeof saved)[number], select: boolean): Promise<void> =>
     actions.restoreAgent(s, select).catch((err) => console.error('agent restore failed', s, err))
@@ -137,11 +139,11 @@ async function bootstrap(): Promise<void> {
   setTimeout(() => useStore.setState({ suppressUnread: false }), 3000)
   useStore.subscribe((state, prev) => {
     if (state.selectedId !== prev.selectedId && state.selectedId) {
-      localStorage.setItem('lastSelectedId', state.selectedId)
+      localStorage.setItem(`${scope}lastSelectedId`, state.selectedId)
     }
   })
   useStore.subscribe((state, prev) => {
-    if (state.selectedWorkspaceId !== prev.selectedWorkspaceId && state.selectedWorkspaceId) localStorage.setItem('lastWorkspaceId', state.selectedWorkspaceId)
+    if (state.selectedWorkspaceId !== prev.selectedWorkspaceId && state.selectedWorkspaceId) localStorage.setItem(`${scope}lastWorkspaceId`, state.selectedWorkspaceId)
   })
   useStore.subscribe((state, prev) => {
     if (state.agents === prev.agents && state.titles === prev.titles) return
