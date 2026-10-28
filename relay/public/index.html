@@ -35,15 +35,28 @@
       input { flex: 1; min-width: 0; height: 46px; border-radius: 12px; border: 1px solid #27272a; background: #18181b; color: #f4f4f5; padding: 0 14px; font: inherit; outline: none }
       input:focus { border-color: #52525b }
       form button { height: 46px; border: 0; border-radius: 12px; background: #f4f4f5; color: #09090b; font-weight: 600; font-size: 15px; padding: 0 18px }
+      #scan { height: 50px; border: 0; border-radius: 12px; background: #f4f4f5; color: #09090b; font-weight: 600; font-size: 16px }
+      #scanner { position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: calc(env(safe-area-inset-top) + 24px) 24px calc(env(safe-area-inset-bottom) + 24px) }
+      #scanner[hidden] { display: none }
+      #scanner video { width: 100%; max-width: 420px; aspect-ratio: 1; object-fit: cover; border-radius: 16px; background: #18181b }
+      #scanner p { text-align: center; max-width: 320px }
+      #scanner button { height: 46px; border: 1px solid #3f3f46; border-radius: 12px; background: none; color: #e4e4e7; font-size: 15px; padding: 0 24px }
     </style>
   </head>
   <body>
     <main>
       <header><img src="/icon.svg" alt="" /><h1>vide</h1></header>
       <ul id="list"></ul>
-      <p id="empty">No instances yet. Paste a pairing link from vide → Settings → Web access.</p>
+      <p id="empty">No instances yet. Scan the QR code in vide → Settings → Web access, or paste its pairing link.</p>
+      <button id="scan" hidden>Scan QR code</button>
       <form id="add"><input id="link" type="url" placeholder="Pairing link" autocomplete="off" required /><button type="submit">Add</button></form>
     </main>
+    <div id="scanner" hidden>
+      <video id="video" playsinline muted></video>
+      <p id="scan-msg">Point at the QR code in vide → Settings → Web access</p>
+      <button id="scan-cancel">Cancel</button>
+    </div>
+    <script src="/jsqr.js"></script>
     <script src="/hub.js"></script>
   </body>
 </html>

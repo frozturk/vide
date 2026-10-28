@@ -2,13 +2,14 @@
   "name": "vide-relay",
   "private": true,
   "scripts": {
-    "build": "cd .. && npx electron-vite build && rm -rf relay/public/app && cp -R out/renderer relay/public/app && node -p \"require('./package.json').version\" > relay/public/app/version.txt",
+    "build": "cd .. && npx electron-vite build && rm -rf relay/public/app && cp -R out/renderer relay/public/app && node -p \"require('./package.json').version\" > relay/public/app/version.txt && cp relay/node_modules/jsqr/dist/jsQR.js relay/public/jsqr.js",
     "dev": "npm run build && wrangler dev",
     "deploy": "npm run build && sh -c '. ./.env 2>/dev/null; wrangler deploy ${RELAY_DOMAIN:+--domain \"$RELAY_DOMAIN\"}'",
     "typecheck": "tsc"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261028.1",
+    "jsqr": "^1.4.0",
     "typescript": "^7.0.2",
     "wrangler": "^4.154.0"
   }

@@ -7,3 +7,4 @@ relay/.wrangler/
 relay/public/app/
 relay/.dev.vars
 relay/.env
+relay/public/jsqr.js
