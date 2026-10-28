@@ -73,7 +73,6 @@ export interface Config {
   webPublicUrl?: string
   relayUrl?: string
   relayToken?: string
-  relayName?: string
   hideClaudeInputBox?: boolean
 }
 

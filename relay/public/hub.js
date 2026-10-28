@@ -29,6 +29,16 @@ function render() {
     name.className = 'name'
     name.textContent = id
     a.append(dot, name)
+    const rename = document.createElement('button')
+    rename.textContent = '✎'
+    rename.title = 'Rename'
+    rename.onclick = async () => {
+      const next = prompt('Instance name (leave empty for the computer name)', name.textContent)
+      if (next === null) return
+      const res = await fetch(`/i/${id}/.relay`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: next }) }).catch(() => null)
+      if (res?.ok) return render()
+      alert(res?.status === 401 ? 'Open this instance on this device first, then rename it.' : 'Renaming needs this vide to be online.')
+    }
     const remove = document.createElement('button')
     remove.textContent = '×'
     remove.title = 'Remove'
@@ -36,7 +46,7 @@ function render() {
       save(load().filter((x) => x !== id))
       render()
     }
-    li.append(a, remove)
+    li.append(a, rename, remove)
     ul.append(li)
     fetch(`/i/${id}/.relay`, { cache: 'no-store' })
       .then((r) => r.json())

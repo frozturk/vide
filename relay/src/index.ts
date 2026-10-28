@@ -92,7 +92,16 @@ export class Instance extends DurableObject<Env> {
   async fetch(req: Request): Promise<Response> {
     const url = new URL(req.url)
     if (url.pathname === '/host') return this.attachHost(req, url)
-    if (url.pathname === '/proxy/.relay') return Response.json({ online: !!this.host(), name: (await this.ctx.storage.get<string>('name')) ?? null })
+    if (url.pathname === '/label') {
+      const label = String(((await req.json().catch(() => ({}))) as { name?: unknown }).name ?? '').trim().slice(0, 64)
+      if (label) await this.ctx.storage.put('label', label)
+      else await this.ctx.storage.delete('label')
+      return new Response(null, { status: 204 })
+    }
+    if (url.pathname === '/proxy/.relay') {
+      const [label, name] = await Promise.all([this.ctx.storage.get<string>('label'), this.ctx.storage.get<string>('name')])
+      return Response.json({ online: !!this.host(), name: label ?? name ?? null })
+    }
     const host = this.host()
     if (!host) return new Response('vide is offline', { status: 503 })
     const id = crypto.randomUUID()
@@ -226,6 +235,11 @@ export default {
       return instance(`/host${url.search}`)
     }
     const path = rest.join('/')
+    if (path === '.relay' && req.method === 'POST') {
+      const ping = await instance('ping', new Request(req.url, { headers: req.headers }))
+      if (ping.status !== 204) return new Response(ping.status === 401 ? 'Pair this device first' : 'vide is offline', { status: ping.status === 401 ? 401 : 503 })
+      return instance('/label', new Request(req.url, { method: 'POST', body: await req.text() }))
+    }
     if (path === '.relay') return instance('.relay')
     if (path === 'ws') return req.headers.get('upgrade')?.toLowerCase() === 'websocket' ? instance('ws') : new Response('Expected WebSocket', { status: 426 })
     if (path === 'ping') {
