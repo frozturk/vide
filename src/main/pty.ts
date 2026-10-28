@@ -40,10 +40,18 @@ interface Entry {
   sessionName: string
   alive: boolean
   exited: boolean
+  size: Size | null
+}
+
+export interface Size {
+  cols: number
+  rows: number
 }
 
 let shuttingDown = false
 const ptys = new Map<string, Map<string, Entry>>()
+const views = new Map<string, string | null>()
+const applied = new Map<string, Size>()
 
 export function beginShutdown(): void {
   shuttingDown = true
@@ -83,7 +91,7 @@ export async function spawnPty(
 
 async function attachInternal(clientId: string, agentId: string, name: string): Promise<void> {
   const p = await attach(litemuxInfo(), name)
-  const entry: Entry = { p, agentId, clientId, sessionName: name, alive: true, exited: false }
+  const entry: Entry = { p, agentId, clientId, sessionName: name, alive: true, exited: false, size: null }
   const clients = ptys.get(agentId) ?? new Map<string, Entry>()
   clients.set(clientId, entry)
   ptys.set(agentId, clients)
@@ -128,10 +136,32 @@ export function writePty(clientId: string, agentId: string, data: string): void 
   }
 }
 
+export function smallestSize(sizes: Size[]): Size | null {
+  if (!sizes.length) return null
+  return { cols: Math.min(...sizes.map((s) => s.cols)), rows: Math.min(...sizes.map((s) => s.rows)) }
+}
+
+function applySize(agentId: string): void {
+  const live = [...(ptys.get(agentId)?.values() ?? [])].filter((e) => e.alive && !e.exited)
+  const size = smallestSize(live.flatMap((e) => (views.get(e.clientId) === agentId && e.size ? [e.size] : [])))
+  const last = applied.get(agentId)
+  if (!size || !live.length || (last?.cols === size.cols && last.rows === size.rows)) return
+  applied.set(agentId, size)
+  live[0].p.resize(size.cols, size.rows)
+}
+
 export function resizePty(clientId: string, agentId: string, cols: number, rows: number): void {
   const e = entryOf(clientId, agentId)
   if (!e || !e.alive || e.exited || cols < 2 || rows < 2) return
-  e.p.resize(cols, rows)
+  e.size = { cols, rows }
+  applySize(agentId)
+}
+
+export function viewPty(clientId: string, agentId: string | null): void {
+  const previous = views.get(clientId)
+  views.set(clientId, agentId)
+  if (previous && previous !== agentId) applySize(previous)
+  if (agentId) applySize(agentId)
 }
 
 export async function killPty(agentId: string): Promise<void> {
@@ -139,6 +169,7 @@ export async function killPty(agentId: string): Promise<void> {
   const name = clients?.values().next().value?.sessionName ?? sessionName(agentId)
   await request(litemuxInfo(), { op: 'kill', name }).catch(() => {})
   lastReplies.delete(agentId)
+  applied.delete(agentId)
   if (clients) {
     for (const e of clients.values()) detachEntry(e)
     ptys.delete(agentId)
@@ -146,6 +177,8 @@ export async function killPty(agentId: string): Promise<void> {
 }
 
 export function detachClient(clientId: string): void {
+  const viewed = views.get(clientId)
+  views.delete(clientId)
   for (const [agentId, clients] of ptys) {
     const e = clients.get(clientId)
     if (!e) continue
@@ -153,6 +186,7 @@ export function detachClient(clientId: string): void {
     clients.delete(clientId)
     if (!clients.size) ptys.delete(agentId)
   }
+  if (viewed) applySize(viewed)
 }
 
 export function detachAll(): void {
@@ -160,6 +194,8 @@ export function detachAll(): void {
     for (const e of clients.values()) detachEntry(e)
   }
   ptys.clear()
+  views.clear()
+  applied.clear()
 }
 
 function detachEntry(e: Entry): void {

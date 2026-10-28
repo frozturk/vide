@@ -37,6 +37,15 @@ function syncViewport(): void {
   window.addEventListener('resize', update)
 }
 
+let viewed: string | null | undefined
+
+function reportView(): void {
+  const id = document.visibilityState === 'visible' ? useStore.getState().selectedId : null
+  if (id === viewed) return
+  viewed = id
+  window.vide.ptyView(id)
+}
+
 async function connectWeb(): Promise<void> {
   if (window.vide) return
   const { api, connection, ready } = createWebApi()
@@ -47,6 +56,8 @@ async function connectWeb(): Promise<void> {
   connection.onClose(() => useStore.setState({ connection: 'reconnecting' }))
   connection.onOpen((reconnected) => {
     useStore.setState({ connection: 'online' })
+    viewed = undefined
+    reportView()
     if (reconnected) void actions.reattachAll()
   })
   await ready
@@ -87,6 +98,9 @@ async function bootstrap(): Promise<void> {
   }
   window.addEventListener('focus', reassertSize)
   document.addEventListener('visibilitychange', reassertSize)
+  document.addEventListener('visibilitychange', reportView)
+  useStore.subscribe(reportView)
+  reportView()
   window.addEventListener('pointerdown', reassertSize, { passive: true })
 
   window.vide.onPtyTitle(({ agentId, title }) => {

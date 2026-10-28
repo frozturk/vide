@@ -53,6 +53,7 @@ export function createApi(invoke: Invoke, send: Send, on: Subscribe): VideApi {
     clipboardReadText: () => invoke('clipboard:readText'),
     ptyInput: (agentId, data) => send('pty:input', { agentId, data }),
     ptyResize: (agentId, cols, rows) => send('pty:resize', { agentId, cols, rows }),
+    ptyView: (agentId) => send('pty:view', { agentId }),
     onPtyData: (cb) => on('pty:data', cb),
     onPtyExit: (cb) => on('pty:exit', cb),
     onPtyTitle: (cb) => on('pty:title', cb),

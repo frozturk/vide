@@ -265,6 +265,7 @@ export interface VideApi {
   clipboardReadText(): Promise<string>
   ptyInput(agentId: string, data: string): void
   ptyResize(agentId: string, cols: number, rows: number): void
+  ptyView(agentId: string | null): void
   onPtyData(cb: (p: { agentId: string; data: string }) => void): () => void
   onPtyExit(cb: (p: { agentId: string; exitCode: number }) => void): () => void
   onPtyTitle(cb: (p: { agentId: string; title: string }) => void): () => void

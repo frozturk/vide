@@ -24,7 +24,7 @@ import {
   worktreeStatus
 } from './git'
 import { killLocalServer, listLocalServers } from './ports'
-import { attachPty, killPty, resizePty, sessionName, spawnPty, writePty } from './pty'
+import { attachPty, killPty, resizePty, sessionName, spawnPty, viewPty, writePty } from './pty'
 import { loadSession, loadRecent, saveRecent } from './session'
 import type { RecentDir, SessionAgent } from '../shared/types'
 import { loadState, saveState, updateAgents } from './state'
@@ -275,7 +275,8 @@ export function createHandlers(win: BrowserWindow): Record<string, Handler> {
 
 export const senders: Record<string, (arg: any, clientId: string) => void> = {
   'pty:input': (p: { agentId: string; data: string }, clientId) => writePty(clientId, p.agentId, p.data),
-  'pty:resize': (p: { agentId: string; cols: number; rows: number }, clientId) => resizePty(clientId, p.agentId, p.cols, p.rows)
+  'pty:resize': (p: { agentId: string; cols: number; rows: number }, clientId) => resizePty(clientId, p.agentId, p.cols, p.rows),
+  'pty:view': (p: { agentId: string | null }, clientId) => viewPty(clientId, p.agentId)
 }
 
 export async function runHandler(handlers: Record<string, Handler>, channel: string, arg: unknown, clientId: string): Promise<unknown> {
