@@ -43,7 +43,7 @@ async function connectWeb(): Promise<void> {
   window.vide = api
   useStore.setState({ isWeb: true })
   document.documentElement.classList.add('web')
-  if ('serviceWorker' in navigator && !import.meta.env.DEV) void navigator.serviceWorker.register('/sw.js').catch(() => {})
+  if ('serviceWorker' in navigator && !import.meta.env.DEV) void navigator.serviceWorker.register('sw.js').catch(() => {})
   connection.onClose(() => useStore.setState({ connection: 'reconnecting' }))
   connection.onOpen((reconnected) => {
     useStore.setState({ connection: 'online' })

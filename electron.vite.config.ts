@@ -5,5 +5,5 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   main: { plugins: [externalizeDepsPlugin()] },
   preload: { plugins: [externalizeDepsPlugin()] },
-  renderer: { plugins: [react(), tailwindcss()] }
+  renderer: { base: './', plugins: [react(), tailwindcss()] }
 })

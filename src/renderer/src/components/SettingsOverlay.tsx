@@ -115,7 +115,18 @@ function SettingsInner(): React.JSX.Element {
             <div className="mb-6">
               <div className="mb-3 text-xs font-medium uppercase tracking-wider text-zinc-500">Web access</div>
               <WebAccess />
-              <div className="mt-4 grid grid-cols-[1fr_120px] gap-3">
+              <div className="mt-4">
+                <Field label="Relay URL" hint="Your vide relay. When set, it replaces the public URL">
+                  <input
+                    type="text"
+                    value={draft.relayUrl ?? ''}
+                    onChange={(e) => setField('relayUrl', e.target.value || undefined)}
+                    placeholder="https://vide.example.com"
+                    className={inputCls}
+                  />
+                </Field>
+              </div>
+              <div className="mt-3 grid grid-cols-[1fr_120px] gap-3">
                 <Field label="Public URL" hint="Your tunnel address. Leave empty to use Tailscale automatically">
                   <input
                     type="text"
@@ -305,6 +316,7 @@ function WebAccess(): React.JSX.Element {
           </div>
           <div className="mt-auto text-[11px] leading-relaxed text-zinc-600">
             {info?.publicSource === 'tailscale' ? 'Using your Tailscale address. ' : ''}
+            {info?.publicSource === 'relay' ? (info.relayConnected ? 'Connected to your relay. ' : 'Connecting to your relay… ') : ''}
             Codes work once and expire after 5 minutes. For your phone without installing anything there, run{' '}
             <code className="rounded bg-zinc-800/80 px-1 text-zinc-400">tailscale funnel --bg {port}</code> on this Mac.
           </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { authCookie, createLimiter, isLoopbackHost, parseCookies, sameOrigin, tailscaleUrl } from './web'
+import { authCookie, cookiePath, createLimiter, isLoopbackHost, parseCookies, sameOrigin, tailscaleUrl } from './web'
 
 vi.mock('electron', () => ({ app: { getPath: () => '/tmp' } }))
 
@@ -20,6 +20,14 @@ describe('web access auth', () => {
   it('marks the cookie secure only behind https', () => {
     expect(authCookie('t', false)).toBe('vide_device=t; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000')
     expect(authCookie('t', true)).toContain('; Secure')
+  })
+
+  it('scopes the cookie to the relay prefix', () => {
+    expect(cookiePath('/i/abc_DEF-123')).toBe('/i/abc_DEF-123/')
+    expect(cookiePath(undefined)).toBe('/')
+    expect(cookiePath('')).toBe('/')
+    expect(cookiePath('/i/a; Domain=evil')).toBe('/')
+    expect(authCookie('t', true, '/i/x/')).toContain('; Path=/i/x/;')
   })
 
   it('locks login after repeated failures and recovers after the window', () => {

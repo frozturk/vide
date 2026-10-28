@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vide-relay",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./public" },
+  "durable_objects": {
+    "bindings": [{ "name": "INSTANCE", "class_name": "Instance" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Instance"] }]
+}

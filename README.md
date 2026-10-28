@@ -86,6 +86,11 @@ closing terminals stay in sync.
   URL that terminates TLS on your Mac, so Tailscale can't read the traffic and
   your phone needs no app. vide detects the Tailscale address for the QR code;
   for any other tunnel, set Public URL in Settings.
+- **Relay**: `relay/` is a Cloudflare Worker that reaches vide without a
+  tunnel. Deploy it with `cd relay && npm install && npx wrangler deploy`, then
+  set Relay URL in Settings. vide connects out to it, and each instance lives at
+  `/i/<id>/`; the relay's home page lists every instance you paired on that
+  device. The first vide to claim an id owns it, and Cloudflare sees the traffic.
 - **Mobile**: a responsive layout with a workspace drawer, bottom-sheet dialogs,
   touch scrolling, and a key bar (`esc`, `tab`, sticky `ctrl`, arrows, `^C`,
   paste). Add it to your home screen for a full-screen app.

@@ -71,6 +71,7 @@ export interface Config {
   shell?: string
   webPort?: number
   webPublicUrl?: string
+  relayUrl?: string
   hideClaudeInputBox?: boolean
 }
 
@@ -84,7 +85,8 @@ export interface PairedDevice {
 export interface WebInfo {
   url: string
   publicUrl: string | null
-  publicSource: 'config' | 'tailscale' | null
+  publicSource: 'config' | 'tailscale' | 'relay' | null
+  relayConnected: boolean
   pairingCode: string
   pairingExpiresAt: number
   devices: (PairedDevice & { online: boolean })[]

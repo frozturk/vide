@@ -12,7 +12,9 @@ export interface WebConnection {
 }
 
 export function createWebApi(): { api: VideApi; connection: WebConnection; ready: Promise<void> } {
-  const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`
+  const url = new URL('ws', location.href)
+  url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
+  url.hash = ''
   const listeners = new Map<string, Set<(payload: unknown) => void>>()
   const pending = new Map<number, Pending>()
   const queue: string[] = []
@@ -56,7 +58,7 @@ export function createWebApi(): { api: VideApi; connection: WebConnection; ready
       if (opened) for (const cb of closeCbs) cb()
       attempts++
       if (event.code === 4001 || attempts % 3 === 0) {
-        fetch('/ping', { cache: 'no-store' })
+        fetch('ping', { cache: 'no-store' })
           .then((r) => {
             if (r.status === 401) location.reload()
           })

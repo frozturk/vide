@@ -14,6 +14,7 @@ import { getConfig } from './config'
 import { detachClient } from './pty'
 import { isDevelopmentRuntime } from './runtime'
 import { formatCode, PairingStore, type StoredDevice } from './pairing'
+import { relayBase, relayConnected, relayIdentity, startRelay, stopRelay } from './relay'
 
 const DEFAULT_PORT = isDevelopmentRuntime() ? 7879 : 7878
 
@@ -62,8 +63,12 @@ export function sameOrigin(origin: string | undefined, hosts: (string | undefine
   }
 }
 
-export function authCookie(credential: string, secure: boolean): string {
-  return `${COOKIE}=${encodeURIComponent(credential)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000${secure ? '; Secure' : ''}`
+export function cookiePath(prefix: string | string[] | undefined): string {
+  return typeof prefix === 'string' && /^(\/[\w-]+)+$/.test(prefix) ? `${prefix}/` : '/'
+}
+
+export function authCookie(credential: string, secure: boolean, path = '/'): string {
+  return `${COOKIE}=${encodeURIComponent(credential)}; Path=${path}; HttpOnly; SameSite=Lax; Max-Age=31536000${secure ? '; Secure' : ''}`
 }
 
 function webPath(): string {
@@ -127,6 +132,8 @@ async function detectTailscale(): Promise<string | null> {
 }
 
 async function publicOrigin(): Promise<{ url: string | null; source: WebInfo['publicSource'] }> {
+  const relay = relayBase()
+  if (relay) return { url: `${relay}/i/${relayIdentity().id}`, source: 'relay' }
   const configured = getConfig().webPublicUrl?.trim().replace(/\/+$/, '')
   if (configured) return { url: configured, source: 'config' }
   const detected = await detectTailscale()
@@ -141,6 +148,7 @@ export async function webInfo(): Promise<WebInfo> {
     url: `http://localhost:${port}/#pair=${code.code}`,
     publicUrl: pub.url ? `${pub.url}/#pair=${code.code}` : null,
     publicSource: pub.source,
+    relayConnected: relayConnected(),
     pairingCode: formatCode(code.code),
     pairingExpiresAt: code.expiresAt,
     devices: pairing().list().map((d) => ({ ...d, online: [...socketDevices.values()].includes(d.id) })),
@@ -188,22 +196,22 @@ const SECURITY_HEADERS = {
 
 function loginPage(res: ServerResponse, failed: boolean): void {
   res.writeHead(401, { ...SECURITY_HEADERS, 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' })
-  res.end(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#09090b"><meta name="robots" content="noindex, nofollow"><title>vide</title><link rel="icon" href="/icon.svg"><style>
+  res.end(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#09090b"><meta name="robots" content="noindex, nofollow"><title>vide</title><link rel="icon" href="icon.svg"><style>
 *{box-sizing:border-box}html,body{height:100%;margin:0}body{background:#09090b;color:#e4e4e7;font:15px/1.5 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px}
 form{width:100%;max-width:340px;display:flex;flex-direction:column;gap:14px;animation:in .4s cubic-bezier(.2,.8,.2,1)}@keyframes in{from{opacity:0;transform:translateY(8px)}}
 img{width:40px;height:40px;margin-bottom:6px}h1{font-size:20px;margin:0;font-weight:600}p{margin:0;color:#71717a;font-size:13px}
 input{width:100%;height:50px;border-radius:12px;border:1px solid #27272a;background:#18181b;color:#f4f4f5;padding:0 14px;font:18px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em;text-align:center;text-transform:uppercase;outline:none;transition:border-color .15s}input:focus{border-color:#52525b}input.bad{border-color:#7f1d1d}
 button{height:46px;border:0;border-radius:12px;background:#f4f4f5;color:#09090b;font-weight:600;font-size:15px;transition:transform .1s,opacity .15s}button:active{transform:scale(.98);opacity:.9}button:disabled{opacity:.5}
-.err{color:#f87171}</style></head><body><form id="f" method="post" action="/pair"><img src="/icon.svg" alt=""><h1>Pair this device</h1><p id="m" class="${failed ? 'err' : ''}">${failed ? 'That code is wrong or expired. Get a fresh one from vide → Settings → Web access.' : 'Scan the QR code in vide → Settings → Web access, or type the code shown there.'}</p><input id="c" name="code" class="${failed ? 'bad' : ''}" autocomplete="one-time-code" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="XXXXX-XXXXX" maxlength="11" required><button id="b" type="submit">Pair</button></form><script>
+.err{color:#f87171}</style></head><body><form id="f" method="post" action="pair"><img src="icon.svg" alt=""><h1>Pair this device</h1><p id="m" class="${failed ? 'err' : ''}">${failed ? 'That code is wrong or expired. Get a fresh one from vide → Settings → Web access.' : 'Scan the QR code in vide → Settings → Web access, or type the code shown there.'}</p><input id="c" name="code" class="${failed ? 'bad' : ''}" autocomplete="one-time-code" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="XXXXX-XXXXX" maxlength="11" required><button id="b" type="submit">Pair</button></form><script>
 const f=document.getElementById('f'),c=document.getElementById('c'),b=document.getElementById('b'),m=document.getElementById('m');
-async function pair(code){b.disabled=true;b.textContent='Pairing…';const r=await fetch('/pair',{method:'POST',body:new URLSearchParams({code}),redirect:'manual'}).catch(()=>null);if(r&&(r.type==='opaqueredirect'||r.status===303)){location.replace('/');return}b.disabled=false;b.textContent='Pair';c.classList.add('bad');m.className='err';m.textContent=r&&r.status===429?'Too many attempts. Try again in a minute.':'That code is wrong or expired. Get a fresh one from vide → Settings → Web access.'}
+async function pair(code){b.disabled=true;b.textContent='Pairing…';const r=await fetch('pair',{method:'POST',body:new URLSearchParams({code}),redirect:'manual'}).catch(()=>null);if(r&&(r.type==='opaqueredirect'||r.status===303)){location.replace('./');return}b.disabled=false;b.textContent='Pair';c.classList.add('bad');m.className='err';m.textContent=r&&r.status===429?'Too many attempts. Try again in a minute.':'That code is wrong or expired. Get a fresh one from vide → Settings → Web access.'}
 function fromHash(){const h=new URLSearchParams(location.hash.slice(1)).get('pair');if(h){history.replaceState(null,'',location.pathname);c.value=h;pair(h)}}fromHash();addEventListener('hashchange',fromHash);
 f.addEventListener('submit',(e)=>{e.preventDefault();pair(c.value)});
 </script></body></html>`)
 }
 
 function redirectWithCookie(req: IncomingMessage, res: ServerResponse, credential: string): void {
-  res.writeHead(303, { ...SECURITY_HEADERS, 'Set-Cookie': authCookie(credential, isSecure(req)), Location: '/', 'Cache-Control': 'no-store' })
+  res.writeHead(303, { ...SECURITY_HEADERS, 'Set-Cookie': authCookie(credential, isSecure(req), cookiePath(req.headers['x-forwarded-prefix'])), Location: './', 'Cache-Control': 'no-store' })
   res.end()
 }
 
@@ -400,6 +408,7 @@ export function startWebServer(d: Dispatch): void {
   s.listen(port, host, () => {
     lastError = null
     bound = { host, port }
+    startRelay(port)
     console.log(`[vide/web] listening on http://${host}:${port}`)
   })
   server = s
@@ -410,6 +419,7 @@ export function restartWebServer(): void {
 }
 
 export function stopWebServer(): void {
+  stopRelay()
   for (const ws of wss?.clients ?? []) ws.terminate()
   wss?.close()
   server?.close()
