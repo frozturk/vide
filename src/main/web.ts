@@ -8,6 +8,7 @@ import { gzipSync } from 'zlib'
 import { extname, join, resolve, sep } from 'path'
 import type { Duplex } from 'stream'
 import { WebSocketServer, WebSocket } from 'ws'
+import { PROTOCOL } from '../shared/protocol'
 import { encodePtyFrame } from '../shared/ptyFrame'
 import type { WebInfo } from '../shared/types'
 import { registerClient, unregisterClient } from './clients'
@@ -305,7 +306,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
   }
   const authorized = deviceOf(req) !== null
   if (url.pathname === '/ping') {
-    res.writeHead(authorized ? 204 : 401, { 'Cache-Control': 'no-store', 'X-Vide-Version': app.getVersion() })
+    res.writeHead(authorized ? 204 : 401, { 'Cache-Control': 'no-store', 'X-Vide-Version': app.getVersion(), 'X-Vide-Protocol': String(PROTOCOL) })
     res.end()
     return
   }

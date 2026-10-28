@@ -184,15 +184,15 @@ export class Instance extends DurableObject<Env> {
   }
 }
 
-let appVersion: Promise<string> | null = null
+let appProtocol: Promise<string> | null = null
 
 function asset(env: Env, req: Request, path: string): Promise<Response> {
   return env.ASSETS.fetch(new URL(path, req.url))
 }
 
-function version(env: Env, req: Request): Promise<string> {
-  appVersion ??= asset(env, req, '/app/version.txt').then((r) => r.text()).then((t) => t.trim())
-  return appVersion
+function protocol(env: Env, req: Request): Promise<string> {
+  appProtocol ??= asset(env, req, '/app/protocol.txt').then((r) => r.text()).then((t) => t.trim())
+  return appProtocol
 }
 
 async function page(env: Env, req: Request, instance: (path: string, init?: Request) => Promise<Response>): Promise<Response> {
@@ -200,10 +200,10 @@ async function page(env: Env, req: Request, instance: (path: string, init?: Requ
   if (ping.status === 503) return notice(503, 'vide is offline. Check that your Mac is awake.')
   if (ping.status === 401) return asset(env, req, '/login.html')
   if (ping.status !== 204) return notice(502, 'vide did not answer.')
-  const header = ping.headers.get('x-vide-version') ?? ''
-  const running = /^[\w.+-]{1,32}$/.test(header) ? header : null
-  const expected = await version(env, req)
-  if (running !== expected) return notice(409, `This Mac runs ${running ? `vide ${running}` : 'an older vide'}, but the relay serves vide ${expected}. Update both to the same version.`)
+  const header = ping.headers.get('x-vide-protocol') ?? '1'
+  const running = /^\d{1,4}$/.test(header) ? header : null
+  const expected = await protocol(env, req)
+  if (running !== expected) return notice(409, `This Mac's vide speaks relay protocol ${running ?? 'unknown'}, but the relay serves protocol ${expected}. Update vide or redeploy the relay.`)
   return withRegister(await asset(env, req, '/app/index.html'))
 }
 

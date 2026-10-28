@@ -95,7 +95,10 @@ closing terminals stay in sync.
   out to it, and each instance lives at `/i/<id>/`; the relay's home page lists
   every instance you paired on that device. The relay serves the UI itself and
   passes only `/ws`, `/ping` and pairing to an instance, so instances can't run
-  code in the browser; relay and vide must run the same version. The first vide
+  code in the browser. The relay only checks `PROTOCOL` in
+  `src/shared/protocol.ts`; bump it whenever the web UI and the Mac stop being
+  compatible (a changed IPC channel, message shape or terminal frame), then
+  release vide and redeploy the relay. The first vide
   to claim an id owns it, and Cloudflare sees the traffic.
 - **Mobile**: a responsive layout with a workspace drawer, bottom-sheet dialogs,
   touch scrolling, and a key bar (`esc`, `tab`, sticky `ctrl`, arrows, `^C`,
