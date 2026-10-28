@@ -37,19 +37,22 @@ export function Composer({ agentId }: { agentId: string }): React.JSX.Element {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-3 pt-2">
+    <div
+      className="mx-auto w-full max-w-2xl px-3 pt-2"
+      onTouchEnd={(e) => {
+        const input = ref.current
+        if (!input || document.activeElement === input || (e.target as HTMLElement).closest('button')) return
+        e.preventDefault()
+        anticipateKeyboard(true)
+        focusWithoutPan(input)
+      }}
+    >
       <div className="flex items-end gap-1 rounded-[22px] bg-black py-1 pl-4 pr-1 shadow-[0_10px_40px_-8px_rgba(0,0,0,0.9)] ring-1 ring-white/10 transition-shadow focus-within:ring-white/20">
         <textarea
           ref={ref}
           value={text}
           rows={1}
           onChange={(e) => onChange(e.target.value)}
-          onPointerDown={(e) => {
-            if (e.pointerType !== 'touch' || document.activeElement === e.currentTarget) return
-            e.preventDefault()
-            anticipateKeyboard(true)
-            focusWithoutPan(e.currentTarget)
-          }}
           onBlur={() => anticipateKeyboard(false)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
