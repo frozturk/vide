@@ -44,8 +44,8 @@ export function Composer({ agentId }: { agentId: string }): React.JSX.Element {
           value={text}
           rows={1}
           onChange={(e) => onChange(e.target.value)}
-          onTouchEnd={(e) => {
-            if (document.activeElement === e.currentTarget) return
+          onPointerDown={(e) => {
+            if (e.pointerType !== 'touch' || document.activeElement === e.currentTarget) return
             e.preventDefault()
             anticipateKeyboard(true)
             focusWithoutPan(e.currentTarget)
