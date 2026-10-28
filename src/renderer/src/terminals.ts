@@ -247,7 +247,9 @@ function installTouch(agentId: string, container: HTMLElement): void {
     velocity = 0
     moved = false
   }, { passive: true, capture: true })
+  const selecting = (): boolean => !!container.querySelector('.xterm-touch-selecting')
   container.addEventListener('touchmove', (ev) => {
+    if (selecting()) return
     const t = ev.touches[0]
     const dy = t.clientY - lastY
     if (!moved && Math.abs(t.clientY - startY) < 8) return
@@ -261,6 +263,11 @@ function installTouch(agentId: string, container: HTMLElement): void {
     wheel(dy)
   }, { passive: false, capture: true })
   container.addEventListener('touchend', (ev) => {
+    if (selecting()) {
+      const text = terminals.get(agentId)?.term.getSelection()
+      if (text) void navigator.clipboard?.writeText(text).catch(() => {})
+      return
+    }
     if (!moved) return
     ev.preventDefault()
     ev.stopPropagation()

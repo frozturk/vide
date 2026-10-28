@@ -11,7 +11,8 @@
     "build:litemux": "cargo build --release --locked --manifest-path litemux/Cargo.toml",
     "test:litemux": "cargo test --release --locked --manifest-path litemux/Cargo.toml",
     "typecheck": "tsc -p tsconfig.node.json && tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "postinstall": "patch-package"
   },
   "build": {
     "appId": "com.vide.app",
@@ -78,6 +79,7 @@
     "electron": "^43.1.0",
     "electron-builder": "^25.1.8",
     "electron-vite": "^5.0.0",
+    "patch-package": "^8.0.1",
     "qrcode-generator": "^2.0.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
