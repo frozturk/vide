@@ -1,9 +1,8 @@
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
 
-export function encodePtyFrame(agentId: string, data: string): Uint8Array {
+export function encodePtyFrame(agentId: string, body: Uint8Array): Uint8Array {
   const id = encoder.encode(agentId)
-  const body = encoder.encode(data)
   const frame = new Uint8Array(1 + id.length + body.length)
   frame[0] = id.length
   frame.set(id, 1)

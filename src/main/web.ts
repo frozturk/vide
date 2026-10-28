@@ -26,6 +26,8 @@ export interface Dispatch {
 }
 
 const COOKIE = 'vide_device'
+const FLUSH_MS = 100
+const FRAME_BYTES = 256 * 1024
 const PUBLIC_PATHS = new Set(['/manifest.webmanifest', '/sw.js', '/icon.svg', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/apple-touch-icon.png'])
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -317,11 +319,28 @@ function attachSocket(ws: WebSocket, deviceId: string): void {
   const clientId = `web-${randomUUID()}`
   socketDevices.set(ws, deviceId)
   let alive = true
+  const output = new Map<string, Buffer[]>()
+  let flushTimer: NodeJS.Timeout | null = null
+  const flush = (): void => {
+    if (flushTimer) clearTimeout(flushTimer)
+    flushTimer = null
+    for (const [agentId, parts] of output) {
+      const data = Buffer.concat(parts)
+      for (let i = 0; i < data.length; i += FRAME_BYTES) ws.send(encodePtyFrame(agentId, data.subarray(i, i + FRAME_BYTES)))
+    }
+    output.clear()
+  }
   registerClient(clientId, (ch, payload) => {
     if (ws.readyState !== WebSocket.OPEN) return
-    if (ch !== 'pty:data') return ws.send(JSON.stringify({ t: 'event', ch, payload }))
+    if (ch !== 'pty:data') {
+      flush()
+      return ws.send(JSON.stringify({ t: 'event', ch, payload }))
+    }
     const { agentId, data } = payload as { agentId: string; data: string }
-    ws.send(encodePtyFrame(agentId, data))
+    const parts = output.get(agentId)
+    if (parts) parts.push(Buffer.from(data))
+    else output.set(agentId, [Buffer.from(data)])
+    flushTimer ??= setTimeout(flush, FLUSH_MS)
   })
   const reply = (msg: unknown): void => {
     if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg))
@@ -353,6 +372,7 @@ function attachSocket(ws: WebSocket, deviceId: string): void {
     }
   })
   ws.on('close', () => {
+    if (flushTimer) clearTimeout(flushTimer)
     socketDevices.delete(ws)
     pairing().touch(deviceId)
     clearInterval(heartbeat)
@@ -391,7 +411,10 @@ export function startWebServer(d: Dispatch): void {
   dispatch = d
   const host = '127.0.0.1'
   const port = getConfig().webPort || DEFAULT_PORT
-  if (server && bound?.host === host && bound.port === port) return
+  if (server && bound?.host === host && bound.port === port) {
+    startRelay(port)
+    return
+  }
   stopWebServer()
   wss = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 * 1024 })
   const s = createServer((req, res) => {

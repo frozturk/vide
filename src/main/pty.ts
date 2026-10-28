@@ -3,7 +3,7 @@ import { app } from 'electron'
 import { shellArgv } from './platform'
 import { attach, ensureServer, listSessions, request, type Attached, type LitemuxSession } from './litemux'
 import { runtimeStateFile, sessionPrefix } from './runtime'
-import { post } from './clients'
+import { DESKTOP, post } from './clients'
 import { AGENT_ENV, parseState, replyText, stateAfterInput, type Reply } from './agentHooks'
 
 function buildEnv(): Record<string, string> {
@@ -41,6 +41,7 @@ interface Entry {
   alive: boolean
   exited: boolean
   size: Size | null
+  stale: boolean
 }
 
 export interface Size {
@@ -91,12 +92,17 @@ export async function spawnPty(
 
 async function attachInternal(clientId: string, agentId: string, name: string): Promise<void> {
   const p = await attach(litemuxInfo(), name)
-  const entry: Entry = { p, agentId, clientId, sessionName: name, alive: true, exited: false, size: null }
+  const entry: Entry = { p, agentId, clientId, sessionName: name, alive: true, exited: false, size: null, stale: false }
   const clients = ptys.get(agentId) ?? new Map<string, Entry>()
   clients.set(clientId, entry)
   ptys.set(agentId, clients)
   p.onData((data) => {
-    if (entry.alive) post(clientId, 'pty:data', { agentId, data })
+    if (!entry.alive) return
+    if (clientId !== DESKTOP && views.get(clientId) !== agentId) {
+      entry.stale = true
+      return
+    }
+    post(clientId, 'pty:data', { agentId, data })
   })
   p.onExit(({ exitCode }) => {
     entry.exited = true
@@ -157,11 +163,23 @@ export function resizePty(clientId: string, agentId: string, cols: number, rows:
   applySize(agentId)
 }
 
+async function refresh(old: Entry): Promise<void> {
+  old.stale = false
+  await attachInternal(old.clientId, old.agentId, old.sessionName)
+  const next = entryOf(old.clientId, old.agentId)
+  if (!next || next === old) return
+  next.size = old.size
+  detachEntry(old)
+}
+
 export function viewPty(clientId: string, agentId: string | null): void {
   const previous = views.get(clientId)
   views.set(clientId, agentId)
   if (previous && previous !== agentId) applySize(previous)
-  if (agentId) applySize(agentId)
+  if (!agentId) return
+  const e = entryOf(clientId, agentId)
+  if (e?.stale && e.alive && !e.exited) void refresh(e).catch(() => {})
+  applySize(agentId)
 }
 
 export async function killPty(agentId: string): Promise<void> {
