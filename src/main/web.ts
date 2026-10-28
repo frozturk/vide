@@ -322,19 +322,20 @@ function attachSocket(ws: WebSocket, deviceId: string): void {
   const reply = (msg: unknown): void => {
     if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg))
   }
-  ws.on('pong', () => {
-    alive = true
-  })
   const heartbeat = setInterval(() => {
     if (!alive) return ws.terminate()
     alive = false
-    ws.ping()
+    reply({ t: 'ping' })
   }, 25000)
   ws.on('message', async (raw) => {
     let msg: { t: string; id?: number; ch: string; arg?: unknown }
     try {
       msg = JSON.parse(raw.toString())
     } catch {
+      return
+    }
+    if (msg.t === 'pong') {
+      alive = true
       return
     }
     if (!dispatch || typeof msg.ch !== 'string') return

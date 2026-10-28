@@ -40,6 +40,7 @@ export function createWebApi(): { api: VideApi; connection: WebConnection; ready
     }
     socket.onmessage = (event) => {
       const msg = JSON.parse(event.data as string)
+      if (msg.t === 'ping') return socket.send('{"t":"pong"}')
       if (msg.t === 'event') {
         for (const cb of listeners.get(msg.ch) ?? []) cb(msg.payload)
         return
