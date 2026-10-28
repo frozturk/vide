@@ -17,6 +17,7 @@ interface Pending {
 }
 
 const ID = /^[A-Za-z0-9_-]{16,64}$/
+const STREAM_ID = 36
 const SKIP = new Set(['host', 'connection', 'upgrade', 'keep-alive', 'transfer-encoding', 'content-length', 'accept-encoding', 'x-relay-origin', 'x-relay-prefix'])
 
 function toBase64(bytes: Uint8Array): string {
@@ -123,10 +124,16 @@ export class Instance extends DurableObject<Env> {
 
   webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): void {
     const [tag] = this.ctx.getTags(ws)
-    if (typeof message !== 'string') return
     if (tag !== 'host') {
-      this.host()?.send(JSON.stringify({ t: 'msg', id: tag, data: message }))
-      return
+      if (typeof message === 'string') return this.host()?.send(JSON.stringify({ t: 'msg', id: tag, data: message }))
+      const frame = new Uint8Array(STREAM_ID + message.byteLength)
+      frame.set(new TextEncoder().encode(tag))
+      frame.set(new Uint8Array(message), STREAM_ID)
+      return this.host()?.send(frame)
+    }
+    if (typeof message !== 'string') {
+      const bytes = new Uint8Array(message)
+      return this.ctx.getWebSockets(new TextDecoder().decode(bytes.subarray(0, STREAM_ID)))[0]?.send(bytes.subarray(STREAM_ID))
     }
     let msg: HostMessage
     try {

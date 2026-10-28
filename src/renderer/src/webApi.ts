@@ -1,4 +1,5 @@
 import { createApi } from '../../shared/api'
+import { decodePtyFrame } from '../../shared/ptyFrame'
 import type { VideApi } from '../../shared/types'
 
 interface Pending {
@@ -29,6 +30,7 @@ export function createWebApi(): { api: VideApi; connection: WebConnection; ready
 
   const connect = (): void => {
     const socket = new WebSocket(url)
+    socket.binaryType = 'arraybuffer'
     ws = socket
     socket.onopen = () => {
       attempts = 0
@@ -39,6 +41,11 @@ export function createWebApi(): { api: VideApi; connection: WebConnection; ready
       for (const cb of openCbs) cb(reconnected)
     }
     socket.onmessage = (event) => {
+      if (event.data instanceof ArrayBuffer) {
+        const frame = decodePtyFrame(new Uint8Array(event.data))
+        for (const cb of listeners.get('pty:data') ?? []) cb(frame)
+        return
+      }
       const msg = JSON.parse(event.data as string)
       if (msg.t === 'ping') return socket.send('{"t":"pong"}')
       if (msg.t === 'event') {

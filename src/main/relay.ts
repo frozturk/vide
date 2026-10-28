@@ -24,6 +24,7 @@ type RelayMessage =
   | { t: 'close'; id: string }
 
 const CHUNK = 256 * 1024
+const STREAM_ID = 36
 const DROP = new Set(['connection', 'keep-alive', 'transfer-encoding', 'content-length'])
 
 function identityPath(): string {
@@ -55,7 +56,7 @@ export function fromHeaders(headers: IncomingHttpHeaders): [string, string][] {
 }
 
 export function connectRelay(base: string, port: number, identity: RelayIdentity, name: string): RelayConnection {
-  const locals = new Map<string, { ws: WebSocket; queue: string[] }>()
+  const locals = new Map<string, { ws: WebSocket; queue: (string | Buffer)[] }>()
   let socket: WebSocket | null = null
   let open = false
   let alive = true
@@ -84,16 +85,26 @@ export function connectRelay(base: string, port: number, identity: RelayIdentity
 
   const attach = (msg: Extract<RelayMessage, { t: 'open' }>): void => {
     const ws = new WebSocket(`ws://127.0.0.1:${port}${msg.path}`, { headers: toHeaders(msg.headers) })
-    const local = { ws, queue: [] as string[] }
+    const local = { ws, queue: [] as (string | Buffer)[] }
     locals.set(msg.id, local)
     ws.on('open', () => {
       for (const data of local.queue.splice(0)) ws.send(data)
     })
-    ws.on('message', (data) => send({ t: 'msg', id: msg.id, data: data.toString() }))
+    ws.on('message', (data: Buffer, binary) => {
+      if (!binary) return send({ t: 'msg', id: msg.id, data: data.toString() })
+      if (socket?.readyState === WebSocket.OPEN) socket.send(Buffer.concat([Buffer.from(msg.id), data]))
+    })
     ws.on('close', (code) => {
       if (locals.delete(msg.id)) send({ t: 'close', id: msg.id, code })
     })
     ws.on('error', () => {})
+  }
+
+  const deliver = (id: string, data: string | Buffer): void => {
+    const local = locals.get(id)
+    if (!local) return
+    if (local.ws.readyState === WebSocket.OPEN) local.ws.send(data)
+    else local.queue.push(data)
   }
 
   const handle = (raw: string): void => {
@@ -109,13 +120,11 @@ export function connectRelay(base: string, port: number, identity: RelayIdentity
     }
     if (msg.t === 'req') return forward(msg)
     if (msg.t === 'open') return attach(msg)
+    if (msg.t === 'msg') return deliver(msg.id, msg.data)
     const local = locals.get(msg.id)
     if (!local) return
-    if (msg.t === 'close') {
-      locals.delete(msg.id)
-      local.ws.close()
-    } else if (local.ws.readyState === WebSocket.OPEN) local.ws.send(msg.data)
-    else local.queue.push(msg.data)
+    locals.delete(msg.id)
+    local.ws.close()
   }
 
   const heartbeat = setInterval(() => {
@@ -135,7 +144,10 @@ export function connectRelay(base: string, port: number, identity: RelayIdentity
       alive = true
       attempts = 0
     })
-    ws.on('message', (data) => handle(data.toString()))
+    ws.on('message', (data: Buffer, binary) => {
+      if (binary) deliver(data.subarray(0, STREAM_ID).toString(), data.subarray(STREAM_ID))
+      else handle(data.toString())
+    })
     ws.on('error', (err) => console.error('[vide/relay]', err.message))
     ws.on('close', () => {
       open = false

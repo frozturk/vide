@@ -8,6 +8,7 @@ import { gzipSync } from 'zlib'
 import { extname, join, resolve, sep } from 'path'
 import type { Duplex } from 'stream'
 import { WebSocketServer, WebSocket } from 'ws'
+import { encodePtyFrame } from '../shared/ptyFrame'
 import type { WebInfo } from '../shared/types'
 import { registerClient, unregisterClient } from './clients'
 import { getConfig } from './config'
@@ -317,7 +318,10 @@ function attachSocket(ws: WebSocket, deviceId: string): void {
   socketDevices.set(ws, deviceId)
   let alive = true
   registerClient(clientId, (ch, payload) => {
-    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'event', ch, payload }))
+    if (ws.readyState !== WebSocket.OPEN) return
+    if (ch !== 'pty:data') return ws.send(JSON.stringify({ t: 'event', ch, payload }))
+    const { agentId, data } = payload as { agentId: string; data: string }
+    ws.send(encodePtyFrame(agentId, data))
   })
   const reply = (msg: unknown): void => {
     if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg))

@@ -266,7 +266,7 @@ export interface VideApi {
   ptyInput(agentId: string, data: string): void
   ptyResize(agentId: string, cols: number, rows: number): void
   ptyView(agentId: string | null): void
-  onPtyData(cb: (p: { agentId: string; data: string }) => void): () => void
+  onPtyData(cb: (p: { agentId: string; data: string | Uint8Array }) => void): () => void
   onPtyExit(cb: (p: { agentId: string; exitCode: number }) => void): () => void
   onPtyTitle(cb: (p: { agentId: string; title: string }) => void): () => void
   onPtyState(cb: (p: { agentId: string; state: AgentStatus; activity: string | null }) => void): () => void

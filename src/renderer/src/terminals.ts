@@ -37,9 +37,9 @@ export function ctrlOf(ch: string): string {
   const code = ch.toUpperCase().charCodeAt(0)
   return code >= 64 && code <= 95 ? String.fromCharCode(code & 0x1f) : ch
 }
-const pending = new Map<string, string[]>()
+const pending = new Map<string, (string | Uint8Array)[]>()
 
-export function feedData(agentId: string, data: string): void {
+export function feedData(agentId: string, data: string | Uint8Array): void {
   const e = terminals.get(agentId)
   if (e) {
     e.lastOutputAt = Date.now()
