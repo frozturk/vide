@@ -113,7 +113,7 @@ export class Instance extends DurableObject<Env> {
         if (!p || p.writer) return
         this.pending.delete(id)
         resolve(new Response('vide did not answer', { status: 504 }))
-      }, 30000)
+      }, 10000)
     })
   }
 
