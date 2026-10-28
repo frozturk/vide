@@ -1,17 +1,26 @@
 const KEY = 'vide.instances'
+const NAMES = 'vide.names'
 
-function load() {
+function read(key, fallback) {
   try {
-    return JSON.parse(localStorage.getItem(KEY) || '[]')
+    return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback
   } catch {
-    return []
+    return fallback
   }
 }
 
-function save(list) {
+function write(key, value) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(list))
+    localStorage.setItem(key, JSON.stringify(value))
   } catch {}
+}
+
+function load() {
+  return read(KEY, [])
+}
+
+function save(list) {
+  write(KEY, list)
 }
 
 function render() {
@@ -27,23 +36,29 @@ function render() {
     dot.className = 'dot'
     const name = document.createElement('span')
     name.className = 'name'
-    name.textContent = id
+    const custom = read(NAMES, {})[id]
+    name.textContent = custom || id
     a.append(dot, name)
     const rename = document.createElement('button')
     rename.textContent = '✎'
     rename.title = 'Rename'
-    rename.onclick = async () => {
+    rename.onclick = () => {
       const next = prompt('Instance name (leave empty for the computer name)', name.textContent)
       if (next === null) return
-      const res = await fetch(`/i/${id}/.relay`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: next }) }).catch(() => null)
-      if (res?.ok) return render()
-      alert(res?.status === 401 ? 'Open this instance on this device first, then rename it.' : 'Renaming needs this vide to be online.')
+      const names = read(NAMES, {})
+      if (next.trim()) names[id] = next.trim().slice(0, 64)
+      else delete names[id]
+      write(NAMES, names)
+      render()
     }
     const remove = document.createElement('button')
     remove.textContent = '×'
     remove.title = 'Remove'
     remove.onclick = () => {
       save(load().filter((x) => x !== id))
+      const names = read(NAMES, {})
+      delete names[id]
+      write(NAMES, names)
       render()
     }
     li.append(a, rename, remove)
@@ -51,7 +66,7 @@ function render() {
     fetch(`/i/${id}/.relay`, { cache: 'no-store' })
       .then((r) => r.json())
       .then((info) => {
-        if (info.name) name.textContent = info.name
+        if (info.name && !custom) name.textContent = info.name
         dot.classList.toggle('on', info.online)
       })
       .catch(() => {})
