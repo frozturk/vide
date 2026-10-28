@@ -87,8 +87,9 @@ closing terminals stay in sync.
   your phone needs no app. vide detects the Tailscale address for the QR code;
   for any other tunnel, set Public URL in Settings.
 - **Relay**: `relay/` is a Cloudflare Worker that reaches vide without a
-  tunnel. Deploy it with `cd relay && npm install && npm run deploy`, which
-  bundles this checkout's web UI, then set Relay URL in Settings. To let only
+  tunnel. Put `RELAY_DOMAIN=vide.example.com` in `relay/.env` (gitignored),
+  deploy with `cd relay && npm install && npm run deploy`, which bundles this
+  checkout's web UI, then set Relay URL in Settings. To let only
   your Macs register, run `npx wrangler secret put RELAY_TOKEN` and enter the
   same value as Relay Token. vide connects
   out to it, and each instance lives at `/i/<id>/`; the relay's home page lists

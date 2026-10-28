@@ -6,3 +6,4 @@ dist/
 relay/.wrangler/
 relay/public/app/
 relay/.dev.vars
+relay/.env

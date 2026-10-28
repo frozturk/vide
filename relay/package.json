@@ -4,7 +4,7 @@
   "scripts": {
     "build": "cd .. && npx electron-vite build && rm -rf relay/public/app && cp -R out/renderer relay/public/app && node -p \"require('./package.json').version\" > relay/public/app/version.txt",
     "dev": "npm run build && wrangler dev",
-    "deploy": "npm run build && wrangler deploy",
+    "deploy": "npm run build && sh -c '. ./.env 2>/dev/null; wrangler deploy ${RELAY_DOMAIN:+--domain \"$RELAY_DOMAIN\"}'",
     "typecheck": "tsc"
   },
   "devDependencies": {
