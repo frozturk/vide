@@ -44,11 +44,13 @@ export function AgentStrip(): React.JSX.Element | null {
       <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-2 pb-3">
         <WorkspaceList />
       </div>
-      <div className="overflow-hidden border-t border-zinc-800 p-2"><button onClick={() => useStore.setState({ settingsOpen: true })} className="w-full truncate rounded-lg px-3 py-2 text-left text-sm text-zinc-400 hover:bg-zinc-800">Settings</button></div>
+      <div className="overflow-hidden border-t border-zinc-800 p-2">{relayed && <a href="/" className="block w-full truncate rounded-lg px-3 py-2 text-left text-sm text-zinc-400 hover:bg-zinc-800">All instances</a>}<button onClick={() => useStore.setState({ settingsOpen: true })} className="w-full truncate rounded-lg px-3 py-2 text-left text-sm text-zinc-400 hover:bg-zinc-800">Settings</button></div>
       <Resizer onStart={() => { setResizing(true); panelHoverEnter() }} onDrag={(clientX) => { const width = Math.min(PANEL_MAX_WIDTH, Math.max(PANEL_MIN_WIDTH, clientX - RAIL_WIDTH)); localStorage.setItem('panelWidth', String(width)); useStore.setState({ panelWidth: width }) }} onEnd={() => setResizing(false)} style={{ position: 'absolute', right: -4, top: 0, bottom: 0, width: 8 }} />
     </div>
   </>
 }
+
+const relayed = /^\/i\/[\w-]+\//.test(location.pathname)
 
 function CompactDrawer(): React.JSX.Element {
   const open = useStore((s) => s.drawerOpen)
@@ -76,6 +78,10 @@ function CompactDrawer(): React.JSX.Element {
         <WorkspaceList touch />
       </div>
       <div className="shrink-0 border-t border-zinc-800/80 p-3">
+        {relayed && <a href="/" className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] text-zinc-400 transition active:bg-zinc-800">
+          <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 7.5 8 3l5.5 4.5M4 6.5V13h8V6.5" /></svg>
+          All instances
+        </a>}
         <button onClick={() => { close(); useStore.setState({ settingsOpen: true }) }} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] text-zinc-400 transition active:bg-zinc-800">
           <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4"><circle cx="8" cy="8" r="2.2" /><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" strokeLinecap="round" /></svg>
           Settings
