@@ -3,6 +3,7 @@ import { DurableObject } from 'cloudflare:workers'
 interface Env {
   INSTANCE: DurableObjectNamespace<Instance>
   ASSETS: Fetcher
+  RELAY_TOKEN?: string
 }
 
 type HostMessage =
@@ -55,6 +56,11 @@ function notice(status: number, text: string): Response {
 
 function withRegister(res: Response): Response {
   return new HTMLRewriter().on('head', { element: (e) => void e.append('<script src="/register.js"></script>', { html: true }) }).transform(res)
+}
+
+async function sameSecret(given: string | null, expected: string): Promise<boolean> {
+  const [a, b] = await Promise.all([given ?? '', expected].map((v) => crypto.subtle.digest('SHA-256', new TextEncoder().encode(v))))
+  return crypto.subtle.timingSafeEqual(a, b)
 }
 
 export function deviceCookie(setCookie: string | null, prefix: string, secure: boolean): string | null {
@@ -215,7 +221,10 @@ export default {
       forwarded.headers.set('x-relay-prefix', prefix)
       return stub.fetch(forwarded)
     }
-    if (kind === 'host') return instance(`/host${url.search}`)
+    if (kind === 'host') {
+      if (env.RELAY_TOKEN && !(await sameSecret(req.headers.get('x-relay-token'), env.RELAY_TOKEN))) return new Response('Unauthorized', { status: 401 })
+      return instance(`/host${url.search}`)
+    }
     const path = rest.join('/')
     if (path === '.relay') return instance('.relay')
     if (path === 'ws') return req.headers.get('upgrade')?.toLowerCase() === 'websocket' ? instance('ws') : new Response('Expected WebSocket', { status: 426 })

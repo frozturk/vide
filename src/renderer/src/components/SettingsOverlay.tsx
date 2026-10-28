@@ -115,13 +115,22 @@ function SettingsInner(): React.JSX.Element {
             <div className="mb-6">
               <div className="mb-3 text-xs font-medium uppercase tracking-wider text-zinc-500">Web access</div>
               <WebAccess />
-              <div className="mt-4">
+              <div className="mt-4 grid grid-cols-2 gap-3">
                 <Field label="Relay URL" hint="Your vide relay. When set, it replaces the public URL">
                   <input
                     type="text"
                     value={draft.relayUrl ?? ''}
                     onChange={(e) => setField('relayUrl', e.target.value || undefined)}
                     placeholder="https://vide.example.com"
+                    className={inputCls}
+                  />
+                </Field>
+                <Field label="Relay Token" hint="The relay's RELAY_TOKEN, if it has one">
+                  <input
+                    type="password"
+                    value={draft.relayToken ?? ''}
+                    onChange={(e) => setField('relayToken', e.target.value || undefined)}
+                    autoComplete="off"
                     className={inputCls}
                   />
                 </Field>

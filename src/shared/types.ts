@@ -72,6 +72,7 @@ export interface Config {
   webPort?: number
   webPublicUrl?: string
   relayUrl?: string
+  relayToken?: string
   hideClaudeInputBox?: boolean
 }
 

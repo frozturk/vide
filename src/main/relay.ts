@@ -55,7 +55,7 @@ export function fromHeaders(headers: IncomingHttpHeaders): [string, string][] {
   return Object.entries(headers).flatMap(([k, v]) => (DROP.has(k) || v === undefined ? [] : Array.isArray(v) ? v.map((x): [string, string] => [k, x]) : [[k, v]]))
 }
 
-export function connectRelay(base: string, port: number, identity: RelayIdentity, name: string): RelayConnection {
+export function connectRelay(base: string, port: number, identity: RelayIdentity, name: string, token?: string): RelayConnection {
   const locals = new Map<string, { ws: WebSocket; queue: (string | Buffer)[] }>()
   let socket: WebSocket | null = null
   let open = false
@@ -136,7 +136,7 @@ export function connectRelay(base: string, port: number, identity: RelayIdentity
 
   const connect = (): void => {
     const ws = new WebSocket(`${base.replace(/^http/, 'ws')}/host/${identity.id}?name=${encodeURIComponent(name)}`, {
-      headers: { authorization: `Bearer ${identity.secret}` }
+      headers: { authorization: `Bearer ${identity.secret}`, ...(token ? { 'x-relay-token': token } : {}) }
     })
     socket = ws
     ws.on('open', () => {
@@ -175,7 +175,7 @@ let current: RelayConnection | null = null
 export function startRelay(port: number): void {
   stopRelay()
   const base = relayBase()
-  if (base) current = connectRelay(base, port, relayIdentity(), hostname().replace(/\.local$/, ''))
+  if (base) current = connectRelay(base, port, relayIdentity(), hostname().replace(/\.local$/, ''), getConfig().relayToken?.trim() || undefined)
 }
 
 export function stopRelay(): void {

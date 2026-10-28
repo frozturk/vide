@@ -5,3 +5,4 @@ dist/
 .vide/
 relay/.wrangler/
 relay/public/app/
+relay/.dev.vars
