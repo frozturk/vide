@@ -175,7 +175,8 @@ let current: RelayConnection | null = null
 export function startRelay(port: number): void {
   stopRelay()
   const base = relayBase()
-  if (base) current = connectRelay(base, port, relayIdentity(), hostname().replace(/\.local$/, ''), getConfig().relayToken?.trim() || undefined)
+  const config = getConfig()
+  if (base) current = connectRelay(base, port, relayIdentity(), config.relayName?.trim() || hostname().replace(/\.local$/, ''), config.relayToken?.trim() || undefined)
 }
 
 export function stopRelay(): void {

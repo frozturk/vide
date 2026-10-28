@@ -134,6 +134,15 @@ function SettingsInner(): React.JSX.Element {
                     className={inputCls}
                   />
                 </Field>
+                <Field label="Instance Name" hint="Shown on the relay's home page">
+                  <input
+                    type="text"
+                    value={draft.relayName ?? ''}
+                    onChange={(e) => setField('relayName', e.target.value || undefined)}
+                    placeholder="This computer's name"
+                    className={inputCls}
+                  />
+                </Field>
               </div>
               <div className="mt-3 grid grid-cols-[1fr_120px] gap-3">
                 <Field label="Public URL" hint="Your tunnel address. Leave empty to use Tailscale automatically">
