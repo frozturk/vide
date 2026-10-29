@@ -17,6 +17,8 @@ const KEYS: Key[] = [
   { label: '→', aria: 'Right', send: arrow('C'), repeat: true },
   { label: '⇧tab', aria: 'Shift Tab', send: '\x1b[Z' },
   { label: '/', aria: 'Slash', send: '/' },
+  { label: '⌫', aria: 'Backspace', send: '\x7f', repeat: true },
+  { label: 'del', aria: 'Delete', send: '\x1b[3~', repeat: true },
   { label: '⏎', aria: 'Enter', send: '\r', wide: true },
   {
     label: <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"><rect x="3.5" y="3" width="9" height="11" rx="1.5" /><path d="M6 3V2h4v1" /></svg>,
