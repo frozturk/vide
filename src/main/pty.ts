@@ -4,7 +4,7 @@ import { shellArgv } from './platform'
 import { attach, ensureServer, listSessions, request, type Attached, type LitemuxSession } from './litemux'
 import { runtimeStateFile, sessionPrefix } from './runtime'
 import { DESKTOP, post } from './clients'
-import { AGENT_ENV, parseState, replyText, stateAfterInput, type Reply } from './agentHooks'
+import { parseState, replyText, stateAfterInput, type Reply } from './agentHooks'
 
 function buildEnv(): Record<string, string> {
   const env = { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' } as Record<string, string>
@@ -28,9 +28,8 @@ function litemuxInfo(): string {
 
 const INHERITED_SESSION_VAR = /^(TMUX|TMUX_PANE|CLAUDECODE|CLAUDE_PID|CLAUDE_EFFORT|CLAUDE_CODE_(ENTRYPOINT|EXECPATH|CHILD_SESSION|SESSION_\w+|MESSAGING_\w+))$/
 
-function sessionEnv(env: Record<string, string>, agentId: string): Record<string, string> {
-  const clean = Object.fromEntries(Object.entries(env).filter(([key]) => !INHERITED_SESSION_VAR.test(key)))
-  return { ...clean, [AGENT_ENV]: agentId }
+function sessionEnv(env: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.entries(env).filter(([key]) => !INHERITED_SESSION_VAR.test(key)))
 }
 
 interface Entry {
@@ -86,7 +85,7 @@ export async function spawnPty(
 ): Promise<void> {
   const name = sessionName(agentId, kindId, cwd)
   await ensureServer(litemuxBin(), litemuxInfo())
-  await request(litemuxInfo(), { op: 'spawn', name, cwd, argv: shellArgv(shell, command), env: sessionEnv(buildEnv(), agentId), cols: 80, rows: 24 })
+  await request(litemuxInfo(), { op: 'spawn', name, cwd, argv: shellArgv(shell, command), env: sessionEnv(buildEnv()), cols: 80, rows: 24 })
   await attachInternal(clientId, agentId, name)
 }
 

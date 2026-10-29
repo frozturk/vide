@@ -62,7 +62,7 @@ export function saveConfig(config: Config): void {
 
 function mergeKinds(defaults: AgentKind[], saved: AgentKind[]): AgentKind[] {
   // A shared Codex daemon retains the environment of its first terminal,
-  // causing hooks to report status to that terminal's TMUX_PANE instead.
+  // causing hooks to report status to that terminal's LITEMUX_SESSION instead.
   // Migrate only our old default; custom launch commands remain user-owned.
   const result: AgentKind[] = saved.map((kind) =>
     kind.id === 'codex' && kind.command === 'codex {prompt}'

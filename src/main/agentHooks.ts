@@ -3,8 +3,6 @@ import { homedir } from 'os'
 import { dirname, join } from 'path'
 import type { AgentStatus } from '../shared/types'
 
-export const AGENT_ENV = 'VIDE_AGENT'
-
 type HookValue = 'idle' | 'busy' | 'waiting' | 'tool' | 'reply'
 type HookEvent = { event: string; matcher?: string; value: HookValue }
 
@@ -63,7 +61,7 @@ type HookConfig = { hooks?: Record<string, HookGroup[]> } & Record<string, unkno
 
 function isVideGroup(group: HookGroup): boolean {
   return Boolean(group.hooks?.some((h) => {
-    if (h.command?.includes(`$${AGENT_ENV}`) || /litemux(\.exe)?'? hook \w+$/.test(h.command ?? '')) return true
+    if (/litemux(\.exe)?'? hook \w+$/.test(h.command ?? '')) return true
     if (/litemux(\.exe)?$/.test(h.command ?? '') && h.args?.[0] === 'hook') return true
     const encoded = h.command?.match(/^powershell\.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand ([A-Za-z0-9+/=]+)$/)?.[1]
     return encoded ? Buffer.from(encoded, 'base64').toString('utf16le').startsWith('# vide-agent-hook\n') : false

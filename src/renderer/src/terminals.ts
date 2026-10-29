@@ -23,7 +23,6 @@ export interface TermEntry {
   webgl: WebglAddon | null
   observer: ResizeObserver | null
   container: HTMLElement | null
-  nativeSelectionHandler: ((event: MouseEvent) => void) | null
   lastOutputAt: number
   lastResizeAt: number
   hidesInputBox: boolean
@@ -53,6 +52,14 @@ export function feedData(agentId: string, data: string | Uint8Array): void {
 }
 
 const INPUT_RESERVE_ROWS = 3
+
+const MOUSE_MODES: Record<number, number> = { 9: 1, 1000: 2, 1002: 3, 1003: 4 }
+const MOUSE_TRACKING = ['none', 'x10', 'vt200', 'drag', 'any']
+
+function lowersMouseTracking(term: Terminal, params: (number | number[])[]): boolean {
+  const current = MOUSE_TRACKING.indexOf(term.modes.mouseTrackingMode)
+  return params.length > 0 && params.every((p) => typeof p === 'number' && MOUSE_MODES[p] < current)
+}
 
 function hideInputBox(agentId: string): void {
   const e = terminals.get(agentId)
@@ -88,6 +95,7 @@ export function createTerminal(agentId: string, kindId?: string): void {
       selectionBackground: '#3f3f46'
     }
   })
+  term.parser.registerCsiHandler({ prefix: '?', final: 'h' }, (params) => lowersMouseTracking(term, params))
   term.loadAddon(new Unicode11Addon())
   term.unicode.activeVersion = '11'
   term.loadAddon(new WebLinksAddon((event, uri) => openLink(agentId, uri, event)))
@@ -146,7 +154,6 @@ export function createTerminal(agentId: string, kindId?: string): void {
     webgl: null,
     observer: null,
     container: null,
-    nativeSelectionHandler: null,
     lastOutputAt: Date.now(),
     lastResizeAt: 0,
     hidesInputBox
@@ -163,36 +170,6 @@ export function attachTerminal(agentId: string, container: HTMLElement): void {
   const e = terminals.get(agentId)
   if (!e || e.container) return
   e.container = container
-  // tmux mouse mode is enabled for wheel scrolling, but its default drag action
-  // enters copy mode (yellow selection and a position counter). Force ordinary
-  // left drags through xterm's native selection path instead.
-  const isMac = isMacPlatform(navigator.platform)
-  const nativeSelectionHandler = (event: MouseEvent): void => {
-    if (event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
-    event.preventDefault()
-    event.stopImmediatePropagation()
-    event.target?.dispatchEvent(
-      new MouseEvent('mousedown', {
-        bubbles: true,
-        cancelable: true,
-        composed: true,
-        view: event.view,
-        detail: event.detail,
-        screenX: event.screenX,
-        screenY: event.screenY,
-        clientX: event.clientX,
-        clientY: event.clientY,
-        button: event.button,
-        buttons: event.buttons,
-        ctrlKey: event.ctrlKey,
-        altKey: isMac,
-        shiftKey: !isMac,
-        metaKey: event.metaKey
-      })
-    )
-  }
-  container.addEventListener('mousedown', nativeSelectionHandler, true)
-  e.nativeSelectionHandler = nativeSelectionHandler
   e.term.open(container)
   if (useStore.getState().isWeb && touchDevice()) {
     e.term.textarea?.setAttribute('inputmode', 'none')
@@ -373,9 +350,6 @@ export function disposeTerminal(agentId: string): void {
   pending.delete(agentId)
   if (!e) return
   e.observer?.disconnect()
-  if (e.container && e.nativeSelectionHandler) {
-    e.container.removeEventListener('mousedown', e.nativeSelectionHandler, true)
-  }
   dropWebgl(e)
   e.term.dispose()
 }

@@ -25,11 +25,6 @@ describe('agent hooks', () => {
     expect(mergeHooks(mergeHooks({}, events, '/old/litemux', 'claude'), events, '/new/litemux', 'claude').hooks!.Stop).toHaveLength(1)
   })
 
-  it('removes the older tmux hooks it installed', () => {
-    const legacy = { hooks: [{ type: 'command', command: `[ -n "$VIDE_AGENT" ] && '/opt/homebrew/bin/tmux' set-option -p -t "$TMUX_PANE" @vide_state idle >/dev/null 2>&1; true` }] }
-    expect(mergeHooks({ hooks: { Stop: [legacy] } }, events, '/bin/litemux', 'claude').hooks!.Stop).toEqual([{ hooks: [hookEntry('/bin/litemux', 'idle', 'claude')] }])
-  })
-
   it('runs litemux without a shell for Claude and through PowerShell on Windows for Codex', () => {
     expect(hookEntry('C:\\Program Files\\Vide\\litemux.exe', 'tool', 'claude')).toEqual({ type: 'command', command: 'C:\\Program Files\\Vide\\litemux.exe', args: ['hook', 'tool'] })
     expect(hookEntry("/Apps/Fr's Vide/litemux", 'reply', 'codex')).toEqual({
