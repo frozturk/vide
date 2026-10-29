@@ -25,6 +25,12 @@ const defaults: Config = {
       color: '#f97316'
     },
     {
+      id: 'antigravity',
+      name: 'Antigravity',
+      command: 'agy {prompt}',
+      color: '#3186ff'
+    },
+    {
       id: 'shell',
       name: 'Shell',
       command: '',

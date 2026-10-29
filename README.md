@@ -36,7 +36,7 @@ and `idle` through their own hooks, the same way on every screen. At startup
 vide merges entries into `~/.claude/settings.json` and
 `~/.codex/hooks.json` that run `litemux hook <event>`. They do nothing outside
 vide terminals and leave your own hooks untouched. Agents without hooks (shells,
-OpenCode) show as idle. Pulsing dots and unread indicators in the agent strip
+OpenCode, Antigravity) show as idle. Pulsing dots and unread indicators in the agent strip
 show which terminal needs you.
 
 Vide launches Codex with `--no-daemon` so each terminal's hooks inherit its
@@ -113,7 +113,7 @@ closing terminals stay in sync.
 - macOS or Windows 10/11
 - [Node.js](https://nodejs.org) and a [Rust](https://rustup.rs) toolchain to
   build litemux
-- At least one agent CLI installed — e.g. `claude`, `codex`, or `opencode`
+- At least one agent CLI installed — e.g. `claude`, `codex`, `opencode`, or `agy`
 
 The shell is `$SHELL` (zsh by default) on macOS and Windows PowerShell on
 Windows; set another one in Settings (`pwsh.exe`, `cmd.exe` or Git Bash work).

@@ -32,6 +32,12 @@ export function AgentIcon({ kindId, size = 16 }: AgentIconProps): React.JSX.Elem
           <path fillRule="evenodd" clipRule="evenodd" d="M18 19.5H6V4.5H18V19.5ZM15 7.5H9V16.5H15V7.5Z" />
         </svg>
       )
+    case 'antigravity':
+      return (
+        <svg width={s} height={s} viewBox="0 0 180 180" fill="currentColor" aria-label="Antigravity">
+          <path d="M144.248 149.062c7.5 5.626 18.75 1.876 8.437-8.437-30.937-30-24.375-112.5-62.812-112.5-38.438 0-31.875 82.5-62.813 112.5-11.25 11.25.938 14.063 8.438 8.437 29.062-19.687 27.187-54.375 54.375-54.375 27.187 0 25.312 34.688 54.375 54.375Z" />
+        </svg>
+      )
     default:
       return (
         <svg width={s} height={s} viewBox="0 0 24 24" fill="currentColor" aria-label="agent">
