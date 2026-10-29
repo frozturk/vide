@@ -8,18 +8,18 @@ const arrow = (dir: string) => (appCursor: boolean) => `\x1b${appCursor ? 'O' : 
 
 const KEYS: Key[] = [
   { label: 'esc', aria: 'Escape', send: '\x1b' },
-  { label: 'tab', aria: 'Tab', send: '\t' },
-  { label: 'ctrl', aria: 'Control modifier', action: 'ctrl' },
-  { label: '^C', aria: 'Interrupt', send: '\x03' },
   { label: '↑', aria: 'Up', send: arrow('A'), repeat: true },
   { label: '↓', aria: 'Down', send: arrow('B'), repeat: true },
+  { label: '⏎', aria: 'Enter', send: '\r', wide: true },
+  { label: '⌫', aria: 'Backspace', send: '\x7f', repeat: true },
   { label: '←', aria: 'Left', send: arrow('D'), repeat: true },
   { label: '→', aria: 'Right', send: arrow('C'), repeat: true },
   { label: '⇧tab', aria: 'Shift Tab', send: '\x1b[Z' },
+  { label: 'tab', aria: 'Tab', send: '\t' },
   { label: '/', aria: 'Slash', send: '/' },
-  { label: '⌫', aria: 'Backspace', send: '\x7f', repeat: true },
   { label: 'del', aria: 'Delete', send: '\x1b[3~', repeat: true },
-  { label: '⏎', aria: 'Enter', send: '\r', wide: true },
+  { label: 'ctrl', aria: 'Control modifier', action: 'ctrl' },
+  { label: '^C', aria: 'Interrupt', send: '\x03' },
   {
     label: <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"><rect x="3.5" y="3" width="9" height="11" rx="1.5" /><path d="M6 3V2h4v1" /></svg>,
     aria: 'Paste',
