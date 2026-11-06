@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseViewport, press, refOf, scroll, snapshot, upload, type Cdp, type CdpSend } from './browser-agent'
+import { parseViewport, press, refOf, scroll, snapshot, upload, type Cdp, type CdpListener, type CdpSend } from './browser-agent'
 
 const tree = [
   { nodeId: '1', role: { value: 'RootWebArea' }, name: { value: 'App' }, childIds: ['2', '3'] },
@@ -25,7 +25,7 @@ function fake(): { send: CdpSend; cdp: Cdp; calls: [string, any][] } {
     if (method === 'Runtime.evaluate') return { result: {} }
     return {}
   }
-  return { send, calls, cdp: { send, frames: async () => new Map([['frame-1', { session: 's1', url: 'https://pay.test/' }]]) } }
+  return { send, calls, cdp: { send, frames: async () => new Map([['frame-1', { session: 's1', url: 'https://pay.test/' }]]), on: () => () => {} } }
 }
 
 describe('browser agent commands', () => {
@@ -65,6 +65,22 @@ describe('browser agent commands', () => {
     await expect(scroll(cdp, 'sideways', 600)).rejects.toThrow('scroll up|down')
     await expect(upload(cdp, { node: 1 }, ['/no/such/file.png'])).rejects.toThrow('File not found')
     await expect(upload(cdp, { node: 1 }, ['relative.png'])).rejects.toThrow('File not found')
+  })
+
+  it('uploads through the file chooser a clicked element opens', async () => {
+    const calls: [string, any][] = []
+    let listener: CdpListener = () => {}
+    const send: CdpSend = async (method, params) => {
+      calls.push([method, params])
+      if (method === 'DOM.setFileInputFiles' && params?.backendNodeId === 5) throw new Error('Node is not a file input element')
+      if (method === 'DOM.getBoxModel') return { model: { content: [0, 0, 10, 0, 10, 10, 0, 10] } }
+      if (method === 'Input.dispatchMouseEvent' && params?.type === 'mouseReleased') listener('Page.fileChooserOpened', { backendNodeId: 9 })
+      return {}
+    }
+    const cdp: Cdp = { send, frames: async () => new Map(), on: (l) => { listener = l; return () => { listener = () => {} } } }
+    expect(await upload(cdp, { node: 5 }, ['/etc/hosts'])).toEqual({ uploaded: 1 })
+    expect(calls.filter(([m]) => m === 'DOM.setFileInputFiles').at(-1)?.[1]).toEqual({ files: ['/etc/hosts'], backendNodeId: 9 })
+    expect(calls.filter(([m]) => m === 'Page.setInterceptFileChooserDialog').map(([, p]) => p.enabled)).toEqual([true, false])
   })
 
   it('parses phone viewports and turns them off', () => {

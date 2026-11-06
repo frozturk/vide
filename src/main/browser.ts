@@ -324,6 +324,11 @@ export class BrowserManager {
       await send('Emulation.setFocusEmulationEnabled', { enabled: true }).catch(() => {})
       return await run({
         send,
+        on: (listener) => {
+          const relay = (_event: unknown, method: string, params: any, session?: string): void => listener(method, params, session || undefined)
+          wc.debugger.on('message', relay)
+          return () => { wc.debugger.off('message', relay) }
+        },
         frames: async () => {
           if (!attached) {
             attached = true

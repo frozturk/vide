@@ -30,7 +30,7 @@ node browser.mjs snapshot --tab ID
 
 - Refs like `@e3` come from the latest `snapshot` of that tab. Navigation clears them. Take a new snapshot after navigating, after clicks that change the page, and whenever a ref is unknown or its element is gone.
 - `fill` replaces a field's text or picks a `<select>` option by label or value. `type` inserts text into whatever is focused. `press` takes Enter, Tab, Escape, Backspace, arrow keys, single characters, and modifiers such as `Shift+Tab`.
-- `hover REF` reveals hover menus and tooltips. `scroll down 800` wheel-scrolls the page and `scroll REF` brings an element into view. `upload REF FILE...` sets files on a file input.
+- `hover REF` reveals hover menus and tooltips. `scroll down 800` wheel-scrolls the page and `scroll REF` brings an element into view. `upload REF FILE...` sets files on a file input, or clicks REF (a dropzone or upload button) and fills the file chooser it opens.
 - Elements inside iframes, including cross-origin ones such as payment or login widgets, appear under an `iframe` line in the snapshot and take refs like any other element.
 - After an asynchronous change, use `wait TEXT` instead of sleeping.
 - `viewport 390x844` renders the tab at phone size, and `viewport off` restores it. Restore it when you finish unless the user wants it kept.

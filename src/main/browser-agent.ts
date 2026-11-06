@@ -3,7 +3,8 @@ import { isAbsolute } from 'path'
 
 export type CdpSend = (method: string, params?: Record<string, unknown>, session?: string) => Promise<any>
 export type Frames = Map<string, { session: string; url: string }>
-export type Cdp = { send: CdpSend; frames: () => Promise<Frames> }
+export type CdpListener = (method: string, params: any, session?: string) => void
+export type Cdp = { send: CdpSend; frames: () => Promise<Frames>; on: (listener: CdpListener) => () => void }
 export type Ref = { node: number; frame?: string }
 
 type AXNode = {
@@ -214,8 +215,38 @@ export async function fill(cdp: Cdp, ref: Ref, value: string): Promise<void> {
 export async function upload(cdp: Cdp, ref: Ref, files: string[]): Promise<{ uploaded: number }> {
   if (!files.length) throw new Error('upload requires at least one file')
   for (const file of files) if (!isAbsolute(file) || !existsSync(file)) throw new Error(`File not found: ${file}`)
-  await stale(cdp.send('DOM.setFileInputFiles', { files, backendNodeId: ref.node }, await session(cdp, ref)))
+  const target = await session(cdp, ref)
+  try {
+    await stale(cdp.send('DOM.setFileInputFiles', { files, backendNodeId: ref.node }, target))
+  } catch (error) {
+    if (!/not a file input/i.test(String(error))) throw error
+    await stale(cdp.send('DOM.setFileInputFiles', { files, backendNodeId: await chooser(cdp, ref, target) }, target))
+  }
   return { uploaded: files.length }
+}
+
+async function chooser(cdp: Cdp, ref: Ref, target?: string): Promise<number> {
+  let timer: NodeJS.Timeout | undefined
+  let off = (): void => {}
+  const opened = new Promise<number>((resolve, reject) => {
+    timer = setTimeout(() => reject(new Error('Element is not a file input and clicking it opened no file chooser')), 5000)
+    off = cdp.on((method, params, session) => {
+      if (method !== 'Page.fileChooserOpened' || session !== target) return
+      if (params.backendNodeId) resolve(params.backendNodeId)
+      else reject(new Error('The page opened a file picker without a file input (showOpenFilePicker); it cannot be filled'))
+    })
+  })
+  opened.catch(() => {})
+  try {
+    await cdp.send('Page.enable', {}, target)
+    await cdp.send('Page.setInterceptFileChooserDialog', { enabled: true }, target)
+    await click(cdp, ref)
+    return await opened
+  } finally {
+    clearTimeout(timer)
+    off()
+    await cdp.send('Page.setInterceptFileChooserDialog', { enabled: false }, target).catch(() => {})
+  }
 }
 
 export async function press(send: CdpSend, combo: string, session?: string): Promise<void> {

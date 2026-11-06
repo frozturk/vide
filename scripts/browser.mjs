@@ -56,7 +56,7 @@ working in another project, keeping your current directory in that workspace.
      hover @e4 --tab TAB_ID             move the mouse over an element
      scroll down 800 --tab TAB_ID       wheel-scroll the page (default 600px)
      scroll @e9 --tab TAB_ID            scroll an element into view
-     upload @e5 ./a.png --tab TAB_ID    set files on a file input
+     upload @e5 ./a.png --tab TAB_ID    set files on a file input or upload button
    Refs come from the latest snapshot of that tab. Navigation clears them; take
    a new snapshot after navigation and after clicks that change the page. Use
    wait instead of sleeping after asynchronous changes. Elements inside
