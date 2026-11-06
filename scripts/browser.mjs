@@ -13,12 +13,12 @@ function option(name) {
   return value
 }
 try {
-  const infoPath = option('--info') ?? process.env.VIDE_BROWSER_INFO
+  const dev = args.includes('--dev')
+  if (dev) args.splice(args.indexOf('--dev'), 1)
+  const infoPath = option('--info') ?? (dev ? undefined : process.env.VIDE_BROWSER_INFO)
   const workspace = option('--workspace')
   const tabId = option('--tab')
   const out = option('--out')
-  const dev = args.includes('--dev')
-  if (dev) args.splice(args.indexOf('--dev'), 1)
   const action = args.shift() ?? 'help'
   if (['help', '--help', 'instructions', '--instructions'].includes(action)) {
     console.log(`Vide browser control (desktop app must be running)
@@ -31,7 +31,7 @@ Actions: workspaces, list, open URL, navigate URL, back, forward, reload, recove
          eval JAVASCRIPT, screenshot --out FILE, console, network [URL_PART], cdp
 Workspace defaults to the closest workspace containing the current directory.
 Tab defaults to the last listed tab. cdp prints endpoint and authentication headers.
-VIDE_BROWSER_INFO is provided to new Vide terminals; --info overrides it.
+VIDE_BROWSER_INFO is provided to new Vide terminals; --info and --dev override it.
 Help and instructions work even when Vide is not running.
 
 AGENT WORKFLOW

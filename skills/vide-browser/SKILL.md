@@ -39,6 +39,6 @@ node browser.mjs snapshot --tab ID
 
 ## Troubleshooting
 
-`VIDE_BROWSER_INFO`, supplied to new Vide terminals, selects the running app instance. `--info PATH` overrides it; `--dev` selects the development instance when the environment variable is absent. Re-read connection details after Vide restarts. If a sandbox blocks the loopback connection, request network permission rather than working around authentication.
+`VIDE_BROWSER_INFO`, supplied to new Vide terminals, selects the running app instance. `--info PATH` overrides it, and `--dev` selects the development instance. Re-read connection details after Vide restarts. If a sandbox blocks the loopback connection, request network permission rather than working around authentication.
 
 For a crashed page, try `reload --tab ID`. If `Object has been destroyed` or similar native-object errors persist, run `list`, then `recover --tab ID` once for the affected tab. Recovery rebuilds it at its saved URL with the same tab ID and project session, resets page state, and disconnects CDP clients. If the tab has disappeared, reopen its URL.
