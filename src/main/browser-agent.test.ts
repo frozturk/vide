@@ -78,8 +78,8 @@ describe('browser agent commands', () => {
       return {}
     }
     const cdp: Cdp = { send, frames: async () => new Map(), on: (l) => { listener = l; return () => { listener = () => {} } } }
-    expect(await upload(cdp, { node: 5 }, ['/etc/hosts'])).toEqual({ uploaded: 1 })
-    expect(calls.filter(([m]) => m === 'DOM.setFileInputFiles').at(-1)?.[1]).toEqual({ files: ['/etc/hosts'], backendNodeId: 9 })
+    expect(await upload(cdp, { node: 5 }, [process.execPath])).toEqual({ uploaded: 1 })
+    expect(calls.filter(([m]) => m === 'DOM.setFileInputFiles').at(-1)?.[1]).toEqual({ files: [process.execPath], backendNodeId: 9 })
     expect(calls.filter(([m]) => m === 'Page.setInterceptFileChooserDialog').map(([, p]) => p.enabled)).toEqual([true, false])
   })
 
