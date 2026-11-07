@@ -1,5 +1,7 @@
 import { createHash } from 'crypto'
-import { isAbsolute } from 'path'
+import { stat } from 'fs/promises'
+import { homedir } from 'os'
+import { isAbsolute, resolve } from 'path'
 import { pathToFileURL } from 'url'
 
 export function browserPartition(projectId: string, dev = false): string {
@@ -14,6 +16,11 @@ export function browserUrl(input: string, from?: string): string {
   if (!['http:', 'https:', 'file:'].includes(url.protocol)) throw new Error('Only HTTP, HTTPS and file pages are supported')
   if (url.protocol === 'file:' && from !== undefined && !from.startsWith('file:')) throw new Error('Pages cannot open local files')
   return url.href
+}
+
+export async function localFileUrl(cwd: string, path: string): Promise<string | null> {
+  const file = resolve(cwd, path.replace(/^~(?=\/|$)/, homedir()))
+  try { return (await stat(file)).isFile() ? pathToFileURL(file).href : null } catch { return null }
 }
 
 export function chromeUserAgent(ua: string): string {

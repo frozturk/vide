@@ -1,5 +1,5 @@
 import { BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron'
-import { openInIde } from './ide'
+import { openFileInIde, openInIde } from './ide'
 import { randomUUID } from 'crypto'
 import { stat } from 'fs/promises'
 import { homedir } from 'os'
@@ -30,6 +30,7 @@ import type { RecentDir, SessionAgent } from '../shared/types'
 import { loadState, saveState, updateAgents } from './state'
 import { broadcast, DESKTOP } from './clients'
 import { getBrowser, removeBrowserWorkspace } from './browser'
+import { localFileUrl } from './browser-policy'
 import { restartWebServer, revokeDevice, webInfo } from './web'
 
 export type Handler = (arg: any, clientId: string) => unknown
@@ -266,7 +267,9 @@ export function createHandlers(win: BrowserWindow): Record<string, Handler> {
     'ports:list': () => listLocalServers(),
     'ports:kill': (p: { pid: number; force: boolean }) => killLocalServer(p.pid, p.force),
     'open:ide': (p: { path: string }) => openInIde(p.path),
+    'open:ideFile': (p: { url: string; location?: string }) => openFileInIde(p.url, p.location),
     'open:external': (p: { url: string }) => shell.openExternal(p.url),
+    'files:urls': (p: { cwd: string; paths: string[] }) => Promise.all(p.paths.slice(0, 20).map((path) => localFileUrl(p.cwd, path))),
     'dialog:pickDirectory': async () => {
       const r = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'] })
       return r.canceled ? null : (r.filePaths[0] ?? null)

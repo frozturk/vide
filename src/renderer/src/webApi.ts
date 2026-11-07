@@ -104,6 +104,7 @@ export function createWebApi(): { api: VideApi; connection: WebConnection; ready
     ...createApi(invoke, send, on),
     configOpen: async () => {},
     openInIde: async () => {},
+    openFileInIde: async () => {},
     openExternal: async (target) => {
       window.open(target, '_blank', 'noopener,noreferrer')
     },

@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { pathToFileURL } from 'url'
 import { PaneCdp } from './browser-cdp'
-import { browserPartition, browserUrl, chromeHeaders, chromeUserAgent } from './browser-policy'
+import { browserPartition, browserUrl, chromeHeaders, chromeUserAgent, localFileUrl } from './browser-policy'
 
  describe('embedded browser boundaries', () => {
   it('keeps projects and development profiles separate while reusing project storage', () => {
@@ -20,6 +21,11 @@ import { browserPartition, browserUrl, chromeHeaders, chromeUserAgent } from './
     expect(browserUrl('file:///tmp/b.html', 'file:///tmp/a.html')).toBe('file:///tmp/b.html')
     expect(() => browserUrl('file:///etc/passwd', 'https://example.com/')).toThrow()
     for (const url of ['javascript:alert(1)', 'data:text/html,test', 'chrome://settings', 'devtools://devtools']) expect(() => browserUrl(url)).toThrow()
+  })
+  it('resolves terminal file links to existing files only', async () => {
+    expect(await localFileUrl(process.cwd(), 'package.json')).toBe(pathToFileURL(join(process.cwd(), 'package.json')).href)
+    expect(await localFileUrl(process.cwd(), 'src')).toBeNull()
+    expect(await localFileUrl(process.cwd(), 'missing.txt')).toBeNull()
   })
   it('presents pages as Google Chrome', () => {
     expect(chromeUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) vide/0.2.7 Chrome/150.0.7871.47 Electron/43.1.0 Safari/537.36'))

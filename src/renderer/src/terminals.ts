@@ -3,6 +3,7 @@ import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebLinksAddon } from '@xterm/addon-web-links'
+import { fileLinkCandidates, opensInBrowser } from './fileLinks'
 import { SearchAddon } from '@xterm/addon-search'
 import { inputBoxRows } from './inputBox'
 import '@xterm/xterm/css/xterm.css'
@@ -99,6 +100,17 @@ export function createTerminal(agentId: string, kindId?: string): void {
   term.loadAddon(new Unicode11Addon())
   term.unicode.activeVersion = '11'
   term.loadAddon(new WebLinksAddon((event, uri) => openLink(agentId, uri, event)))
+  if (!useStore.getState().isWeb) term.registerLinkProvider({
+    provideLinks: (y, callback) => {
+      const cwd = useStore.getState().agents.find((a) => a.id === agentId)?.cwd
+      const candidates = cwd ? fileLinkCandidates(term.buffer.active.getLine(y - 1)?.translateToString(true) ?? '') : []
+      if (!cwd || !candidates.length) return callback(undefined)
+      window.vide.fileUrls(cwd, candidates.map((c) => c.path)).then((urls) => callback(candidates.flatMap((c, i) => {
+        const url = urls[i]
+        return url ? [{ text: c.text, range: { start: { x: c.start + 1, y }, end: { x: c.start + c.text.length, y } }, activate: (event: MouseEvent) => openFileLink(agentId, url, c.suffix, event) }] : []
+      })), () => callback(undefined))
+    }
+  })
   const fit = new FitAddon()
   term.loadAddon(fit)
   const search = new SearchAddon()
@@ -354,10 +366,15 @@ export function disposeTerminal(agentId: string): void {
   e.term.dispose()
 }
 
+function openFileLink(agentId: string, url: string, suffix: string, event: MouseEvent): void {
+  if (opensInBrowser(url) || (event.metaKey && event.shiftKey)) openLink(agentId, url, event)
+  else void window.vide.openFileInIde(url, suffix).catch((error) => alert(`Could not open VS Code: ${error instanceof Error ? error.message : String(error)}`))
+}
+
 function openLink(agentId: string, uri: string, event: MouseEvent): void {
   const s = useStore.getState()
   const workspaceId = s.agents.find((a) => a.id === agentId)?.workspaceId
-  if (s.isWeb || !workspaceId || (event.metaKey && event.shiftKey) || !/^https?:\/\//i.test(uri)) {
+  if (s.isWeb || !workspaceId || (event.metaKey && event.shiftKey) || !/^(https?|file):\/\//i.test(uri)) {
     void window.vide.openExternal(uri)
     return
   }

@@ -261,7 +261,9 @@ export interface VideApi {
   localServers(): Promise<LocalServer[]>
   localServerKill(pid: number, force: boolean): Promise<void>
   openInIde(path: string): Promise<void>
+  openFileInIde(fileUrl: string, location?: string): Promise<void>
   openExternal(url: string): Promise<void>
+  fileUrls(cwd: string, paths: string[]): Promise<(string | null)[]>
   pickDirectory(): Promise<string | null>
   clipboardReadText(): Promise<string>
   ptyInput(agentId: string, data: string): void
