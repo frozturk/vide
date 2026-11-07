@@ -6,7 +6,7 @@ import { readFileSync, writeFileSync, renameSync } from 'fs'
 import { join } from 'path'
 import type { BrowserTab, BrowserLayout, BrowserSnapshot, Workspace } from '../shared/types'
 import { loadState } from './state'
-import { browserPartition, browserUrl, deadline } from './browser-policy'
+import { browserPartition, browserUrl, chromeHeaders, chromeUserAgent, deadline } from './browser-policy'
 import { click, fill, hover, isRef, parseViewport, press, refOf, scroll, scrollTo, snapshot, upload, type Cdp, type Frames, type Ref } from './browser-agent'
 import { isDevelopmentRuntime, runtimeStateFile } from './runtime'
 
@@ -137,7 +137,7 @@ export class BrowserManager {
     }
     const partition = browserPartition(t.projectId, isDevelopmentRuntime())
     const ses = session.fromPartition(partition)
-    this.watchNetwork(ses, partition)
+    this.prepareSession(ses, partition)
     ses.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
     ses.setPermissionCheckHandler(() => false)
     const view = new WebContentsView({ webPreferences: { session: ses, sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } })
@@ -347,9 +347,12 @@ export class BrowserManager {
     }
   }
   private watched = new Set<string>()
-  private watchNetwork(ses: Electron.Session, partition: string): void {
+  private prepareSession(ses: Electron.Session, partition: string): void {
     if (this.watched.has(partition)) return
     this.watched.add(partition)
+    ses.setUserAgent(chromeUserAgent(ses.getUserAgent()))
+    ses.registerPreloadScript({ type: 'frame', filePath: join(__dirname, '../preload/browser-tab.js') })
+    ses.webRequest.onBeforeSendHeaders(({ url, requestHeaders }, callback) => callback({ requestHeaders: chromeHeaders(url, requestHeaders, process.versions.chrome, process.platform) }))
     const record = (details: Electron.OnCompletedListenerDetails | Electron.OnErrorOccurredListenerDetails, status: number | string): void => {
       const t = [...this.tabs.values()].find((t) => t.wc && !t.wc.isDestroyed() && t.wc.id === details.webContentsId)
       if (!t) return

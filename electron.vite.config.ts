@@ -4,6 +4,6 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   main: { plugins: [externalizeDepsPlugin()] },
-  preload: { plugins: [externalizeDepsPlugin()] },
+  preload: { plugins: [externalizeDepsPlugin()], build: { rollupOptions: { input: { index: 'src/preload/index.ts', 'browser-tab': 'src/preload/browser-tab.ts' } } } },
   renderer: { base: './', plugins: [react(), tailwindcss()] }
 })

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { PaneCdp } from './browser-cdp'
-import { browserPartition, browserUrl } from './browser-policy'
+import { browserPartition, browserUrl, chromeHeaders, chromeUserAgent } from './browser-policy'
 
  describe('embedded browser boundaries', () => {
   it('keeps projects and development profiles separate while reusing project storage', () => {
@@ -20,6 +20,15 @@ import { browserPartition, browserUrl } from './browser-policy'
     expect(browserUrl('file:///tmp/b.html', 'file:///tmp/a.html')).toBe('file:///tmp/b.html')
     expect(() => browserUrl('file:///etc/passwd', 'https://example.com/')).toThrow()
     for (const url of ['javascript:alert(1)', 'data:text/html,test', 'chrome://settings', 'devtools://devtools']) expect(() => browserUrl(url)).toThrow()
+  })
+  it('presents pages as Google Chrome', () => {
+    expect(chromeUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) vide/0.2.7 Chrome/150.0.7871.47 Electron/43.1.0 Safari/537.36'))
+      .toBe('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36')
+    const brands = '"Google Chrome";v="150", "Chromium";v="150", "Not;A=Brand";v="8"'
+    expect(chromeHeaders('https://a.test/', { Accept: '*/*' }, '150.0.7871.47', 'darwin')).toEqual({ Accept: '*/*', 'sec-ch-ua': brands, 'sec-ch-ua-mobile': '?0', 'sec-ch-ua-platform': '"macOS"' })
+    expect(chromeHeaders('http://localhost/', { 'sec-ch-ua': '"Chromium";v="150"', 'sec-ch-ua-mobile': '?1', 'sec-ch-ua-platform': '"Android"', 'sec-ch-ua-full-version-list': 'x' }, '150.0.7871.47', 'darwin'))
+      .toEqual({ 'sec-ch-ua': brands, 'sec-ch-ua-mobile': '?1', 'sec-ch-ua-platform': '"Android"', 'sec-ch-ua-full-version-list': '"Google Chrome";v="150.0.7871.47", "Chromium";v="150.0.7871.47", "Not;A=Brand";v="8.0.0.0"' })
+    expect(chromeHeaders('http://a.test/', { Accept: '*/*' }, '150.0.7871.47', 'darwin')).toEqual({ Accept: '*/*' })
   })
   it('exposes only the root and registered popup descendants', () => {
     const events: any[] = []
