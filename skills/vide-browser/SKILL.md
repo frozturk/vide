@@ -12,7 +12,7 @@ The CLI is bundled beside this skill at `scripts/browser.mjs`. Resolve that path
 ## Workflow
 
 1. Run `list` to find the current worktree's tabs. Workspace selection uses the current directory; if it cannot resolve it, run `workspaces` and supply `--workspace ID`.
-2. Reuse a suitable tab or `open http://localhost:PORT`. Pass `--tab ID` explicitly on every later command.
+2. Reuse a suitable tab or `open http://localhost:PORT` (or `open ./file.html` for a local file). Pass `--tab ID` explicitly on every later command.
 3. Interact with a snapshot, act, snapshot loop:
 
 ```text

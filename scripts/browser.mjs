@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const args = process.argv.slice(2)
 function option(name) {
@@ -24,7 +25,7 @@ try {
     console.log(`Vide browser control (desktop app must be running)
 node scripts/browser.mjs [--info PATH | --dev] [--workspace ID_OR_PATH] ACTION [VALUE] [--tab ID]
 
-Actions: workspaces, list, open URL, navigate URL, back, forward, reload, recover,
+Actions: workspaces, list, open URL|FILE, navigate URL|FILE, back, forward, reload, recover,
          close, select, snapshot, click REF, hover REF, fill REF TEXT, type TEXT,
          press KEY, scroll up|down|left|right [PIXELS], scroll REF,
          upload REF FILE..., wait TEXT, viewport WIDTHxHEIGHT|off,
@@ -125,7 +126,7 @@ TROUBLESHOOTING
   }
   const selected = ['open', 'list'].includes(action) ? undefined : tabId ?? (await command('list')).at(-1)?.id
   if (!['open', 'list'].includes(action) && !selected) throw new Error('Open a tab first')
-  const value = action === 'upload' ? [args[0], ...args.slice(1).map((file) => resolve(file))].join('\n') : args.join(' ')
+  const value = action === 'upload' ? [args[0], ...args.slice(1).map((file) => resolve(file))].join('\n') : ['open', 'navigate'].includes(action) && args.length === 1 && existsSync(args[0]) ? pathToFileURL(resolve(args[0])).href : args.join(' ')
   const result = await command(action, selected, value || undefined)
   if (action === 'screenshot') {
     if (!out) throw new Error('screenshot requires --out FILE')

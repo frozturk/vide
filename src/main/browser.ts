@@ -154,11 +154,11 @@ export class BrowserManager {
     view.setVisible(false)
     this.backgroundHost().contentView.addChildView(view)
     view.setVisible(true)
-    const guard = (e: Electron.Event, url: string): void => { try { browserUrl(url) } catch { e.preventDefault() } }
+    const guard = (e: Electron.Event, url: string): void => { try { browserUrl(url, wc.getURL()) } catch { e.preventDefault() } }
     wc.on('will-navigate', guard)
     wc.on('will-redirect', guard)
     wc.setWindowOpenHandler(({ url }) => {
-      try { browserUrl(url) } catch { return { action: 'deny' } }
+      try { browserUrl(url, wc.getURL()) } catch { return { action: 'deny' } }
       if (this.stopped || this.tabs.size >= 100) return { action: 'deny' }
       return {
         action: 'allow',

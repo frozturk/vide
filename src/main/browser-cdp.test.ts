@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { tmpdir } from 'os'
+import { join } from 'path'
 import { PaneCdp } from './browser-cdp'
 import { browserPartition, browserUrl } from './browser-policy'
 
@@ -13,7 +15,11 @@ import { browserPartition, browserUrl } from './browser-policy'
     expect(browserUrl('localhost:3000/foo')).toBe('http://localhost:3000/foo')
     expect(browserUrl('https://example.com')).toBe('https://example.com/')
     expect(browserUrl('about:blank')).toBe('about:blank')
-    for (const url of ['file:///etc/passwd', 'javascript:alert(1)', 'data:text/html,test', 'chrome://settings', 'devtools://devtools']) expect(() => browserUrl(url)).toThrow()
+    expect(browserUrl('file:///tmp/a.html')).toBe('file:///tmp/a.html')
+    expect(browserUrl(join(tmpdir(), 'a b.html'))).toMatch(/^file:\/\/\/.*a%20b\.html$/)
+    expect(browserUrl('file:///tmp/b.html', 'file:///tmp/a.html')).toBe('file:///tmp/b.html')
+    expect(() => browserUrl('file:///etc/passwd', 'https://example.com/')).toThrow()
+    for (const url of ['javascript:alert(1)', 'data:text/html,test', 'chrome://settings', 'devtools://devtools']) expect(() => browserUrl(url)).toThrow()
   })
   it('exposes only the root and registered popup descendants', () => {
     const events: any[] = []
