@@ -47,7 +47,7 @@ export function TerminalPane(): React.JSX.Element {
 function TerminalHost({ id, visible }: { id: string; visible: boolean }): React.JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => { if (ref.current) attachTerminal(id, ref.current) }, [id])
-  return <div ref={ref} className="absolute inset-0" style={{ visibility: visible ? 'visible' : 'hidden' }} />
+  return <div ref={ref} className="absolute inset-0" style={{ display: visible ? 'block' : 'none' }} />
 }
 
 function EmptyState(): React.JSX.Element {

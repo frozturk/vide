@@ -183,6 +183,7 @@ export function attachTerminal(agentId: string, container: HTMLElement): void {
   if (!e || e.container) return
   e.container = container
   e.term.open(container)
+  deferPausedSelectionRedraw(e.term)
   if (useStore.getState().isWeb && touchDevice()) {
     e.term.textarea?.setAttribute('inputmode', 'none')
     installTouch(agentId, container)
@@ -192,6 +193,28 @@ export function attachTerminal(agentId: string, container: HTMLElement): void {
   })
   ro.observe(container)
   e.observer = ro
+}
+
+type SelectionPoint = [number, number] | undefined
+
+interface RenderServiceInternals {
+  _isPaused: boolean
+  _needsFullRefresh: boolean
+  _needsSelectionRefresh: boolean
+  _selectionState: { start: SelectionPoint; end: SelectionPoint; columnSelectMode: boolean }
+  handleSelectionChanged(start: SelectionPoint, end: SelectionPoint, columnSelectMode: boolean): void
+}
+
+function deferPausedSelectionRedraw(term: Terminal): void {
+  const rs = (term as unknown as { _core?: { _renderService?: RenderServiceInternals } })._core?._renderService
+  if (!rs || typeof rs.handleSelectionChanged !== 'function') return
+  const handle = rs.handleSelectionChanged.bind(rs)
+  rs.handleSelectionChanged = (start, end, columnSelectMode) => {
+    if (!rs._isPaused) return handle(start, end, columnSelectMode)
+    Object.assign(rs._selectionState, { start, end, columnSelectMode })
+    rs._needsSelectionRefresh = true
+    rs._needsFullRefresh = true
+  }
 }
 
 const WHEEL_STEP = 18
@@ -274,7 +297,6 @@ function fitIfVisible(agentId: string): void {
   if (!e || !e.container) return
   const rect = e.container.getBoundingClientRect()
   if (rect.width < 2 || rect.height < 2) return
-  if (getComputedStyle(e.container).visibility === 'hidden') return
   try {
     e.fit.fit()
     e.lastResizeAt = Date.now()
